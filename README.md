@@ -1,1 +1,7 @@
-# petwiz-back
+## 👥 Team Members
+
+| [<img src="https://avatars.githubusercontent.com/kimjiwon0450" width="70" style="border-radius:50%;">](https://github.com/kimjiwon0450) | [<img src="https://avatars.githubusercontent.com/cookiboii" width="70" style="border-radius:50%;">](https://github.com/cookiboii) | [<img src="https://avatars.githubusercontent.com/ehgus8" width="70" style="border-radius:50%;">](https://github.com/ehgus8) | [<img src="https://avatars.githubusercontent.com/Petrushhka" width="70" style="border-radius:50%;">](https://github.com/Petrushhka) |
+| :-------------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------: |
+|                                                [김지원](https://github.com/kimjiwon0450)                                                |                                              [나석후](https://github.com/cookiboii)                                               |                                             [이도현](https://github.com/ehgus8)                                             |                                               [윤하준](https://github.com/Petrushhka)                                               |
+
+---
