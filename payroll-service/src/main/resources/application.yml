@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: payroll-service
+  profiles:
+    active: local

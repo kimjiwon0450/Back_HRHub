@@ -1,0 +1,83 @@
+server:
+  port: 8000
+
+spring:
+  application:
+    name: gateway-service
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          "[/**]":
+            allowed-origins:
+              - "http://localhost:5173"
+            allowed-methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowed-headers:
+              - Content-Type
+              - Authorization
+              - X-Requested-With
+            allow-credentials: true
+      routes:
+        - id: hr-service
+          uri: lb://HR-SERVICE
+          # k8s 클러스터 내에서 다른 서비스를 지목하기위한 DNS 명명 규칙.
+          # <service-name>.<namespace>.svc.cluster.local:port
+#          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/hr-service/**
+          filters:
+            - AuthorizationHeaderFilter
+
+        - id: asset-service
+          uri: lb://ASSET-SERVICE
+          #          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/asset-service/**
+          filters:
+            - AuthorizationHeaderFilter
+
+        - id: attendance-service
+          uri: lb://ATTENDANCE-SERVICE
+          #          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/attendance-service/**
+          filters:
+            - AuthorizationHeaderFilter
+
+        - id: board-service
+          uri: lb://BOARD-SERVICE
+          #          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/board-service/**
+          filters:
+            - AuthorizationHeaderFilter
+
+        - id: eval-service
+          uri: lb://EVAL-SERVICE
+          #          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/eval-service/**
+          filters:
+            - AuthorizationHeaderFilter
+
+        - id: payroll-service
+          uri: lb://PAYROLL-SERVICE
+          #          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/payroll-service/**
+          filters:
+            - AuthorizationHeaderFilter
+
+        - id: schedule-service
+          uri: lb://SCHEDULE-SERVICE
+          #          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/schedule-service/**
+          filters:
+            - AuthorizationHeaderFilter
