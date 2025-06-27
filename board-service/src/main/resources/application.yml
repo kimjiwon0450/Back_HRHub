@@ -1,5 +1,0 @@
-spring:
-  application:
-    name: board-service
-  profiles:
-    active: local
