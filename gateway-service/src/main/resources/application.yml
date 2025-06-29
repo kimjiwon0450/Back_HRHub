@@ -34,11 +34,11 @@ spring:
           filters:
             - AuthorizationHeaderFilter
 
-        - id: asset-service
-          uri: lb://ASSET-SERVICE
+        - id: notice-service
+          uri: lb://NOTICE-SERVICE
           #          uri: http://user-service.default.svc.cluster.local:8081
           predicates:
-            - Path=/asset-service/**
+            - Path=/notice-service/**
           filters:
             - AuthorizationHeaderFilter
 
@@ -50,11 +50,11 @@ spring:
           filters:
             - AuthorizationHeaderFilter
 
-        - id: board-service
-          uri: lb://BOARD-SERVICE
+        - id: approval-service
+          uri: lb://APPROVAL-SERVICE
           #          uri: http://user-service.default.svc.cluster.local:8081
           predicates:
-            - Path=/board-service/**
+            - Path=/approval-service/**
           filters:
             - AuthorizationHeaderFilter
 
