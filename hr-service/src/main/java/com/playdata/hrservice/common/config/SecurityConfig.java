@@ -34,21 +34,9 @@ public class SecurityConfig {
             auth
 //                    .requestMatchers("/user/list").hasRole("ROLE_ADMIN")
                     .requestMatchers("/user-service/add-black", "user-service/user-list", "user-service/change-status").hasRole("ADMIN")
-                    .requestMatchers("/user-service/users/signup",
-                            "/user-service/user/login",
-                            "/user-service/user/refresh",
-                            "/user-service/user/{userId}/point",
-                            "/user-service/users",
-                            "/badges/user/{userId}/progress",
-                            "/user-service/users/point",
-                            "/user-service/health-check",
-                            "/user-service/email-valid",
-                            "/user-service/verify",
-                            "/user-service/oauth/kakao/**",
-                            "/user-service/find-password",
-                            "/user-service/verify-code",
-                            "/user-service/reset-password",
-                            "/user-service/user/link-kakao",
+                    .requestMatchers("/hr-service/employees",
+                            "/hr-service/employees/login",
+                            "/hr-service/employees/password",
                             "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });
