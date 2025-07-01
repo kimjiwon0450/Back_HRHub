@@ -1,0 +1,137 @@
+package com.playdata.hrservice.hr.service;
+
+
+import com.playdata.hrservice.common.auth.Role;
+import com.playdata.hrservice.common.config.AwsS3Config;
+import com.playdata.hrservice.hr.dto.EmployeePasswordDto;
+import com.playdata.hrservice.hr.dto.EmployeeReqDto;
+import com.playdata.hrservice.hr.dto.EmployeeResDto;
+import com.playdata.hrservice.hr.entity.Employee;
+import com.playdata.hrservice.hr.entity.EmployeeStatus;
+import com.playdata.hrservice.hr.repository.EmployeeRepository;
+import jakarta.mail.MessagingException;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.constraints.NotBlank;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class EmployeeService {
+
+    private final EmployeeRepository employeeRepository;
+    private final PasswordEncoder encoder;
+    private final AwsS3Config awsS3Config;
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final DepartmentService departmentService;
+
+
+    @Transactional
+    public void createUser(EmployeeReqDto dto) {
+        // 1. 이메일 중복 확인 (신규 가입에만 해당)
+        if (employeeRepository.findByEmail(dto.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("이미 존재하는 이메일 입니다!");
+        }
+
+        employeeRepository.save(
+                Employee.builder()
+                .email(dto.getEmail())
+                .name(dto.getName())
+                .phone(dto.getPhone())
+                .address(dto.getAddress())
+                .position(dto.getPosition())
+                .department(departmentService.getDepartmentEntity(dto.getDepartmentId()))
+                .salary(dto.getSalary())
+                .status(EmployeeStatus.valueOf(dto.getStatus()))
+                .role(Role.valueOf(dto.getRole()))
+                .profileImageUri(dto.getProfileImageUri())
+                .memo(dto.getMemo())
+                .build()
+        );
+    }
+    public void modifyPassword(EmployeePasswordDto dto) {
+        Employee employee = employeeRepository.findByEmail(dto.getEmail()).orElseThrow(
+                () -> new EntityNotFoundException("There is no employee with email: " + dto.getEmail())
+        );
+
+        // 비밀번호 길이 검사 (패턴 검사도 필요하다면 여기에 추가)
+        if (dto.getPassword().length() < 8) {
+            throw new IllegalArgumentException("비밀번호는 최소 8자 이상이어야 합니다.");
+        }
+        String finalEncodedPassword = encoder.encode(dto.getPassword());
+        employee.setPassword(finalEncodedPassword);
+        employeeRepository.save(employee);
+    }
+
+    public Employee findByEmail(String email) {
+        return null;
+    }
+    public Employee findById(Long id) {
+        return employeeRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException("Employee not found by id")
+        );
+    }
+
+    public EmployeeResDto login(EmployeeReqDto dto) {
+        Employee employee = employeeRepository.findByEmail(dto.getEmail()).orElseThrow(
+                () -> new EntityNotFoundException("Employee not found!")
+        );
+
+        if (!encoder.matches(dto.getPassword(), employee.getPassword())) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        }
+        return employee.toDto();
+    }
+
+
+//
+//
+//    public String uploadProfile(UserRequestDto userRequestDto) throws Exception {
+//        User user = userRepository.findById(userRequestDto.getId()).orElseThrow(
+//                () -> new EntityNotFoundException("User not found!")
+//        );
+//
+//        // 1) 이전 프로필이 기본 url이 아니고, null도 아니라면 삭제
+//        String oldUrl = user.getProfileImage();
+//        if (oldUrl != null && !oldUrl.isBlank()) {
+//            awsS3Config.deleteFromS3Bucket(oldUrl);
+//
+//        }
+//
+//        //2) 새 파일 업로드
+//        MultipartFile profileImage = userRequestDto.getProfileImage();
+//        String uniqueFileName = UUID.randomUUID() + "_" + profileImage.getOriginalFilename();
+//        String imageUrl = awsS3Config.uploadToS3Bucket(profileImage.getBytes(), uniqueFileName);
+//
+//
+//        user.setProfileImage(imageUrl);
+//        userRepository.save(user);
+//        return imageUrl;
+//    }
+}
+
+
+
+
+

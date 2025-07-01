@@ -1,4 +1,4 @@
-package com.playdata.hrservice.user.dto;
+package com.playdata.hrservice.hr.dto;
 
 import lombok.*;
 
@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class UserLoginReqDto {
+public class EmployeePasswordDto {
     private String email;
     private String password;
 }
