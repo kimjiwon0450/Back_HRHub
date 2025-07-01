@@ -24,6 +24,8 @@ public class JwtTokenProvider {
     @Value("${jwt.expirationRt}")
     private int expirationRt;
 
+
+
     public String createToken(String email, String role){
         // Claims: 페이로드에 들어갈 사용자 정보
         Claims claims = Jwts.claims().setSubject(email);
@@ -84,5 +86,20 @@ public class JwtTokenProvider {
                 // 일단 String으로 데이터를 꺼내고 직접 Role타입으로 포장해서 넣어 줍니다.
                 .role(Role.valueOf(claims.get("role", String.class)))
                 .build();
+    }
+
+    public Long getUserIdFromToken(String authHeader) {
+        // "Bearer " 제거
+        String token = authHeader.replace("Bearer ", "");
+        TokenUserInfo info;
+        try {
+            info = validateAndGetTokenUserInfo(token);
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid JWT token", e);
+        }
+        // subject에 userId를 넣었다면
+        return Long.valueOf(info.getEmail());   // if you used subject=userId
+        // or, if you put it into a claim:
+        // return info.getUserId();
     }
 }

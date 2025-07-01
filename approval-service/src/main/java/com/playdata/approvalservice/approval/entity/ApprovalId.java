@@ -10,6 +10,6 @@ import java.io.Serializable;
 @AllArgsConstructor
 @EqualsAndHashCode
 public class ApprovalId implements Serializable {
-    private Long reportApprovalId2;
+    private Long reportApprovalId;
     private Long employeeId;
 }

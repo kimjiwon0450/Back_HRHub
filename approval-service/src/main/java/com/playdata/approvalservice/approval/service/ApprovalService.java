@@ -1,14 +1,72 @@
 package com.playdata.approvalservice.approval.service;
 
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
-import org.springframework.cloud.openfeign.EnableFeignClients;
-import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import com.playdata.approvalservice.approval.dto.request.*;
+import com.playdata.approvalservice.approval.dto.response.*;
+import com.playdata.approvalservice.approval.repository.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootApplication
-@EnableDiscoveryClient
-@EnableJpaAuditing
-@EnableFeignClients
+@Service
+@RequiredArgsConstructor
+@Slf4j
+@Transactional(readOnly = true)
 public class ApprovalService {
 
+    private final BoardReportRepository boardReportRepository;
+    private final ApprovalRepository approvalRepository;
+    private final ReportAttachmentRepository attachmentRepository;
+
+    @Transactional
+    public ReportCreateResDto createReport(ReportCreateReqDto req, Long userId) {
+
+        return null;
+    }
+
+    @Transactional
+    public ReportUpdateResDto updateReport(Long reportId, ReportUpdateReqDto req, Long userId) {
+
+        return null;
+    }
+
+    public ReportListResDto getReports(String role, String status, int page, int size,
+                                       String keyword, String from, String to, Long userId) {
+
+        return null;
+    }
+
+    public ReportDetailResDto getReportDetail(Long reportId) {
+
+        return null;
+    }
+
+    @Transactional
+    public ApprovalProcessResDto processApproval(Long reportId, Long userId, ApprovalProcessReqDto req) {
+
+        return null;
+    }
+
+    public ApprovalHistoryResDto getApprovalHistory(Long reportId) {
+
+        return null;
+    }
+
+    @Transactional
+    public ReportSubmitResDto submitReport(Long reportId, Long userId, SubmitReportReqDto req) {
+
+        return null;
+    }
+
+    @Transactional
+    public void deleteReport(Long reportId, Long userId) {
+
+    }
+
+    @Transactional
+    public ReportRecallResDto recallReport(Long reportId, Long userId) {
+
+        return null;
+    }
 }
+
