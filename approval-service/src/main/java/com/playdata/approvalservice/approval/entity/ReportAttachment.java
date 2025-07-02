@@ -37,7 +37,7 @@ public class ReportAttachment extends BaseTimeEntity {
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "report_approval_id", insertable = false, updatable = false)
-    private BoardReport boardReport;
+    private Reports reports;
 
     /**
      * 파일명

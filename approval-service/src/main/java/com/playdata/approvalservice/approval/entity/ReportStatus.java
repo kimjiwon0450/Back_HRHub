@@ -1,6 +1,6 @@
 package com.playdata.approvalservice.approval.entity;
 
-public enum ReportType {
+public enum ReportStatus {
     DRAFT, IN_PROGRESS, APPROVED, REJECTED, RECALLED
 
     /*
