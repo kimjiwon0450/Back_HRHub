@@ -28,8 +28,6 @@ public class Employee extends BaseTimeEntity {
     private String name;
     @Column(nullable = false)
     private String email;
-    @Setter
-    private String password;
     private String phone;
     private String address;
     private Date birthday;

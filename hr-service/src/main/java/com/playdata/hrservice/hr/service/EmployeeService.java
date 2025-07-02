@@ -9,7 +9,9 @@ import com.playdata.hrservice.hr.dto.EmployeePasswordDto;
 import com.playdata.hrservice.hr.dto.EmployeeReqDto;
 import com.playdata.hrservice.hr.dto.EmployeeResDto;
 import com.playdata.hrservice.hr.entity.Employee;
+import com.playdata.hrservice.hr.entity.EmployeePassword;
 import com.playdata.hrservice.hr.entity.EmployeeStatus;
+import com.playdata.hrservice.hr.repository.EmployeePasswordRepository;
 import com.playdata.hrservice.hr.repository.EmployeeRepository;
 import jakarta.mail.MessagingException;
 import jakarta.persistence.EntityNotFoundException;
@@ -23,6 +25,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Map;
@@ -45,6 +48,7 @@ import java.util.stream.Collectors;
 public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
+    private final EmployeePasswordRepository employeePasswordRepository;
     private final PasswordEncoder encoder;
     private final AwsS3Config awsS3Config;
     private final RedisTemplate<String, Object> redisTemplate;
@@ -58,7 +62,9 @@ public class EmployeeService {
             throw new IllegalArgumentException("이미 존재하는 이메일 입니다!");
         }
 
-        employeeRepository.save(
+
+
+        Employee save = employeeRepository.save(
                 Employee.builder()
                 .email(dto.getEmail())
                 .name(dto.getName())
@@ -72,6 +78,9 @@ public class EmployeeService {
                 .memo(dto.getMemo())
                 .build()
         );
+        EmployeePassword employeePassword = EmployeePassword.builder()
+                .userId(save.getEmployeeId()).build();
+        employeePasswordRepository.save(employeePassword);
     }
     public void modifyPassword(EmployeePasswordDto dto) {
         Employee employee = employeeRepository.findByEmail(dto.getEmail()).orElseThrow(
@@ -82,9 +91,14 @@ public class EmployeeService {
         if (dto.getPassword().length() < 8) {
             throw new IllegalArgumentException("비밀번호는 최소 8자 이상이어야 합니다.");
         }
-        String finalEncodedPassword = encoder.encode(dto.getPassword());
-        employee.setPassword(finalEncodedPassword);
-        employeeRepository.save(employee);
+        EmployeePassword employeePassword = employeePasswordRepository.findById(employee.getEmployeeId()).orElseThrow(
+                () -> new EntityNotFoundException("There is no employee with id: " + employee.getEmployeeId())
+        );
+
+        String finalEncodedPassword = encoder.encode(dto.getPassword()); // hashString
+        byte[] hashBytes = finalEncodedPassword.getBytes(StandardCharsets.UTF_8); // hashBytes
+        employeePassword.setPasswordHash(hashBytes);
+        employeePasswordRepository.save(employeePassword);
     }
 
     public Employee findByEmail(String email) {
@@ -97,11 +111,19 @@ public class EmployeeService {
     }
 
     public EmployeeResDto login(EmployeeReqDto dto) {
+        if (dto.getPassword().length() < 8) {
+            throw new IllegalArgumentException("비밀번호는 최소 8자 이상이어야 합니다.");
+        }
+
         Employee employee = employeeRepository.findByEmail(dto.getEmail()).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found!")
         );
 
-        if (!encoder.matches(dto.getPassword(), employee.getPassword())) {
+        EmployeePassword employeePassword = employeePasswordRepository.findById(employee.getEmployeeId()).orElseThrow(
+                () -> new EntityNotFoundException("There is no employee with id: " + employee.getEmployeeId())
+        );
+
+        if (!encoder.matches(dto.getPassword(), new String(employeePassword.getPasswordHash(), StandardCharsets.UTF_8))) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
         return employee.toDto();
