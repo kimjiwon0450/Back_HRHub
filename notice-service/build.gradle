@@ -43,28 +43,31 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-mail'
 
     compileOnly 'org.projectlombok:lombok'
-    runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
+
+    runtimeOnly 'com.mysql:mysql-connector-j'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    // 쿼리 파라미터 추가 외부 로그 남기기 (콘솔에서 sql 자세히 보기)
     implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.9.0'
 
-    // json web token 라이브러리
+    // JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.11.2'
     implementation 'io.jsonwebtoken:jjwt-impl:0.11.2'
     implementation 'io.jsonwebtoken:jjwt-jackson:0.11.2'
 
-
-    // S3 파일연동
+    // AWS S3
     implementation 'io.awspring.cloud:spring-cloud-aws-s3:3.0.2'
     implementation 'me.paulschwarz:spring-dotenv:2.2.0'
 
-    // 자바 언어를 통해 smtp 통신을 할 수 있게 하는 라이브러리
+    // SMTP
     implementation 'jakarta.mail:jakarta.mail-api:2.1.2'
 
+    // ✅ QueryDSL (annotationProcessor 기반)
+    implementation 'com.querydsl:querydsl-jpa'
+    annotationProcessor 'com.querydsl:querydsl-apt:5.0.0'
+    annotationProcessor 'jakarta.persistence:jakarta.persistence-api'
 }
 
 dependencyManagement {
