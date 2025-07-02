@@ -15,8 +15,6 @@ import java.util.Date;
 @AllArgsConstructor
 @Builder
 public class EmployeeReqDto {
-    private Long employeeId;
-
     private String name;
     private String email;
     private String password;

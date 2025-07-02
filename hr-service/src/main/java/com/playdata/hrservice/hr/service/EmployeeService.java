@@ -132,8 +132,6 @@ public class EmployeeService {
         );
         employee.updateFromDto(dto);
         employee.updateDepartment(departmentService.getDepartmentEntity(dto.getDepartmentId()));
-
-
     }
 
 
