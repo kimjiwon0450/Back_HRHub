@@ -14,12 +14,10 @@ public class HrUserClient {
     private final Environment env;
 
     public HrUserResponse getUserInfo(Long userId) {
-        // 예: hr-service의 사용자 정보 API URL (application.properties나 env에서 관리)
-        String hrServiceUrl = env.getProperty("hr.service.url", "http://localhost:8081/hr-service");
-        String url = hrServiceUrl + "/users/" + userId;
+        // gateway 주소를 통해 요청 (Eureka 통해 포워딩됨)
+        String gatewayUrl = env.getProperty("gateway.url", "http://localhost:8000"); // application.properties에서 관리 가능
+        String url = gatewayUrl + "/hr-service/employees/" + userId;
 
-        // 실제 호출하여 HrUserResponse 반환
         return restTemplate.getForObject(url, HrUserResponse.class);
     }
-
 }

@@ -40,7 +40,7 @@ public class SecurityConfig {
                             "/user-service/verify", "/user-service/oauth/kakao/**", "/user-service/find-password",
                             "/user-service/verify-code", "/user-service/reset-password","/user-service/user/link-kakao",
                             "/notice-service", "/notice-service/noticeboard", "/notice-service/noticeboard/*", "/notice-service/noticeboard/write",
-                            "/notice-service/noticeboard/department/*","/hr-service/user/*",
+                            "/notice-service/noticeboard/department/*","/hr-service/user/*", "/hr-service/employees/*",
                             "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });

@@ -135,10 +135,6 @@ public class NoticeService {
         return noticeRepository.findFilteredPosts(keyword, fromDate, toDate, departmentId, pageable);
     }
 
-
-
-
-
 }
 
 

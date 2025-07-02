@@ -1,17 +1,17 @@
 package com.playdata.noticeservice.notice.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.noticeservice.common.auth.CustomUserDetails;
 import com.playdata.noticeservice.notice.client.HrUserClient;
-import com.playdata.noticeservice.notice.dto.HrUserResponse;
-import com.playdata.noticeservice.notice.dto.NoticeCreateRequest;
-import com.playdata.noticeservice.notice.dto.NoticeResponse;
-import com.playdata.noticeservice.notice.dto.NoticeUpdateRequest;
+import com.playdata.noticeservice.notice.dto.*;
 import com.playdata.noticeservice.notice.entity.Notice;
 import com.playdata.noticeservice.notice.service.NoticeService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -39,6 +40,7 @@ public class NoticeController {
     private final Environment env;
     private final NoticeService noticeService;
     private final HrUserClient hrUserClient;
+    private final ObjectMapper objectMapper;
 
     @GetMapping("/noticeboard")
     public ResponseEntity<Map<String, Object>> getAllPosts(
@@ -79,18 +81,23 @@ public class NoticeController {
     @GetMapping("/noticeboard/{id}")
     public ResponseEntity<NoticeResponse> getPost(@PathVariable Long id) {
         Notice notice = noticeService.findPostById(id);
-        return ResponseEntity.ok(NoticeResponse.fromEntity(notice));
+        HrUserResponse user = hrUserClient.getUserInfo(notice.getWriterId());
+        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user.getUsername()));
     }
 
     @PostMapping("/noticeboard/write")
-    public ResponseEntity<Void> createNotice(@RequestBody @Valid NoticeCreateRequest request,
-                                             @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<Void> createNotice(
+            @RequestPart("data") NoticeCreateRequest request,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
         Long userId = userDetails.getId();
+        HrUserResponse user = hrUserClient.getUserInfo(userId);
 
-        // hr-service에서 부서 정보 가져오기
-        HrUserResponse hrUser = hrUserClient.getUserInfo(userId);
-
-        noticeService.createNotice(request, userId, hrUser.getDepartmentId());
+        boolean hasAttachment = (file != null && !file.isEmpty());
+        request.setHasAttachment(hasAttachment);
+        // 파일 업로드 로직은 추후 추가
+        noticeService.createNotice(request, userId, user.getDepartmentId());
 
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
@@ -127,7 +134,7 @@ public class NoticeController {
         List<Notice> notices = noticeService.getMyPosts(userId);
         List<NoticeResponse> result = notices.stream()
                 .map(NoticeResponse::fromEntity)
-                .toList(); // 또는 .collect(Collectors.toList()) for Java 11
+                .toList();
         return ResponseEntity.ok(result);
     }
 
