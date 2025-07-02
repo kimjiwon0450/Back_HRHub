@@ -49,7 +49,7 @@ public class ApprovalService {
                 .map(lineDto -> ApprovalLine.builder()
                         .reports(report)                 // 양방향 연관관계
                         .employeeId(lineDto.getEmployeeId()) // 결재자 ID
-                        .orderSequence(lineDto.getOrder())   // 순서
+                        .approvalOrder(lineDto.getOrder())   // 순서
                         .status(ApprovalStatus.PENDING)      // 최초엔 모두 대기(PENDING)
                         .approvalDateTime(LocalDateTime.now()) // 생성 시각
                         .build()
