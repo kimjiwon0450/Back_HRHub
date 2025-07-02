@@ -1,10 +1,11 @@
-package com.playdata.noticeservice.notice.client;
+package com.playdata.noticeservice.common.client;
 
-import com.playdata.noticeservice.notice.dto.HrUserResponse;
+import com.playdata.noticeservice.common.dto.CommonErrorDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import com.playdata.noticeservice.common.dto.HrUserResponse;
 
 @Component
 @RequiredArgsConstructor

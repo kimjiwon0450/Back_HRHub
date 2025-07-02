@@ -2,16 +2,17 @@ package com.playdata.noticeservice.notice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.noticeservice.common.auth.CustomUserDetails;
-import com.playdata.noticeservice.notice.client.HrUserClient;
+import com.playdata.noticeservice.common.dto.CommonErrorDto;
+import com.playdata.noticeservice.common.client.HrUserClient;
+import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.*;
 import com.playdata.noticeservice.notice.entity.Notice;
 import com.playdata.noticeservice.notice.service.NoticeService;
 
+import com.playdata.noticeservice.notice.service.S3Service;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,7 +26,9 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +44,7 @@ public class NoticeController {
     private final NoticeService noticeService;
     private final HrUserClient hrUserClient;
     private final ObjectMapper objectMapper;
+    private final S3Service s3Service;
 
     @GetMapping("/noticeboard")
     public ResponseEntity<Map<String, Object>> getAllPosts(
@@ -88,17 +92,18 @@ public class NoticeController {
     @PostMapping("/noticeboard/write")
     public ResponseEntity<Void> createNotice(
             @RequestPart("data") NoticeCreateRequest request,
-            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
+    ) throws IOException {
         Long userId = userDetails.getId();
         HrUserResponse user = hrUserClient.getUserInfo(userId);
 
-        boolean hasAttachment = (file != null && !file.isEmpty());
+        boolean hasAttachment = (files != null && !files.isEmpty());
         request.setHasAttachment(hasAttachment);
-        // 파일 업로드 로직은 추후 추가
-        noticeService.createNotice(request, userId, user.getDepartmentId());
 
+        List<String> fileUrls = hasAttachment ? s3Service.uploadFiles(files) : Collections.emptyList();
+
+        noticeService.createNotice(request, userId, user.getDepartmentId(), fileUrls);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
@@ -131,11 +136,8 @@ public class NoticeController {
 
     @GetMapping("/noticeboard/my")
     public ResponseEntity<List<NoticeResponse>> getMyPosts(@AuthenticationPrincipal(expression = "id") Long userId) {
-        List<Notice> notices = noticeService.getMyPosts(userId);
-        List<NoticeResponse> result = notices.stream()
-                .map(NoticeResponse::fromEntity)
-                .toList();
-        return ResponseEntity.ok(result);
+        List<NoticeResponse> notices = noticeService.getMyPosts(userId);
+        return ResponseEntity.ok(notices);
     }
 
     @GetMapping("/noticeboard/unread-count")
@@ -159,11 +161,18 @@ public class NoticeController {
 
         List<Notice> topNotices = noticeService.getTopNoticesByDepartment(departmentId);
         Page<Notice> filteredPosts = noticeService.getPostsByDepartment(departmentId, keyword, fromDate, toDate, pageable);
+
         List<NoticeResponse> noticeDtos = topNotices.stream()
-                .map(NoticeResponse::fromEntity).toList();
+                .map(n -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(n.getWriterId());
+                    return NoticeResponse.fromEntity(n, user.getUsername());
+                }).toList();
 
         List<NoticeResponse> postDtos = filteredPosts.getContent().stream()
-                .map(NoticeResponse::fromEntity).toList();
+                .map(n -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(n.getWriterId());
+                    return NoticeResponse.fromEntity(n, user.getUsername());
+                }).toList();
 
         Map<String, Object> response = new HashMap<>();
         response.put("notices", noticeDtos);

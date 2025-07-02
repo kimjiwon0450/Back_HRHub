@@ -16,7 +16,7 @@ public class NoticeResponse {
     private String title;
     private String content;
     private Long writerId;
-    private String writer; // 작성자 이름
+    private String writerName; // 작성자 이름
     private String writerDepartment;
     private Long departmentId;
     private boolean isNotice;
@@ -48,7 +48,7 @@ public class NoticeResponse {
                 .title(notice.getTitle())
                 .content(notice.getContent())
                 .writerId(notice.getWriterId())
-                .writer(writerName) // 여기에 주입
+                .writerName(writerName) // 여기에 주입
                 .departmentId(notice.getDepartmentId())
                 .isNotice(notice.isNotice())
                 .hasAttachment(notice.isHasAttachment())

@@ -1,4 +1,4 @@
-package com.playdata.noticeservice.notice.dto;
+package com.playdata.noticeservice.common.dto;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

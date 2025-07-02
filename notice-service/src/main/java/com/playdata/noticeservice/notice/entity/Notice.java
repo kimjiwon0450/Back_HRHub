@@ -31,6 +31,10 @@ public class Notice {
     private boolean boardStatus;
     private int viewCount;
 
+    @Column(columnDefinition = "TEXT")
+    private String fileUrls; // 여러 개일 경우 ,로 구분된 문자열로 저장
+
+
 
     @PrePersist
     protected void onCreate() {
