@@ -9,6 +9,7 @@ import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Getter
 @ToString
@@ -27,22 +28,21 @@ public class Employee extends BaseTimeEntity {
     private String name;
     @Column(nullable = false)
     private String email;
-    @Setter
-    private String password;
     private String phone;
     private String address;
-    private String position;
+    private Date birthday;
+
 
     @ManyToOne
     @JoinColumn(name = "departmentId")
     private Department department;
-    private int salary;
 
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime hireDate;
     private LocalDateTime retireDate;
 
+    private Boolean isNewEmployee; // 경력 또는 신입 (입사구분) - yhj
     private EmployeeStatus status;
     private Role role;
     private String profileImageUri;
@@ -55,9 +55,8 @@ public class Employee extends BaseTimeEntity {
                 .email(email)
                 .phone(phone)
                 .address(address)
-                .position(position)
                 .departmentId(department.getId())
-                .salary(salary)
+                .birthday(birthday)
                 .hireDate(hireDate)
                 .retireDate(retireDate)
                 .status(status.name())
@@ -66,4 +65,21 @@ public class Employee extends BaseTimeEntity {
                 .memo(memo)
                 .build();
     }
+
+    public void updateDepartment(Department department) {
+        this.department = department;
+    }
+
+    public void updateFromDto(EmployeeReqDto dto) {
+        if (dto.getName() != null) this.name = dto.getName();
+        if (dto.getPhone() != null) this.phone = dto.getPhone();
+        if (dto.getAddress() != null) this.address = dto.getAddress();
+        if (dto.getBirthday() != null) this.birthday = dto.getBirthday();
+        if (dto.getMemo() != null) this.memo = dto.getMemo();
+    }
+
+    public void  updateRole(Role role){
+        this.role = role;
+    }
+
 }

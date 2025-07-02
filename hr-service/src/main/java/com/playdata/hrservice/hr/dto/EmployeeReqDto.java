@@ -6,6 +6,7 @@ import com.playdata.hrservice.hr.entity.EmployeeStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Getter
 @Setter
@@ -14,17 +15,13 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class EmployeeReqDto {
-    private Long employeeId;
-
     private String name;
     private String email;
     private String password;
     private String phone;
     private String address;
-    private String position;
-
+    private Date birthday;
     private Long departmentId;
-    private int salary;
     private LocalDateTime hireDate;
     private LocalDateTime retireDate;
 
