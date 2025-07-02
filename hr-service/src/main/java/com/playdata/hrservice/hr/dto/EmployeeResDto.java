@@ -6,6 +6,7 @@ import com.playdata.hrservice.hr.entity.EmployeeStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Getter
 @Setter
@@ -21,6 +22,7 @@ public class EmployeeResDto {
     private String phone;
     private String address;
     private String position;
+    private Date birthday;
 
     private Long departmentId;
     private int salary;

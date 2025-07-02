@@ -9,6 +9,7 @@ import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 
 @Getter
 @ToString
@@ -32,6 +33,8 @@ public class Employee extends BaseTimeEntity {
     private String phone;
     private String address;
     private String position;
+    private Date birthday;
+
 
     @ManyToOne
     @JoinColumn(name = "departmentId")
@@ -57,6 +60,7 @@ public class Employee extends BaseTimeEntity {
                 .address(address)
                 .position(position)
                 .departmentId(department.getId())
+                .birthday(birthday)
                 .salary(salary)
                 .hireDate(hireDate)
                 .retireDate(retireDate)
@@ -65,5 +69,18 @@ public class Employee extends BaseTimeEntity {
                 .profileImageUri(profileImageUri)
                 .memo(memo)
                 .build();
+    }
+
+    public void updateDepartment(Department department) {
+        this.department = department;
+    }
+
+    public void updateFromDto(EmployeeReqDto dto) {
+        if (dto.getName() != null) this.name = dto.getName();
+        if (dto.getPhone() != null) this.phone = dto.getPhone();
+        if (dto.getAddress() != null) this.address = dto.getAddress();
+        if (dto.getPosition() != null) this.position = dto.getPosition();
+        if (dto.getBirthday() != null) this.birthday = dto.getBirthday();
+        if (dto.getMemo() != null) this.memo = dto.getMemo();
     }
 }

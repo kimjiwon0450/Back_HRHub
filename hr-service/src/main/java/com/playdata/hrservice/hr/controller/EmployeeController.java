@@ -10,7 +10,9 @@ import com.playdata.hrservice.hr.service.EmployeeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,18 +34,21 @@ public class EmployeeController {
 
     private final Environment env;
 
+    // 직원 등록
     @PostMapping("/employees")
     public ResponseEntity<?> createUser(@RequestBody EmployeeReqDto dto) {
         employeeService.createUser(dto);
         return ResponseEntity.ok().build();
     }
 
+    // 비밀번호 최초 설정
     @PatchMapping("/employees/password")
     public ResponseEntity<?> modifyPassword(@RequestBody EmployeePasswordDto dto) {
         employeeService.modifyPassword(dto);
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null),HttpStatus.OK);
     }
 
+    // 로그인
     @PostMapping("/employees/login")
     public ResponseEntity<?> login(@RequestBody EmployeeReqDto dto) {
         EmployeeResDto employeeDto = employeeService.login(dto);
@@ -53,10 +58,7 @@ public class EmployeeController {
         String refreshToken
                 = jwtTokenProvider.createRefreshToken(employeeDto.getEmail(), employeeDto.getRole().toString());
 
-        redisTemplate.opsForValue().set("user:refresh:" + employeeDto.getEmployeeId(), refreshToken, 2, TimeUnit.MINUTES);
-
-
-
+        redisTemplate.opsForValue().set("user:refresh:" + employeeDto.getEmployeeId(), refreshToken, 30, TimeUnit.MINUTES);
 
         Map<String, Object> loginInfo = new HashMap<>();
         loginInfo.put("token", token);
@@ -70,6 +72,26 @@ public class EmployeeController {
         return new ResponseEntity<>(resDto, HttpStatus.OK);
     }
 
+    // 간소화 된 직원 리스트
+    @GetMapping("/employees")
+    public ResponseEntity<?> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable) {
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeList(pageable)), HttpStatus.OK);
+    }
+
+    // 직원 상세조회
+    @GetMapping("/employees/{id}")
+    public ResponseEntity<?> getEmployee(@PathVariable("id") Long id) {
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
+    }
+
+    // 직원 정보수정
+    @PatchMapping("/employees/{id}")
+    public ResponseEntity<?> modifyEmployeeInfo(@PathVariable("id") Long id, @RequestBody EmployeeReqDto dto) {
+        employeeService.modifyEmployeeInfo(id, dto);
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
+    }
+
+    // 토큰 리프레시
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(@RequestBody Map<String, String> map) {
         String id = map.get("id");

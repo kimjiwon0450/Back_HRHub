@@ -3,6 +3,7 @@ package com.playdata.hrservice.hr.service;
 
 import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.common.config.AwsS3Config;
+import com.playdata.hrservice.hr.dto.EmployeeListResDto;
 import com.playdata.hrservice.hr.dto.EmployeePasswordDto;
 import com.playdata.hrservice.hr.dto.EmployeeReqDto;
 import com.playdata.hrservice.hr.dto.EmployeeResDto;
@@ -14,6 +15,8 @@ import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -62,6 +65,7 @@ public class EmployeeService {
                 .address(dto.getAddress())
                 .position(dto.getPosition())
                 .department(departmentService.getDepartmentEntity(dto.getDepartmentId()))
+                .birthday(dto.getBirthday())
                 .salary(dto.getSalary())
                 .status(EmployeeStatus.valueOf(dto.getStatus()))
                 .role(Role.valueOf(dto.getRole()))
@@ -102,6 +106,34 @@ public class EmployeeService {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
         return employee.toDto();
+    }
+
+    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable) {
+        Page<Employee> page = employeeRepository.findAll(pageable);
+        return page.map(employee -> EmployeeListResDto.builder()
+                .id(employee.getEmployeeId())
+                .name(employee.getName())
+                .phone(employee.getPhone())
+                .department(employee.getDepartment().getName())
+                .position(employee.getPosition())
+                .build());
+    }
+
+    public EmployeeResDto getEmployee(Long id) {
+        return employeeRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException("해당 직원은 존재하지 않습니다.")
+        ).toDto();
+    }
+
+    @Transactional
+    public void modifyEmployeeInfo(Long id, EmployeeReqDto dto) {
+        Employee employee = employeeRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException("Employee not found!")
+        );
+        employee.updateFromDto(dto);
+        employee.updateDepartment(departmentService.getDepartmentEntity(dto.getDepartmentId()));
+
+
     }
 
 
