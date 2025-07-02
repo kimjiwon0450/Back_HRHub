@@ -3,6 +3,7 @@ package com.playdata.approvalservice.approval.service;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.repository.*;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,7 +37,7 @@ public class ApprovalService {
         return null;
     }
 
-    public ReportDetailResDto getReportDetail(Long reportId) {
+    public ReportDetailResDto getReportDetail(Long reportId, Long userId) {
 
         return null;
     }
@@ -67,6 +68,25 @@ public class ApprovalService {
     public ReportRecallResDto recallReport(Long reportId, Long userId) {
 
         return null;
+    }
+
+    public ReportRemindResDto reportRemind(Long reportId, Long userId) {
+        return null;
+    }
+
+    public ResubmitResDto resubmitReport(Long reportId, Long userId, ResubmitReqDto req) {
+    }
+
+    public ReportReferencesResDto deleteReferences(Long reportId, Long userId, Long employeeId) {
+    }
+
+    public ReferenceResDto addReference(Long reportId, Long userId, @Valid ReferenceReqDto req) {
+    }
+
+    public AttachmentResDto uploadAttachment(Long reportId, Long userId, @Valid AttachmentReqDto req) {
+    }
+
+    public CommentResDto createComment(Long reportId, Long userId, @Valid CommentReqDto req) {
     }
 }
 

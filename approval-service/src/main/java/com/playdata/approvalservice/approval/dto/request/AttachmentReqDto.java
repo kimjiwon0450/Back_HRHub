@@ -5,14 +5,13 @@ import lombok.*;
 
 @Getter
 @Setter
-@ToString
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class AttachmentReqDto {
-    @NotBlank
+    @NotBlank(message = "파일명을 입력해주세요.")
     private String fileName;
 
-    @NotBlank
+    @NotBlank(message = "파일 URL을 입력해주세요.")
     private String url;
 }
