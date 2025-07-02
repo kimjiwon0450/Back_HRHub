@@ -2,6 +2,7 @@ package com.playdata.hrservice.hr.service;
 
 
 import com.playdata.hrservice.common.auth.Role;
+import com.playdata.hrservice.common.auth.TokenUserInfo;
 import com.playdata.hrservice.common.config.AwsS3Config;
 import com.playdata.hrservice.hr.dto.EmployeeListResDto;
 import com.playdata.hrservice.hr.dto.EmployeePasswordDto;
@@ -63,10 +64,8 @@ public class EmployeeService {
                 .name(dto.getName())
                 .phone(dto.getPhone())
                 .address(dto.getAddress())
-                .position(dto.getPosition())
                 .department(departmentService.getDepartmentEntity(dto.getDepartmentId()))
                 .birthday(dto.getBirthday())
-                .salary(dto.getSalary())
                 .status(EmployeeStatus.valueOf(dto.getStatus()))
                 .role(Role.valueOf(dto.getRole()))
                 .profileImageUri(dto.getProfileImageUri())
@@ -115,7 +114,7 @@ public class EmployeeService {
                 .name(employee.getName())
                 .phone(employee.getPhone())
                 .department(employee.getDepartment().getName())
-                .position(employee.getPosition())
+                .role(employee.getRole().name())
                 .build());
     }
 
@@ -126,12 +125,20 @@ public class EmployeeService {
     }
 
     @Transactional
-    public void modifyEmployeeInfo(Long id, EmployeeReqDto dto) {
+    public void modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) {
         Employee employee = employeeRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found!")
         );
+        if(role.equals(Role.ADMIN) || role.equals(Role.HR_MANAGER)) {
+            employee.updateRole(Role.valueOf(dto.getRole()));
+        }
         employee.updateFromDto(dto);
         employee.updateDepartment(departmentService.getDepartmentEntity(dto.getDepartmentId()));
+    }
+
+    public void insertTransferHistory() {
+        //여기서 인사이동
+
     }
 
 

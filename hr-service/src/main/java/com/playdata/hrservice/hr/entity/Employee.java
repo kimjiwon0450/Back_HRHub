@@ -32,20 +32,19 @@ public class Employee extends BaseTimeEntity {
     private String password;
     private String phone;
     private String address;
-    private String position;
     private Date birthday;
 
 
     @ManyToOne
     @JoinColumn(name = "departmentId")
     private Department department;
-    private int salary;
 
     @CreatedDate
     @Column(updatable = false)
     private LocalDateTime hireDate;
     private LocalDateTime retireDate;
 
+    private Boolean isNewEmployee; // 경력 또는 신입 (입사구분) - yhj
     private EmployeeStatus status;
     private Role role;
     private String profileImageUri;
@@ -58,10 +57,8 @@ public class Employee extends BaseTimeEntity {
                 .email(email)
                 .phone(phone)
                 .address(address)
-                .position(position)
                 .departmentId(department.getId())
                 .birthday(birthday)
-                .salary(salary)
                 .hireDate(hireDate)
                 .retireDate(retireDate)
                 .status(status.name())
@@ -79,8 +76,12 @@ public class Employee extends BaseTimeEntity {
         if (dto.getName() != null) this.name = dto.getName();
         if (dto.getPhone() != null) this.phone = dto.getPhone();
         if (dto.getAddress() != null) this.address = dto.getAddress();
-        if (dto.getPosition() != null) this.position = dto.getPosition();
         if (dto.getBirthday() != null) this.birthday = dto.getBirthday();
         if (dto.getMemo() != null) this.memo = dto.getMemo();
     }
+
+    public void  updateRole(Role role){
+        this.role = role;
+    }
+
 }

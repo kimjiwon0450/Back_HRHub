@@ -20,10 +20,8 @@ public class EmployeeReqDto {
     private String password;
     private String phone;
     private String address;
-    private String position;
     private Date birthday;
     private Long departmentId;
-    private int salary;
     private LocalDateTime hireDate;
     private LocalDateTime retireDate;
 

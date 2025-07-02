@@ -26,9 +26,9 @@ public class HrTransferHistory extends BaseTimeEntity {
 
     @ManyToOne
     @JoinColumn(name = "newDepartmentId")
-    private Department newDepartment;
+    private Department currentDepartment;
 
-    private String oldPosition;
-    private String newPosition;
+    private String oldRole;
+    private String currentRole;
     private String memo;
 }
