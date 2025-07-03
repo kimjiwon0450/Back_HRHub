@@ -24,10 +24,12 @@ public class Evaluation extends BaseTimeEntity {
     @JoinColumn(name = "evaluatorId")
     private Employee evaluator;
 
-    private double leadership;
-    private double creativity;
-    private double cooperation;
-    private double problem_solving;
+    @Column(nullable = false, columnDefinition = "json")
+    private String template;
+//    private double leadership;
+//    private double creativity;
+//    private double cooperation;
+//    private double problem_solving;
     private String comment;
     private double total_evaluation;
 
