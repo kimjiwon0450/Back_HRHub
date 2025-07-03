@@ -60,17 +60,20 @@ public class NoticeController {
             List<Notice> noticeList = noticeService.getTopNotices();
             Page<Notice> postList = noticeService.getFilteredPosts(keyword, fromDate, toDate, departmentId, pageable);
 
+            log.info("noticeList: {}", noticeList);
+
             // 🔥 작성자 이름 포함하여 변환
             List<NoticeResponse> noticeDtos = noticeList.stream()
                     .map(notice -> {
-                        HrUserResponse user = hrUserClient.getUserInfo(notice.getWriterId());
-                        return NoticeResponse.fromEntity(notice, user.getUsername());
+                        log.info("notice in stream map: {}", notice);
+                        HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+                        return NoticeResponse.fromEntity(notice, user.getName());
                     }).toList();
 
             List<NoticeResponse> postDtos = postList.getContent().stream()
                     .map(notice -> {
-                        HrUserResponse user = hrUserClient.getUserInfo(notice.getWriterId());
-                        return NoticeResponse.fromEntity(notice, user.getUsername());
+                        HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+                        return NoticeResponse.fromEntity(notice, user.getName());
                     }).toList();
 
             Map<String, Object> response = new HashMap<>();
@@ -85,8 +88,8 @@ public class NoticeController {
     @GetMapping("/noticeboard/{id}")
     public ResponseEntity<NoticeResponse> getPost(@PathVariable Long id) {
         Notice notice = noticeService.findPostById(id);
-        HrUserResponse user = hrUserClient.getUserInfo(notice.getWriterId());
-        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user.getUsername()));
+        HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user.getName()));
     }
 
     @PostMapping("/noticeboard/write")
@@ -140,6 +143,12 @@ public class NoticeController {
         return ResponseEntity.ok(notices);
     }
 
+    @GetMapping("/noticeboard/mydepartment")
+    public ResponseEntity<List<NoticeResponse>> getDepartmentPosts(@AuthenticationPrincipal(expression = "id") Long userId) {
+        List<NoticeResponse> notices = noticeService.getDepartmentPosts(userId);
+        return ResponseEntity.ok(notices);
+    }
+
     @GetMapping("/noticeboard/unread-count")
     public ResponseEntity<Integer> getUnreadNoticeCount(@AuthenticationPrincipal(expression = "id") Long userId) {
         return ResponseEntity.ok(noticeService.getUnreadNoticeCount(userId));
@@ -164,14 +173,14 @@ public class NoticeController {
 
         List<NoticeResponse> noticeDtos = topNotices.stream()
                 .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getWriterId());
-                    return NoticeResponse.fromEntity(n, user.getUsername());
+                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+                    return NoticeResponse.fromEntity(n, user.getName());
                 }).toList();
 
         List<NoticeResponse> postDtos = filteredPosts.getContent().stream()
                 .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getWriterId());
-                    return NoticeResponse.fromEntity(n, user.getUsername());
+                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+                    return NoticeResponse.fromEntity(n, user.getName());
                 }).toList();
 
         Map<String, Object> response = new HashMap<>();

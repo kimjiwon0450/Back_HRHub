@@ -123,6 +123,10 @@ public class EmployeeService {
                 () -> new EntityNotFoundException("There is no employee with id: " + employee.getEmployeeId())
         );
 
+        if (employeePassword.getPasswordHash() == null) {
+            throw new IllegalStateException("해당 계정은 아직 비밀번호가 설정되지 않았습니다.");
+        }
+
         if (!encoder.matches(dto.getPassword(), new String(employeePassword.getPasswordHash(), StandardCharsets.UTF_8))) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
