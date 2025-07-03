@@ -17,6 +17,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -97,11 +98,22 @@ public class EmployeeController {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getDepartmentNameOfEmployee(id)), HttpStatus.OK);
     }
 
+
     // 직원 정보수정
     @PatchMapping("/employees/{id}")
     public ResponseEntity<?> modifyEmployeeInfo(@PathVariable("id") Long id, @RequestBody EmployeeReqDto dto, @AuthenticationPrincipal TokenUserInfo tokenUserInfo) {
         Role role = tokenUserInfo.getRole();
         employeeService.modifyEmployeeInfo(id, dto, role);
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
+    }
+
+    // 직원 퇴사 처리
+    @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
+    @PatchMapping("/employee/{id}/retire")
+    public ResponseEntity<?> retireEmployee(@PathVariable("id") Long id){
+
+        employeeService.deleteEmployee(id);
+
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
     }
 

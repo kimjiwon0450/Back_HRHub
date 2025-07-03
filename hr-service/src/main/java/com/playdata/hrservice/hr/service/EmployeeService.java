@@ -26,9 +26,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 
 import java.util.List;
@@ -63,25 +65,26 @@ public class EmployeeService {
         }
 
 
-
         Employee save = employeeRepository.save(
                 Employee.builder()
-                .email(dto.getEmail())
-                .name(dto.getName())
-                .phone(dto.getPhone())
-                .address(dto.getAddress())
-                .department(departmentService.getDepartmentEntity(dto.getDepartmentId()))
-                .birthday(dto.getBirthday())
-                .status(EmployeeStatus.valueOf(dto.getStatus()))
-                .role(Role.valueOf(dto.getRole()))
-                .profileImageUri(dto.getProfileImageUri())
-                .memo(dto.getMemo())
-                .build()
+                        .email(dto.getEmail())
+                        .name(dto.getName())
+                        .phone(dto.getPhone())
+                        .address(dto.getAddress())
+                        .department(departmentService.getDepartmentEntity(dto.getDepartmentId()))
+                        .birthday(dto.getBirthday())
+                        .isNewEmployee(dto.getIsNewEmployee())
+                        .status(EmployeeStatus.valueOf(dto.getStatus()))
+                        .role(Role.valueOf(dto.getRole()))
+                        .profileImageUri(dto.getProfileImageUri())
+                        .memo(dto.getMemo())
+                        .build()
         );
         EmployeePassword employeePassword = EmployeePassword.builder()
                 .userId(save.getEmployeeId()).build();
         employeePasswordRepository.save(employeePassword);
     }
+
     public void modifyPassword(EmployeePasswordDto dto) {
         Employee employee = employeeRepository.findByEmail(dto.getEmail()).orElseThrow(
                 () -> new EntityNotFoundException("There is no employee with email: " + dto.getEmail())
@@ -104,6 +107,7 @@ public class EmployeeService {
     public Employee findByEmail(String email) {
         return null;
     }
+
     public Employee findById(Long id) {
         return employeeRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found by id")
@@ -118,6 +122,11 @@ public class EmployeeService {
         Employee employee = employeeRepository.findByEmail(dto.getEmail()).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found!")
         );
+
+        // F2-25
+        if (employee.getStatus().equals(EmployeeStatus.INACTIVE)) {
+        throw new IllegalArgumentException("퇴사자 입니다. 인사부에 문의하세요");
+        }
 
         EmployeePassword employeePassword = employeePasswordRepository.findById(employee.getEmployeeId()).orElseThrow(
                 () -> new EntityNotFoundException("There is no employee with id: " + employee.getEmployeeId())
@@ -151,7 +160,7 @@ public class EmployeeService {
         Employee employee = employeeRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found!")
         );
-        if(role.equals(Role.ADMIN) || role.equals(Role.HR_MANAGER)) {
+        if (role.equals(Role.ADMIN) || role.equals(Role.HR_MANAGER)) {
             employee.updateRole(Role.valueOf(dto.getRole()));
         }
         employee.updateFromDto(dto);
@@ -171,6 +180,15 @@ public class EmployeeService {
     public String getDepartmentNameOfEmployee(Long id) {
         return employeeRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")        ).getDepartment().getName();
+    }
+
+    // 직원삭제
+    public void deleteEmployee(Long id) {
+        Employee employee = employeeRepository.findByEmployeeId(id).orElseThrow(
+                () -> new EntityNotFoundException("조회되지 않는 사용자 입니다!")
+        );
+        employee.updateStatus(EmployeeStatus.INACTIVE);
+        employeeRepository.save(employee);
     }
 
 
