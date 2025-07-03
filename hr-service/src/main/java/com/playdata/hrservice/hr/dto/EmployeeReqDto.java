@@ -22,6 +22,7 @@ public class EmployeeReqDto {
     private String address;
     private Date birthday;
     private Long departmentId;
+    private Boolean isNewEmployee;
     private LocalDateTime hireDate;
     private LocalDateTime retireDate;
 
