@@ -44,6 +44,7 @@ public class Employee extends BaseTimeEntity {
 
     private Boolean isNewEmployee; // 경력 또는 신입 (입사구분) - yhj
     private EmployeeStatus status;
+    @Enumerated(EnumType.STRING)
     private Role role;
     private String profileImageUri;
     private String memo;
