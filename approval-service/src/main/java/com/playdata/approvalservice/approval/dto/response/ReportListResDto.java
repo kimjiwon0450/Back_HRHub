@@ -22,7 +22,7 @@ public class ReportListResDto {
     public static class ReportSimpleDto {
         private Long id;
         private String title;
-        private String writerName;
+        private String name;
         private String createdAt;
         private String status;
         private String currentApprover;

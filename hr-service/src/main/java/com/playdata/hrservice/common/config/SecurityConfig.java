@@ -37,6 +37,7 @@ public class SecurityConfig {
                     .requestMatchers("/hr-service/employees", "/hr-service/employees/*",
                             "/hr-service/employees/login",
                             "/hr-service/employees/password",
+                            "/hr-service/departments", "/hr-service/departments/*",
                             "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });

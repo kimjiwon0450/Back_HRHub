@@ -15,8 +15,8 @@ public class NoticeResponse {
     private Long id;
     private String title;
     private String content;
-    private Long writerId;
-    private String writer; // 작성자 이름
+    private Long employeeId;
+    private String name; // 작성자 이름
     private String writerDepartment;
     private Long departmentId;
     private boolean isNotice;
@@ -34,7 +34,7 @@ public class NoticeResponse {
                 .content(notice.getContent())
                 .isNotice(notice.isNotice())
                 .hasAttachment(notice.isHasAttachment())
-                .writerId(notice.getWriterId())
+                .employeeId(notice.getEmployeeId())
                 .departmentId(notice.getDepartmentId())
                 .createdAt(notice.getCreatedAt())
                 .updatedAt(notice.getUpdatedAt())
@@ -42,13 +42,13 @@ public class NoticeResponse {
                 .build();
     }
 
-    public static NoticeResponse fromEntity(Notice notice, String writerName) {
+    public static NoticeResponse fromEntity(Notice notice, String name) {
         return NoticeResponse.builder()
                 .id(notice.getId())
                 .title(notice.getTitle())
                 .content(notice.getContent())
-                .writerId(notice.getWriterId())
-                .writer(writerName) // 여기에 주입
+                .employeeId(notice.getEmployeeId())
+                .name(name) // 여기에 주입
                 .departmentId(notice.getDepartmentId())
                 .isNotice(notice.isNotice())
                 .hasAttachment(notice.isHasAttachment())

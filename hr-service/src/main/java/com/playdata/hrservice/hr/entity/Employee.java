@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 
@@ -44,6 +45,7 @@ public class Employee extends BaseTimeEntity {
 
     private Boolean isNewEmployee; // 경력 또는 신입 (입사구분) - yhj
     private EmployeeStatus status;
+//    @Enumerated(EnumType.STRING)
     private Role role;
     private String profileImageUri;
     private String memo;
@@ -59,6 +61,7 @@ public class Employee extends BaseTimeEntity {
                 .birthday(birthday)
                 .hireDate(hireDate)
                 .retireDate(retireDate)
+                .isNewEmployee(isNewEmployee)
                 .status(status.name())
                 .role(role.name())
                 .profileImageUri(profileImageUri)
@@ -82,4 +85,8 @@ public class Employee extends BaseTimeEntity {
         this.role = role;
     }
 
+    public void updateStatus(EmployeeStatus status){
+        this.status = status;
+        this.retireDate = LocalDateTime.now();
+    }
 }
