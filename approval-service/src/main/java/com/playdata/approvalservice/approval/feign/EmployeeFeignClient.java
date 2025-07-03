@@ -13,4 +13,13 @@ public interface EmployeeFeignClient {
      */
     @GetMapping("/{id}")
     ResponseEntity<EmployeeResDto> getById(@PathVariable("id") Long id);
+
+
+    /**
+     * email로 직원 Id 조회
+     * @param email
+     * @return
+     */
+    @GetMapping("/email/{email}")
+    ResponseEntity<EmployeeResDto> getEmployeeByEmail(@PathVariable("email") String email);
 }

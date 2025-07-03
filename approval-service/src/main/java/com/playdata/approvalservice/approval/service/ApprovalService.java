@@ -103,7 +103,7 @@ public class ApprovalService {
                     return ReportListResDto.ReportSimpleDto.builder()
                             .id(r.getId())
                             .title(r.getTitle())
-                            .writerName(writerName)
+                            .name(writerName)
                             .createdAt(r.getCreatedAt().format(fmt))
                             .status(r.getStatus().name())
                             .currentApprover(approverName)
