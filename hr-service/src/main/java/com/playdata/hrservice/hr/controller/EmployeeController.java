@@ -78,8 +78,9 @@ public class EmployeeController {
 
     // 간소화 된 직원 리스트
     @GetMapping("/employees")
-    public ResponseEntity<?> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable) {
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeList(pageable)), HttpStatus.OK);
+    public ResponseEntity<?> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable, @RequestParam(required = false) String field,
+                                              @RequestParam(required = false) String keyword, @RequestParam(required = false) String department) {
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeList(pageable, field, keyword, department)), HttpStatus.OK);
     }
 
     // 직원 상세조회
@@ -87,6 +88,18 @@ public class EmployeeController {
     public ResponseEntity<?> getEmployee(@PathVariable("id") Long id) {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
     }
+
+    // 직원 상세조회 (Feign을 위함)
+    @GetMapping("/employees/{id}")
+    public ResponseEntity<EmployeeResDto> getById(@PathVariable("id") Long id) {
+        return new ResponseEntity<>(employeeService.getEmployee(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/employees/email/{email}")
+    public ResponseEntity<EmployeeResDto> getEmployeeByEmail(@PathVariable("email") String email) {
+        return new ResponseEntity<>(employeeService.getEmployeeByEmail(email), HttpStatus.OK);
+    }
+
     // 직원 이름 조회
     @GetMapping("/employees/{id}/name")
     public ResponseEntity<?> getEmployeeName(@PathVariable("id") Long id) {
