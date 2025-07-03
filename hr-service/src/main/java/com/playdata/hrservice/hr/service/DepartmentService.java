@@ -1,6 +1,7 @@
 package com.playdata.hrservice.hr.service;
 
 
+import com.playdata.hrservice.hr.dto.DepartmentReqDto;
 import com.playdata.hrservice.hr.dto.DepartmentResDto;
 import com.playdata.hrservice.hr.entity.Department;
 import com.playdata.hrservice.hr.repository.DepartmentRepository;
@@ -34,5 +35,20 @@ public class DepartmentService {
         return departmentRepository.findById(id).orElseThrow(
                 () -> new IllegalArgumentException("Department not found By Id")
         );
+    }
+
+    public Department createDepartment(DepartmentReqDto dto) {
+
+        if (departmentRepository.findByName(dto.getName()).isPresent()) {
+            throw new IllegalArgumentException("이미 존재하는 부서입니다.");
+        }
+
+        Department newDepartment =
+                Department.builder()
+                         .name(dto.getName())
+                         .build();
+        departmentRepository.save(newDepartment);
+
+        return newDepartment;
     }
 }

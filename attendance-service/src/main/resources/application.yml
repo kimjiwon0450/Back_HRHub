@@ -1,5 +1,0 @@
-spring:
-  application:
-    name: attendance-service
-  profiles:
-    active: local
