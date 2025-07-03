@@ -80,10 +80,6 @@ public class Reports extends BaseTimeEntity {
     @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReportReferences> references = new ArrayList<>();
 
-    @Builder.Default
-    @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Comment> comments = new ArrayList<>();
-
     /**
      * 요청 DTO를 엔티티로 변환하는 팩토리 메서드
      */

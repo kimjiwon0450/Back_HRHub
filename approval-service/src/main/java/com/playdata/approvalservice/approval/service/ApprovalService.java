@@ -181,7 +181,7 @@ public class ApprovalService {
     public ApprovalProcessResDto processApproval(Long reportId, Long userId, ApprovalProcessReqDto req) {
 
         ApprovalLine line = approvalRepository
-                .findByReportApprovalIdAndEmployeeIdAndStatus(reportId, userId, ApprovalStatus.PENDING)
+                .findByReportsIdAndEmployeeIdAndStatus(reportId, userId, ApprovalStatus.PENDING)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN, "결재 권한이 없습니다."));
         // ② action에 따라 approve/reject 호출 (approvalDateTime, approvalComment가 세팅됨)
@@ -302,7 +302,7 @@ public class ApprovalService {
         }
 
         // 2) 참조 삭제
-        referenceRepository.deleteByReportIdAndEmployeeId(reportId, employeeId);
+        referenceRepository.deleteByReports_IdAndEmployeeId(reportId, employeeId);
 
         // 3) 응답 DTO 반환
         return ReportReferencesResDto.builder()

@@ -23,7 +23,7 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     /**
      * 결재자(ApprovalLine)로 조회
      */
-    @Query("select r from Reports r join r.approvalLine l where l.employeeId = :approverId")
+    @Query("select r from Reports r join r.approvalLines l where l.employeeId = :approverId")
     Page<Reports> findByApproverId(Long approverId, Pageable pageable);
 
     /**

@@ -13,17 +13,7 @@ public interface ReferenceRepository extends JpaRepository<ReportReferences, Lon
      */
     List<ReportReferences> findByReports_Id(Long reportId);
 
-    /**
-     * 특정 보고서·사원 조합 단일 조회
-     * @param reportId 보고서 ID
-     * @param employeeId 사원 ID
-     */
-    Optional<ReportReferences> findByReportIdAndEmployeeId(Long reportId, Long employeeId);
+    Optional<ReportReferences> findByReports_IdAndEmployeeId(Long reportsId, Long employeeId);
 
-    /**
-     * 특정 보고서·사원 조합 삭제
-     * @param reportId 보고서 ID
-     * @param employeeId 사원 ID
-     */
-    void deleteByReportIdAndEmployeeId(Long reportId, Long employeeId);
+    void deleteByReports_IdAndEmployeeId(Long reportsId, Long employeeId);
 }
