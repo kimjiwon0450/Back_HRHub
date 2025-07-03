@@ -13,9 +13,4 @@ public interface ReportAttachmentRepository extends JpaRepository<ReportAttachme
      */
     List<ReportAttachment> findByReportApprovalId(Long reportApprovalId);
 
-    /**
-     * 특정 첨부파일이 존재하는지 확인
-     * @param id 첨부파일 ID
-     */
-    boolean existsById(Long id);
 }

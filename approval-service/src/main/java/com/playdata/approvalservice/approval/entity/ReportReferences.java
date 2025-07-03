@@ -10,7 +10,7 @@ public class ReportReferences {
     private Long referenceId;
 
     @Column(name = "emplotee_id")
-    private Long emploteeId;
+    private Long employeeId;
 
     @Column(name = "report_approval_id")
     private Long reportApprovalId;
