@@ -2,6 +2,9 @@ package com.playdata.hrservice.hr.dto;
 
 import lombok.*;
 
+import java.time.LocalDate;
+import java.util.Map;
+
 @Getter
 @Setter
 @ToString
@@ -12,7 +15,8 @@ public class EvaluationResDto {
     private Long evaluationId;
     private Long evaluateeId;
     private Long evaluatorId;
-    private String template;
+    private Map<String, Object> template;
     private String comment;
-    private double total_evaluation;
+    private LocalDate interviewDate;
+    private double totalEvaluation;
 }

@@ -163,6 +163,16 @@ public class EmployeeService {
 
     }
 
+    public String getEmployeeName(Long id) {
+        return employeeRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")        ).getName();
+    }
+
+    public String getDepartmentNameOfEmployee(Long id) {
+        return employeeRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")        ).getDepartment().getName();
+    }
+
 
 //
 //

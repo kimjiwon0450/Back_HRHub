@@ -86,6 +86,16 @@ public class EmployeeController {
     public ResponseEntity<?> getEmployee(@PathVariable("id") Long id) {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
     }
+    // 직원 이름 조회
+    @GetMapping("/employees/{id}/name")
+    public ResponseEntity<?> getEmployeeName(@PathVariable("id") Long id) {
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeName(id)), HttpStatus.OK);
+    }
+    // 직원 부서명 조회
+    @GetMapping("/employees/{id}/name/department")
+    public ResponseEntity<?> getDepartmentNameOfEmployee(@PathVariable("id") Long id) {
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getDepartmentNameOfEmployee(id)), HttpStatus.OK);
+    }
 
     // 직원 정보수정
     @PatchMapping("/employees/{id}")

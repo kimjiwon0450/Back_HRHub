@@ -6,6 +6,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import lombok.*;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @AllArgsConstructor
@@ -17,5 +19,6 @@ public class EvaluationReqDto {
     private Long evaluatorId;
     private String template;
     private String comment;
-    private double total_evaluation;
+    private LocalDate interviewDate;
+    private double totalEvaluation;
 }
