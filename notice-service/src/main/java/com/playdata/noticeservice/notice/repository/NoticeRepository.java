@@ -31,10 +31,11 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                    @Param("departmentId") Long departmentId,
                                    Pageable pageable);
 
-    List<Notice> findByWriterIdOrderByCreatedAtDesc(Long writerId);
+    List<Notice> findByEmployeeIdOrderByCreatedAtDesc(Long employeeId);
 
     // 부서별 공지글 (상단 고정용)
     List<Notice> findByIsNoticeTrueAndDepartmentIdOrderByCreatedAtDesc(Long departmentId);
 
 
+    List<Notice> findByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
 }

@@ -18,4 +18,5 @@ public class CommonErrorDto {
         this.statusMessage = statusMessage;
     }
 
+
 }

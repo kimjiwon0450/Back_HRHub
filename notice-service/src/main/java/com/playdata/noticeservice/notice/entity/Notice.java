@@ -1,7 +1,9 @@
 package com.playdata.noticeservice.notice.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.groups.Default;
 import lombok.*;
+import org.bouncycastle.jcajce.provider.drbg.DRBG;
 
 import java.time.LocalDateTime;
 
@@ -22,14 +24,19 @@ public class Notice {
     private String title;
     @Column(columnDefinition = "TEXT")
     private String content;
-    private Long writerId;
+    private Long employeeId;
     private Long departmentId;
     private boolean isNotice; // 공지 여부
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean hasAttachment;
     private boolean boardStatus;
-    private int viewCount;
+    private int viewCount = 0;
+
+
+    @Column(columnDefinition = "TEXT")
+    private String fileUrls; // 여러 개일 경우 ,로 구분된 문자열로 저장
+
 
 
     @PrePersist
