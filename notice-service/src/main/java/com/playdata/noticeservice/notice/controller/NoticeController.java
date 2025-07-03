@@ -2,14 +2,17 @@ package com.playdata.noticeservice.notice.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.noticeservice.common.auth.CustomUserDetails;
+import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.dto.CommonErrorDto;
 import com.playdata.noticeservice.common.client.HrUserClient;
+import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.*;
 import com.playdata.noticeservice.notice.entity.Notice;
 import com.playdata.noticeservice.notice.service.NoticeService;
 
 import com.playdata.noticeservice.notice.service.S3Service;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +26,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -43,9 +47,11 @@ public class NoticeController {
     private final Environment env;
     private final NoticeService noticeService;
     private final HrUserClient hrUserClient;
+    private final DepartmentClient departmentClient;
     private final ObjectMapper objectMapper;
     private final S3Service s3Service;
 
+    // 전체글 조회
     @GetMapping("/noticeboard")
     public ResponseEntity<Map<String, Object>> getAllPosts(
             @RequestParam(defaultValue = "") String keyword,
@@ -85,13 +91,17 @@ public class NoticeController {
             return ResponseEntity.ok(response);
         }
 
+    // 글 상세 화면 조회
     @GetMapping("/noticeboard/{id}")
     public ResponseEntity<NoticeResponse> getPost(@PathVariable Long id) {
         Notice notice = noticeService.findPostById(id);
         HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user.getName()));
+        DepResponse dep = departmentClient.getDepInfo(notice.getDepartmentId());
+        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user.getName(), dep.getName()));
+
     }
 
+    // 글 작성 페이지
     @PostMapping("/noticeboard/write")
     public ResponseEntity<Void> createNotice(
             @RequestPart("data") NoticeCreateRequest request,
@@ -110,6 +120,7 @@ public class NoticeController {
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
+    // 글 수정 페이지
     @PutMapping("/noticeboard/{id}")
     public ResponseEntity<Void> updateNotice(@PathVariable Long id,
                                              @RequestBody @Valid NoticeUpdateRequest request,
@@ -119,6 +130,7 @@ public class NoticeController {
         return ResponseEntity.ok().build();
     }
 
+    // 글 삭제
     @DeleteMapping("/noticeboard/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id,
                                            @AuthenticationPrincipal CustomUserDetails userDetails) {
@@ -128,32 +140,33 @@ public class NoticeController {
 
     // ✅ 공지글 읽음 처리
     @PostMapping("/noticeboard/{id}/read")
-    public ResponseEntity<Void> markAsRead(@PathVariable Long id,
-                                           Authentication authentication) {
-        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        Long userId = userDetails.getId();
-
-        noticeService.markAsRead(id, userId);
+    public ResponseEntity<Void> markAsRead(@AuthenticationPrincipal(expression = "id") Long userId,
+                                           @PathVariable Long id) {
+        noticeService.markAsRead(userId, id);
         return ResponseEntity.ok().build();
     }
 
+    // 내가 쓴 글 조회
     @GetMapping("/noticeboard/my")
     public ResponseEntity<List<NoticeResponse>> getMyPosts(@AuthenticationPrincipal(expression = "id") Long userId) {
         List<NoticeResponse> notices = noticeService.getMyPosts(userId);
         return ResponseEntity.ok(notices);
     }
 
+    // 나의 부서글 조회
     @GetMapping("/noticeboard/mydepartment")
     public ResponseEntity<List<NoticeResponse>> getDepartmentPosts(@AuthenticationPrincipal(expression = "id") Long userId) {
         List<NoticeResponse> notices = noticeService.getDepartmentPosts(userId);
         return ResponseEntity.ok(notices);
     }
 
+
     @GetMapping("/noticeboard/unread-count")
     public ResponseEntity<Integer> getUnreadNoticeCount(@AuthenticationPrincipal(expression = "id") Long userId) {
         return ResponseEntity.ok(noticeService.getUnreadNoticeCount(userId));
     }
 
+    // 부서별 조회
     @GetMapping("/noticeboard/department/{departmentId}")
     public ResponseEntity<Map<String, Object>> getPostsByDepartment(
             @PathVariable Long departmentId,
