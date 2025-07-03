@@ -1,6 +1,7 @@
 package com.playdata.approvalservice.approval.entity;
 
 
+import com.playdata.approvalservice.approval.dto.request.AttachmentReqDto;
 import com.playdata.approvalservice.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -56,4 +57,14 @@ public class ReportAttachment extends BaseTimeEntity {
      */
     @Column(name = "report_att_upload_time")
     private LocalDateTime uploadTime;
+
+    public static ReportAttachment fromAttachmentReqDto(Reports report, AttachmentReqDto dto) {
+        return ReportAttachment.builder()
+                .reports(report)
+                .reportApprovalId(report.getId())
+                .name(dto.getFileName())
+                .url(dto.getUrl())
+                .uploadTime(LocalDateTime.now())
+                .build();
+    }
 }

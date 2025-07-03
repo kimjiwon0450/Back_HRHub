@@ -1,6 +1,7 @@
 package com.playdata.approvalservice.approval.repository;
 
 import com.playdata.approvalservice.approval.entity.ApprovalLine;
+import com.playdata.approvalservice.approval.entity.ApprovalStatus;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -36,5 +37,19 @@ public interface ApprovalRepository extends JpaRepository<ApprovalLine, Long> {
      * @param orderSequence 단계 순서
      */
     boolean existsByReportApprovalIdAndOrderSequenceAndStatus(Long reportApprovalId, Integer orderSequence, ReportStatus status);
+
+
+    /**
+     *
+     * @param reportApprovalId
+     * @param employeeId
+     * @param status
+     * @return
+     */
+    Optional<ApprovalLine> findByReportApprovalIdAndEmployeeIdAndStatus(
+            Long reportApprovalId,
+            Long employeeId,
+            ApprovalStatus status
+    );
 
 }

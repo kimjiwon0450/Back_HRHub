@@ -3,6 +3,7 @@ package com.playdata.approvalservice.approval.service;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.entity.*;
+import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +34,7 @@ public class ApprovalService {
     private final ApprovalRepository approvalRepository;
     private final ReportAttachmentRepository attachmentRepository;
     private final ReferenceRepository referenceRepository;
-    private final CommentRepository commentRepository;
+    private final EmployeeFeignClient employeeFeignClient;
 
     private final DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -47,7 +48,6 @@ public class ApprovalService {
         return ReportCreateResDto.builder()
                 .id(saved.getId())
                 .title(saved.getTitle())
-                .
                 .status(saved.getStatus().name())
                 .build();
     }
@@ -92,14 +92,22 @@ public class ApprovalService {
         List<ReportListResDto.ReportSimpleDto> simples = pr.getContent().stream()
                 .filter(r -> keyword == null || r.getTitle().contains(keyword)
                         || r.getContent().contains(keyword))
-                .map(r -> ReportListResDto.ReportSimpleDto.builder()
-                        .id(r.getId())
-                        .title(r.getTitle())
-                        .writerName(String.valueOf(r.getWriterId()))
-                        .createdAt(r.getCreatedAt().format(fmt))
-                        .status(r.getStatus().name())
-                        .currentApprover(String.valueOf(r.getCurrentApproverId()))
-                        .build())
+                .map(r -> {
+                    String writerName = employeeFeignClient.getById(r.getWriterId())
+                            .getBody().getName();
+                    String approverName = r.getCurrentApproverId() != null
+                            ? employeeFeignClient.getById(r.getCurrentApproverId())
+                            .getBody().getName()
+                            : null;
+                    return ReportListResDto.ReportSimpleDto.builder()
+                            .id(r.getId())
+                            .title(r.getTitle())
+                            .writerName(writerName)
+                            .createdAt(r.getCreatedAt().format(fmt))
+                            .status(r.getStatus().name())
+                            .currentApprover(approverName)
+                            .build();
+                })
                 .collect(Collectors.toList());
         return ReportListResDto.builder()
                 .reports(simples)
@@ -123,6 +131,8 @@ public class ApprovalService {
         if (!writer && !approver) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
         }
+        String writerName = employeeFeignClient.getById(r.getWriterId())
+                .getBody().getName();
         List<ReportDetailResDto.AttachmentResDto> atts = r.getAttachments().stream()
                 .map(a -> ReportDetailResDto.AttachmentResDto.builder()
                         .fileName(a.getName())
@@ -130,14 +140,23 @@ public class ApprovalService {
                         .build())
                 .collect(Collectors.toList());
         List<ReportDetailResDto.ApprovalLineResDto> lines = r.getApprovalLines().stream()
-                .map(l -> ReportDetailResDto.ApprovalLineResDto.builder()
-                        .employeeId(l.getEmployeeId())
-                        .name(String.valueOf(l.getEmployeeId()))
-                        .status(l.getStatus().name())
-                        .order(l.getApprovalOrder())
-                        .approvedAt(l.getProcessedAt() != null ? l.getProcessedAt().format(fmt) : null)
-                        .build())
+                .map(l -> {
+                    String name = employeeFeignClient.getById(l.getEmployeeId())
+                            .getBody().getName();
+                    return ReportDetailResDto.ApprovalLineResDto.builder()
+                            .employeeId(l.getEmployeeId())
+                            .name(name)
+                            .status(l.getStatus().name())
+                            .order(l.getApprovalOrder())
+                            .approvedAt(l.getApprovalDateTime() != null
+                                    ? l.getApprovalDateTime().format(fmt) : null)
+                            .build();
+                })
                 .collect(Collectors.toList());
+        String currentApprover = r.getCurrentApproverId() != null
+                ? employeeFeignClient.getById(r.getCurrentApproverId())
+                .getBody().getName()
+                : null;
         return ReportDetailResDto.builder()
                 .id(r.getId())
                 .title(r.getTitle())
@@ -145,12 +164,12 @@ public class ApprovalService {
                 .attachments(atts)
                 .writer(ReportDetailResDto.WriterInfoDto.builder()
                         .id(r.getWriterId())
-                        .name(String.valueOf(r.getWriterId()))
+                        .name(writerName)
                         .build())
                 .createdAt(r.getCreatedAt().format(fmt))
                 .status(r.getStatus().name())
                 .approvalLine(lines)
-                .currentApprover(String.valueOf(r.getCurrentApproverId()))
+                .currentApprover(currentApprover)
                 .dueDate(null)
                 .build();
     }
@@ -160,21 +179,39 @@ public class ApprovalService {
      */
     @Transactional
     public ApprovalProcessResDto processApproval(Long reportId, Long userId, ApprovalProcessReqDto req) {
+
         ApprovalLine line = approvalRepository
-                .findByReports_IdAndEmployeeIdAndStatus(reportId, userId, ApprovalStatus.PENDING)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "결재 권한이 없습니다."));
-        line.process(req.getAction(), req.getComment());
-        line.setProcessedAt(LocalDateTime.now());
+                .findByReportApprovalIdAndEmployeeIdAndStatus(reportId, userId, ApprovalStatus.PENDING)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN, "결재 권한이 없습니다."));
+        // ② action에 따라 approve/reject 호출 (approvalDateTime, approvalComment가 세팅됨)
+        if ("APPROVE".equalsIgnoreCase(req.getAction())) {
+            line.approve(req.getComment());
+        } else if ("REJECT".equalsIgnoreCase(req.getAction())) {
+            line.reject(req.getComment());
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "알 수 없는 action 입니다.");
+        }
+
+        // ③ 변경된 라인 저장
         approvalRepository.save(line);
+        // ④ 보고서 상태 이동
         Reports report = line.getReports();
         report.moveToNextOrComplete(line);
         reportsRepository.save(report);
+
+        // ⑤ 다음 결재자 이름 조회 (Fei​gn)
+        String nextName = report.getCurrentApproverId() != null
+                ? employeeFeignClient.getById(report.getCurrentApproverId())
+                .getBody().getName()
+                : null;
+
+        // ⑥ DTO 반환
         return ApprovalProcessResDto.builder()
                 .reportId(reportId)
                 .action(req.getAction())
                 .status(report.getStatus().name())
-                .nextApprover(report.getCurrentApproverId() != null ?
-                        String.valueOf(report.getCurrentApproverId()) : null)
+                .nextApprover(nextName)
                 .build();
     }
 
@@ -186,7 +223,7 @@ public class ApprovalService {
         Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        if (!report.getWriterId().equals(userId) || report.getStatus() != ReportStatus.PENDING) {
+        if (!report.getWriterId().equals(userId) || report.getStatus() != ReportStatus.IN_PROGRESS) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
         }
         report.recall();
@@ -205,7 +242,7 @@ public class ApprovalService {
         Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        if (!report.getCurrentApproverId().equals(userId) || report.getStatus() != ReportStatus.PENDING) {
+        if (!report.getCurrentApproverId().equals(userId) || report.getStatus() != ReportStatus.IN_PROGRESS) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "리마인드 권한이 없습니다.");
         }
         report.remind();
@@ -246,17 +283,32 @@ public class ApprovalService {
         Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        ReportReferences ref = ReportReferences.fromDto(report, req);
+        ReportReferences ref = ReportReferences.fromReferenceReqDto(report, req);
         ReportReferences saved = referenceRepository.save(ref);
-        return ReferenceResDto.fromEntity(saved);
+        return ReferenceResDto.fromReportReferences(saved);
     }
 
     /**
-     * 참조자 삭제 처리
+     * 참조자 제거 처리
      */
     @Transactional
-    public void deleteReference(Long reportId, Long employeeId) {
+    public ReportReferencesResDto deleteReferences(Long reportId, Long userId, Long employeeId) {
+        // 1) 보고서 존재 및 권한 확인 (작성자만 삭제 가능)
+        Reports report = reportsRepository.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+        if (!report.getWriterId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 삭제 권한이 없습니다.");
+        }
+
+        // 2) 참조 삭제
         referenceRepository.deleteByReportIdAndEmployeeId(reportId, employeeId);
+
+        // 3) 응답 DTO 반환
+        return ReportReferencesResDto.builder()
+                .reportId(reportId)
+                .employeeId(employeeId)
+                .build();
     }
 
     /**
@@ -267,21 +319,8 @@ public class ApprovalService {
         Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        ReportAttachment att = ReportAttachment.fromDto(report, req);
+        ReportAttachment att = ReportAttachment.fromAttachmentReqDto(report, req);
         ReportAttachment saved = attachmentRepository.save(att);
-        return AttachmentResDto.fromEntity(saved);
-    }
-
-    /**
-     * 댓글 등록 처리
-     */
-    @Transactional
-    public CommentResDto createComment(Long reportId, Long userId, CommentReqDto req) {
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        Comment comment = Comment.fromDto(report, userId, req);
-        Comment saved = commentRepository.save(comment);
-        return CommentResDto.fromEntity(saved);
+        return AttachmentResDto.fromReportAttachment(saved);
     }
 }
