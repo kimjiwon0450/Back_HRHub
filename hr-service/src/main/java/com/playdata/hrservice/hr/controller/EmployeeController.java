@@ -1,4 +1,5 @@
 package com.playdata.hrservice.hr.controller;
+
 import com.playdata.hrservice.common.auth.JwtTokenProvider;
 import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.common.auth.TokenUserInfo;
@@ -9,6 +10,7 @@ import com.playdata.hrservice.hr.dto.EmployeeReqDto;
 import com.playdata.hrservice.hr.dto.EmployeeResDto;
 import com.playdata.hrservice.hr.entity.Employee;
 import com.playdata.hrservice.hr.service.EmployeeService;
+import com.playdata.hrservice.hr.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
@@ -20,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,7 +38,7 @@ public class EmployeeController {
     private final EmployeeService employeeService;
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTemplate<String, Object> redisTemplate;
-
+    private final S3Service s3Service;
     private final Environment env;
 
     // 직원 등록
@@ -49,7 +52,7 @@ public class EmployeeController {
     @PatchMapping("/employees/password")
     public ResponseEntity<?> modifyPassword(@RequestBody EmployeePasswordDto dto) {
         employeeService.modifyPassword(dto);
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null),HttpStatus.OK);
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
     }
 
     // 로그인
@@ -87,11 +90,13 @@ public class EmployeeController {
     public ResponseEntity<?> getEmployee(@PathVariable("id") Long id) {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
     }
+
     // 직원 이름 조회
     @GetMapping("/employees/{id}/name")
     public ResponseEntity<?> getEmployeeName(@PathVariable("id") Long id) {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeName(id)), HttpStatus.OK);
     }
+
     // 직원 부서명 조회
     @GetMapping("/employees/{id}/name/department")
     public ResponseEntity<?> getDepartmentNameOfEmployee(@PathVariable("id") Long id) {
@@ -110,11 +115,18 @@ public class EmployeeController {
     // 직원 퇴사 처리
     @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
     @PatchMapping("/employee/{id}/retire")
-    public ResponseEntity<?> retireEmployee(@PathVariable("id") Long id){
+    public ResponseEntity<?> retireEmployee(@PathVariable("id") Long id) {
 
         employeeService.deleteEmployee(id);
 
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
+    }
+
+    //프로필 이미지 업로드
+    @PostMapping("/profileImage")
+    public ResponseEntity<?> uploadFile(@RequestParam Long employeeId, @RequestParam("file") MultipartFile file) throws Exception {
+        s3Service.uploadProfile(employeeId, file);
+        return ResponseEntity.ok("파일 업로드 성공");
     }
 
     // 토큰 리프레시
@@ -146,7 +158,7 @@ public class EmployeeController {
     @GetMapping("/health-check")
     public String healthCheck() {
         String msg = "";
-        msg += "token.exp_time:" + env.getProperty("token.expiration_time") +"\n";
+        msg += "token.exp_time:" + env.getProperty("token.expiration_time") + "\n";
         return msg;
     }
 

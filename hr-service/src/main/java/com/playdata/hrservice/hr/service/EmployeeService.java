@@ -52,7 +52,6 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final EmployeePasswordRepository employeePasswordRepository;
     private final PasswordEncoder encoder;
-    private final AwsS3Config awsS3Config;
     private final RedisTemplate<String, Object> redisTemplate;
     private final DepartmentService departmentService;
 
@@ -195,31 +194,6 @@ public class EmployeeService {
         employeeRepository.save(employee);
     }
 
-
-//
-//
-//    public String uploadProfile(UserRequestDto userRequestDto) throws Exception {
-//        User user = userRepository.findById(userRequestDto.getId()).orElseThrow(
-//                () -> new EntityNotFoundException("User not found!")
-//        );
-//
-//        // 1) 이전 프로필이 기본 url이 아니고, null도 아니라면 삭제
-//        String oldUrl = user.getProfileImage();
-//        if (oldUrl != null && !oldUrl.isBlank()) {
-//            awsS3Config.deleteFromS3Bucket(oldUrl);
-//
-//        }
-//
-//        //2) 새 파일 업로드
-//        MultipartFile profileImage = userRequestDto.getProfileImage();
-//        String uniqueFileName = UUID.randomUUID() + "_" + profileImage.getOriginalFilename();
-//        String imageUrl = awsS3Config.uploadToS3Bucket(profileImage.getBytes(), uniqueFileName);
-//
-//
-//        user.setProfileImage(imageUrl);
-//        userRepository.save(user);
-//        return imageUrl;
-//    }
 }
 
 

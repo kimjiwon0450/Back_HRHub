@@ -89,4 +89,8 @@ public class Employee extends BaseTimeEntity {
         this.status = status;
         this.retireDate = LocalDateTime.now();
     }
+
+    public void updateProfileImageUri(String profileImageUri){
+        this.profileImageUri = profileImageUri;
+    }
 }
