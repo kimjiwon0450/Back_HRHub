@@ -142,8 +142,28 @@ public class EmployeeService {
         return employee.toDto();
     }
 
-    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable) {
-        Page<Employee> page = employeeRepository.findAll(pageable);
+    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable, String field, String keyword, String department) {
+        Page<Employee> page = null;
+        log.info("getEmployeeList: field={}, keyword={}, department={}", field, keyword, department);
+
+        if (field != null && department != null) {
+            if (field.equals("name")) {
+                page = employeeRepository.findByNameContainingAndDepartmentNameContaining(keyword, department, pageable);
+            } else if (field.equals("position")) {
+                page = employeeRepository.findByRoleContainingAndDepartmentNameContaining(keyword, department, pageable);
+            }
+        } else if (field != null) {
+            if (field.equals("name")) {
+                page = employeeRepository.findByNameContaining(keyword,pageable);
+            } else if (field.equals("department")) {
+                page = employeeRepository.findByDepartmentNameContaining(keyword, pageable);
+            }
+        } else if (department != null) {
+            page = employeeRepository.findByDepartmentNameContaining(department, pageable);
+        }
+        if (page == null) {
+            page = employeeRepository.findAll(pageable);
+        }
         return page.map(employee -> EmployeeListResDto.builder()
                 .id(employee.getEmployeeId())
                 .name(employee.getName())
@@ -155,6 +175,12 @@ public class EmployeeService {
 
     public EmployeeResDto getEmployee(Long id) {
         return employeeRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException("해당 직원은 존재하지 않습니다.")
+        ).toDto();
+    }
+
+    public EmployeeResDto getEmployeeByEmail(String email) {
+        return employeeRepository.findByEmail(email).orElseThrow(
                 () -> new EntityNotFoundException("해당 직원은 존재하지 않습니다.")
         ).toDto();
     }
