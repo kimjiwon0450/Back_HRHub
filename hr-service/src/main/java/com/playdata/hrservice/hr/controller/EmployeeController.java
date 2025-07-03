@@ -90,7 +90,7 @@ public class EmployeeController {
     }
 
     // 직원 상세조회 (Feign을 위함)
-    @GetMapping("/employees/{id}")
+    @GetMapping("/feign/employees/{id}")
     public ResponseEntity<EmployeeResDto> getById(@PathVariable("id") Long id) {
         return new ResponseEntity<>(employeeService.getEmployee(id), HttpStatus.OK);
     }
