@@ -56,7 +56,7 @@ public class ApprovalLine {
         this.approvalDateTime = LocalDateTime.now();
     }
 
-    public void reject(String comment) {
+    public void rejected(String comment) {
         this.status = ApprovalStatus.REJECTED;
         this.approvalComment = comment;
         this.approvalDateTime = LocalDateTime.now();

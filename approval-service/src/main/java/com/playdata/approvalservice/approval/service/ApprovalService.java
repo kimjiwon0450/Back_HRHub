@@ -190,32 +190,44 @@ public class ApprovalService {
     }
 
     /**
-     * 결재 처리 (Approve/Reject)
+     * 결재 처리 (Approve/Rejected)
      */
     @Transactional
     public ApprovalProcessResDto processApproval(Long reportId, Long writerId, ApprovalProcessReqDto req) {
+
+        Reports submit = reportsRepository.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서가 없습니다"));
 
         ApprovalLine line = approvalRepository
                 .findByReportsIdAndEmployeeIdAndStatus(reportId, writerId, ApprovalStatus.PENDING)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN, "결재 권한이 없습니다."));
-        // ② action에 따라 approve/reject 호출 (approvalDateTime, approvalComment가 세팅됨)
+
+
+
+        // ② action에 따라 approve/rejected 호출 (approvalDateTime, approvalComment가 세팅됨)
         if ("APPROVE".equalsIgnoreCase(req.getAction())) {
-            line.approve(req.getComment());
-        } else if ("REJECT".equalsIgnoreCase(req.getAction())) {
-            line.reject(req.getComment());
+            submit.submit();
+            reportsRepository.save(submit);
+        } else if ("REJECTED".equalsIgnoreCase(req.getAction())) {
+            submit.submit();
+            reportsRepository.save(submit);
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "알 수 없는 action 입니다.");
         }
 
         // ③ 변경된 라인 저장
+        line.approve(req.getComment());
         approvalRepository.save(line);
+
+
+
         // ④ 보고서 상태 이동
         Reports report = line.getReports();
         report.moveToNextOrComplete(line);
         reportsRepository.save(report);
 
-        // ⑤ 다음 결재자 이름 조회 (Fei​gn)
+        // ⑤ 다음 결재자 이름 조회
         String nextName = report.getCurrentApproverId() != null
                 ? employeeFeignClient.getById(report.getCurrentApproverId())
                 .getBody().getName()

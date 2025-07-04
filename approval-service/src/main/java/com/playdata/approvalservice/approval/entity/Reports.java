@@ -67,6 +67,7 @@ public class Reports extends BaseTimeEntity {
     @Column(name = "reminded_at")
     private LocalDateTime remindedAt;
 
+
     @Builder.Default
     @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReportAttachment> attachments = new ArrayList<>();
@@ -168,10 +169,14 @@ public class Reports extends BaseTimeEntity {
     /**
      * 보고서 상신 처리 (초안 → 결재 대기)
      */
-    public void submit(String comment) {
-        this.status = ReportStatus.DRAFT;
+    public void submit() {
+        this.status = ReportStatus.IN_PROGRESS;
         this.submittedAt = LocalDateTime.now();
-        // 상신 시 코멘트 기록 로직 추가 가능
+
+        ApprovalLine next = approvalLines.stream()
+                .min(Comparator.comparing(ApprovalLine::getApprovalOrder))
+                .orElseThrow();
+        this.currentApproverId = next.getEmployeeId();
     }
 
     /**
@@ -180,6 +185,7 @@ public class Reports extends BaseTimeEntity {
     public void recall() {
         this.status = ReportStatus.RECALLED;
         this.returnAt = LocalDateTime.now();
+        this.currentApproverId = null;
     }
 
     /**
@@ -198,21 +204,32 @@ public class Reports extends BaseTimeEntity {
         // 재상신 시 추가 로직 필요 시 적용
     }
 
-    /**
-     * 다음 결재자로 이동하거나 전체 승인 처리
-     */
-    public void moveToNextOrComplete(ApprovalLine currentLine) {
-        Optional<ApprovalLine> next = approvalLines.stream()
-                .filter(l -> l.getApprovalOrder() > currentLine.getApprovalOrder()
-                        && l.getStatus() == ApprovalStatus.PENDING)
-                .findFirst();
-        if (next.isPresent()) {
-            this.currentApproverId = next.get().getEmployeeId();
-            this.status = ReportStatus.IN_PROGRESS;
-        } else {
+    // ② 결재 처리 후 호출
+    public void moveToNextOrComplete(ApprovalLine line) {
+        if (line.getStatus() == ApprovalStatus.REJECTED) {
+            // 반려
+            this.status   = ReportStatus.REJECTED;
+            this.returnAt = line.getApprovalDateTime();
             this.currentApproverId = null;
-            this.status = ReportStatus.APPROVED;
-            this.completedAt = LocalDateTime.now();
+            return;
+        }
+
+        // 승인된 경우, 다음 결재자 찾기
+        Optional<ApprovalLine> next = approvalLines.stream()
+                .filter(l -> l.getApprovalOrder() > line.getApprovalOrder())
+                .min(Comparator.comparing(ApprovalLine::getApprovalOrder));
+
+        if (next.isPresent()) {
+            // 아직 남은 결재자가 있으면 in progress
+            this.status = ReportStatus.IN_PROGRESS;
+            this.currentApproverId = next.get().getEmployeeId();
+        } else {
+            // 마지막 결재자였으면 최종 승인
+            this.status      = ReportStatus.APPROVED;
+            this.completedAt = line.getApprovalDateTime();
+            this.currentApproverId = null;
         }
     }
+
 }
+
