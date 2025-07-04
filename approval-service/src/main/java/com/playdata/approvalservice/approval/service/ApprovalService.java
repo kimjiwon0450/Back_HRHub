@@ -5,7 +5,6 @@ import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.entity.*;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
-import com.playdata.approvalservice.common.dto.EmployeeResDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
