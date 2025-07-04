@@ -55,6 +55,8 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
             String path = exchange.getRequest().getURI().getPath();
             AntPathMatcher antPathMatcher = new AntPathMatcher();
             boolean isAllowed = allowedPaths.stream().anyMatch(url -> antPathMatcher.match(url, path));
+            log.info("path: {}", path);
+            log.info("isAllowed: {}", isAllowed);
             if (isAllowed) {
                 return chain.filter(exchange);
             }
@@ -72,10 +74,15 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
                 return onError(exchange, "Invalid token", HttpStatus.UNAUTHORIZED);
             }
 
+            log.info("jwt 토큰값 검증");
+            log.info("claims : {}", claims);
+            log.info("userId: {}", claims.get("employeeId"));
+
             ServerHttpRequest request = exchange.getRequest()
                     .mutate()
                     .header("X-User-Email", claims.getSubject())
                     .header("X-User-Role", claims.get("role", String.class))
+                    .header("X-User-Id", claims.get("employeeId", String.class))
                     .build();
 
 

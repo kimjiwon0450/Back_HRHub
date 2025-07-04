@@ -58,9 +58,9 @@ public class EmployeeController {
         EmployeeResDto employeeDto = employeeService.login(dto);
 
         String token
-                = jwtTokenProvider.createToken(employeeDto.getEmail(), employeeDto.getRole().toString());
+                = jwtTokenProvider.createToken(employeeDto.getEmployeeId(), employeeDto.getEmail(), employeeDto.getRole().toString());
         String refreshToken
-                = jwtTokenProvider.createRefreshToken(employeeDto.getEmail(), employeeDto.getRole().toString());
+                = jwtTokenProvider.createRefreshToken(employeeDto.getEmployeeId(), employeeDto.getEmail(), employeeDto.getRole().toString());
 
         redisTemplate.opsForValue().set("user:refresh:" + employeeDto.getEmployeeId(), refreshToken, 30, TimeUnit.MINUTES);
 
@@ -133,7 +133,7 @@ public class EmployeeController {
         // 새로운 access token을 발급
         Employee employee = employeeService.findById(Long.parseLong(id));
         String newAccessToken
-                = jwtTokenProvider.createToken(employee.getEmail(), employee.getRole().toString());
+                = jwtTokenProvider.createToken(employee.getEmployeeId(), employee.getEmail(), employee.getRole().toString());
 
         Map<String, Object> info = new HashMap<>();
         info.put("token", newAccessToken);
