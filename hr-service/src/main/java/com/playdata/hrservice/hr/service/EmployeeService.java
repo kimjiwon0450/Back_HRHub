@@ -29,19 +29,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
 import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.Map;
+import java.util.*;
 
 import org.springframework.http.HttpStatus;
-
-import java.util.List;
-import java.util.Optional;
 
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -146,17 +142,38 @@ public class EmployeeService {
         Page<Employee> page = null;
         log.info("getEmployeeList: field={}, keyword={}, department={}", field, keyword, department);
 
-        if (field != null && department != null) {
-            if (field.equals("name")) {
-                page = employeeRepository.findByNameContainingAndDepartmentNameContaining(keyword, department, pageable);
-            } else if (field.equals("position")) {
-                page = employeeRepository.findByRoleContainingAndDepartmentNameContaining(keyword, department, pageable);
-            }
-        } else if (field != null) {
-            if (field.equals("name")) {
-                page = employeeRepository.findByNameContaining(keyword,pageable);
-            } else if (field.equals("department")) {
-                page = employeeRepository.findByDepartmentNameContaining(keyword, pageable);
+        if (field != null) {
+            switch (field) {
+                case "name" -> {
+                    if (department != null) {
+                        page = employeeRepository.findByNameContainingAndDepartmentNameContaining(keyword, department, pageable);
+                    } else {
+                        page = employeeRepository.findByNameContaining(keyword, pageable);
+                    }
+                }
+                case "position" -> {
+                    List<String> roles = Arrays.stream(Role.values()).map(Enum::name).collect(Collectors.toList());
+                    String matchedRoleName = roles.stream()
+                            .filter(roleName -> roleName.contains(keyword))
+                            .findFirst().orElse(null);
+                    Role role = null;
+                    if (matchedRoleName != null) {
+                        role = Role.valueOf(matchedRoleName);
+                    }
+                    if (department != null) {
+                        page = employeeRepository.findByRoleAndDepartmentNameContaining(role, department, pageable);
+                    } else {
+                        page = employeeRepository.findByRole(role, pageable);
+                    }
+                }
+                case "department" -> page = employeeRepository.findByDepartmentNameContaining(keyword, pageable);
+                case "phone" -> {
+                    if (department != null) {
+                        page = employeeRepository.findByPhoneContainingAndDepartmentNameContaining(keyword, department, pageable);
+                    } else {
+                        page = employeeRepository.findByPhoneContaining(keyword, pageable);
+                    }
+                }
             }
         } else if (department != null) {
             page = employeeRepository.findByDepartmentNameContaining(department, pageable);
