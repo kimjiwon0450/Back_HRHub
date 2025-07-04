@@ -149,8 +149,8 @@ public class EmployeeController {
             return new ResponseEntity<>(new CommonResDto(HttpStatus.BAD_REQUEST, "본인 사진만 변경가능합니다", null), HttpStatus.BAD_REQUEST);
         }
 
-        s3Service.uploadProfile(targetEmail, file);
-        return ResponseEntity.ok("파일 업로드 성공");
+        String resImageUri = s3Service.uploadProfile(targetEmail, file);
+        return ResponseEntity.ok(resImageUri);
     }
 
     // 토큰 리프레시
