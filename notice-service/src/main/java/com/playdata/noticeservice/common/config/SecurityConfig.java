@@ -34,10 +34,10 @@ public class SecurityConfig {
             auth
 //                    .requestMatchers("/user/list").hasRole("ROLE_ADMIN")
                     .requestMatchers(
-                            "/notice-service", "/notice-service/noticeboard", "/notice-service/noticeboard/*",
-                            "/notice-service/noticeboard/write",
-                            "/notice-service/noticeboard/department/*",
-                            "/actuator/**").permitAll()
+//                             "/notice-service/noticeboard", "/notice-service/noticeboard/*",
+//                            "/notice-service/noticeboard/write",
+//                            "/notice-service/noticeboard/department/*",
+                            "/notice-service", "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });
 

@@ -6,8 +6,6 @@ import lombok.*;
 @Setter
 @ToString
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class DepResponse {
     private Long id;
     private String name;

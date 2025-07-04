@@ -24,12 +24,13 @@ public class JwtTokenProvider {
     @Value("${jwt.expirationRt}")
     private int expirationRt;
 
-    public String createToken(String email, String role, Long employeeId){
+    public String createToken(String email, String role, Long employeeId, Long departmentId){
         // Claims: 페이로드에 들어갈 사용자 정보
         Claims claims = Jwts.claims();
         claims.put("email", email);
         claims.put("role", role);
         claims.put("id", employeeId);
+        claims.put("depId", departmentId);
 
         Date now = new Date();
 
@@ -42,10 +43,12 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String createRefreshToken(String email, String role){
+    public String createRefreshToken(String email, String role, Long employeeId, Long departmentId){
         // Claims: 페이로드에 들어갈 사용자 정보
         Claims claims = Jwts.claims().setSubject(email);
         claims.put("role", role);
+        claims.put("id", employeeId);
+        claims.put("depId", departmentId);
         Date now = new Date();
 
         return Jwts.builder()

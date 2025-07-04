@@ -32,9 +32,9 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
             "/hr-service/employees/password", "/hr-service/employees/*",
             "/hr-service/departments", "/hr-service/departments/*",
             "/badges/**",
-            "/icons/**",
-            "/notice-service", "/notice-service/noticeboard", "/notice-service/noticeboard/*",
-            "/notice-service/noticeboard/write", "/notice-service/noticeboard/department/**",
+            "/icons/**", "/notice-service",
+//            "/notice-service/noticeboard", "/notice-service/noticeboard/*",
+//            "/notice-service/noticeboard/write", "/notice-service/noticeboard/department/**",
             "/notice-service/reviews/user/*", "/hr-service/user/*",
             "/restaurant-service/restaurant/list",
             "/restaurant-service/restaurants/*",
@@ -59,9 +59,11 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
             log.info("isAllowed: {}", isAllowed);
             if (isAllowed) {
                 return chain.filter(exchange);
+
             }
                     // 일단 토큰을 얻어오자
             String authorizationHeader = exchange.getRequest().getHeaders().getFirst("Authorization");
+            log.info("authorizationHeader: {}", authorizationHeader);
             if (authorizationHeader == null
                 || !authorizationHeader.startsWith("Bearer ")) {
                 return onError(exchange, "Authorization header is missing or invalid", HttpStatus.UNAUTHORIZED);
@@ -70,6 +72,7 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
             String token = authorizationHeader.replace("Bearer ", "");
 
             Claims claims = validateJwt(token);
+            log.info("claims : {}", claims);
             if (claims == null) {
                 return onError(exchange, "Invalid token", HttpStatus.UNAUTHORIZED);
             }
@@ -77,12 +80,14 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
             log.info("jwt 토큰값 검증");
             log.info("claims : {}", claims);
             log.info("userId: {}", claims.get("employeeId"));
+            log.info("departmentId: {}", claims.get("employeeId"));
 
             ServerHttpRequest request = exchange.getRequest()
                     .mutate()
                     .header("X-User-Email", claims.getSubject())
                     .header("X-User-Role", claims.get("role", String.class))
                     .header("X-User-Id", claims.get("employeeId", String.class))
+                    .header("X-Department-Id", claims.get("departmentId", String.class))
                     .build();
 
 
