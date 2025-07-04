@@ -1,40 +1,27 @@
 package com.playdata.approvalservice.approval.repository;
 
 import com.playdata.approvalservice.approval.entity.ApprovalLine;
-import com.playdata.approvalservice.approval.entity.ReportStatus;
+import com.playdata.approvalservice.approval.entity.ApprovalStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 import java.util.Optional;
 
-// Approval 엔티티(결재 단계) 관리를 위한 리포지토리
 public interface ApprovalRepository extends JpaRepository<ApprovalLine, Long> {
 
-    /**
-     * 보고서의 전체 결재라인을 순서대로 조회
-     * @param reportApprovalId 보고서 ID
-     */
-    List<ApprovalLine> findByReportApprovalIdOrderByOrderSequenceAsc(Long reportApprovalId);
+    // (1) 특정 리포트·사원·상태의 한 건 조회
+    Optional<ApprovalLine> findByReportsIdAndEmployeeIdAndStatus(
+            Long reportId,
+            Long employeeId,
+            ApprovalStatus status
+    );
 
-    /**
-     * 대기 중인 첫 번째 결재 단계 조회
-     * @param reportApprovalId 보고서 ID
-     * @param status 대기 상태 (IN_PROGRESS)
-     */
-    Optional<ApprovalLine> findFirstByReportApprovalIdAndStatusOrderByOrderSequenceAsc(Long reportApprovalId, ReportStatus status);
+    // (2) 리포트의 전체 결재 라인 이력 (순번 오름차순)
+    List<ApprovalLine> findByReportsIdOrderByApprovalOrderAsc(Long reportId);
 
-    /**
-     * 보고서 & 결재자 기준 개별 결재 정보 조회
-     * @param reportApprovalId 보고서 ID
-     * @param employeeId 결재자 ID
-     */
-    Optional<ApprovalLine> findByReportApprovalIdAndEmployeeId(Long reportApprovalId, Long employeeId);
-
-    /**
-     * 특정 보고서의 특정 단계가 완료됐는지 확인
-     * @param reportApprovalId 보고서 ID
-     * @param orderSequence 단계 순서
-     */
-    boolean existsByReportApprovalIdAndOrderSequenceAndStatus(Long reportApprovalId, Integer orderSequence, ReportStatus status);
-
+    // (3) 다음 결재(첫 PENDING) 한 건 조회
+    Optional<ApprovalLine> findFirstByReportsIdAndStatusOrderByApprovalOrderAsc(
+            Long reportId,
+            ApprovalStatus status
+    );
 }

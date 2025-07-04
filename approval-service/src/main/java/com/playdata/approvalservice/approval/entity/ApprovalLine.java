@@ -2,6 +2,7 @@ package com.playdata.approvalservice.approval.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -22,7 +23,7 @@ public class ApprovalLine {
 
     /** FK → 보고서ID */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "report_approval_id", nullable = false)
+    @JoinColumn(name = "report_approval_id")
     private Reports reports;
 
     /** 결재자(사번) */
@@ -38,7 +39,8 @@ public class ApprovalLine {
     private Integer approvalOrder;
 
     /** 결재 처리 일시 (승인/반려/회수 등 최종 변경 시각) */
-    @Column(name = "approval_date_time", nullable = false)
+    @CreationTimestamp
+    @Column(name = "approval_date_time", nullable = false, updatable = false)
     private LocalDateTime approvalDateTime;
 
     /** 결재 코멘트 */
@@ -54,9 +56,11 @@ public class ApprovalLine {
         this.approvalDateTime = LocalDateTime.now();
     }
 
-    public void reject(String comment) {
+    public void rejected(String comment) {
         this.status = ApprovalStatus.REJECTED;
         this.approvalComment = comment;
         this.approvalDateTime = LocalDateTime.now();
     }
+
+
 }
