@@ -61,9 +61,9 @@ public class EmployeeController {
         EmployeeResDto employeeDto = employeeService.login(dto);
 
         String token
-                = jwtTokenProvider.createToken(employeeDto.getEmail(), employeeDto.getRole().toString());
+                = jwtTokenProvider.createToken(employeeDto.getEmployeeId(), employeeDto.getEmail(), employeeDto.getRole().toString(), employeeDto.getDepartmentId());
         String refreshToken
-                = jwtTokenProvider.createRefreshToken(employeeDto.getEmail(), employeeDto.getRole().toString());
+                = jwtTokenProvider.createRefreshToken(employeeDto.getEmployeeId(), employeeDto.getEmail(), employeeDto.getRole().toString(), employeeDto.getDepartmentId());
 
         redisTemplate.opsForValue().set("user:refresh:" + employeeDto.getEmployeeId(), refreshToken, 30, TimeUnit.MINUTES);
 
@@ -72,6 +72,8 @@ public class EmployeeController {
         loginInfo.put("id", employeeDto.getEmployeeId());
         loginInfo.put("name", employeeDto.getName());
         loginInfo.put("role", employeeDto.getRole().toString());
+        loginInfo.put("depId", employeeDto.getDepartmentId());
+
 
         CommonResDto resDto
                 = new CommonResDto(HttpStatus.OK,
@@ -170,7 +172,7 @@ public class EmployeeController {
         // 새로운 access token을 발급
         Employee employee = employeeService.findById(Long.parseLong(id));
         String newAccessToken
-                = jwtTokenProvider.createToken(employee.getEmail(), employee.getRole().toString());
+                = jwtTokenProvider.createToken(employee.getEmployeeId(), employee.getEmail(), employee.getRole().toString(), employee.getDepartment().getId());
 
         Map<String, Object> info = new HashMap<>();
         info.put("token", newAccessToken);

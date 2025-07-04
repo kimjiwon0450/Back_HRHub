@@ -1,10 +1,13 @@
 package com.playdata.noticeservice.common.auth;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -13,18 +16,25 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 @Component
 @Slf4j
 public class JwtAuthFilter extends OncePerRequestFilter {
+
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
         // 게이트웨이가 토큰 내에 클레임을 헤더에 담아서 보내준다.
         String userEmail = request.getHeader("X-User-Email");
         String userRole = request.getHeader("X-User-Role");
-        log.info("userEmail:{} userRole:{}", userEmail, userRole);
+        String userId = request.getHeader("X-User-Id");
+        String departmentId = request.getHeader("X-Department-Id");
+        log.info("userId: {}, userEmail:{}, userRole:{}, departmentId:{}", userId, userEmail, userRole, departmentId);
 
         if (userEmail != null && userRole != null) {
 
@@ -39,7 +49,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             // 인증 완료 처리
             // 위에서 준비한 여러가지 사용자 정보, 인가정보 리스트를 하나의 객체로 포장
             Authentication auth = new UsernamePasswordAuthenticationToken(
-                    new TokenUserInfo(userEmail, Role.valueOf(userRole)), // 컨트롤러 등에서 활용할 유저 정보
+                    new TokenUserInfo(Long.parseLong(userId), userEmail, Role.valueOf(userRole), Long.parseLong(departmentId)), // 컨트롤러 등에서 활용할 유저 정보
                     "", // 인증된 사용자의 비밀번호: 보통 null 혹은 빈 문자열로 선언.
                     authorityList // 인가 정보 (권한)
             );

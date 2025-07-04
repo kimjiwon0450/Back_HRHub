@@ -17,7 +17,7 @@ public class NoticeResponse {
     private String content;
     private Long employeeId;
     private String name; // 작성자 이름
-    private String writerDepartment;
+    private String departmentName;
     private Long departmentId;
     private boolean isNotice;
     private boolean hasAttachment;
@@ -58,4 +58,23 @@ public class NoticeResponse {
                 .viewCount(notice.getViewCount())
                 .build();
     }
+
+    public static NoticeResponse fromEntity(Notice notice, String name, String departmentName) {
+        return NoticeResponse.builder()
+                .id(notice.getId())
+                .title(notice.getTitle())
+                .content(notice.getContent())
+                .employeeId(notice.getEmployeeId())
+                .name(name) // 여기에 주입
+                .departmentId(notice.getDepartmentId())
+                .departmentName(departmentName)
+                .isNotice(notice.isNotice())
+                .hasAttachment(notice.isHasAttachment())
+                .boardStatus(notice.isBoardStatus())
+                .createdAt(notice.getCreatedAt())
+                .updatedAt(notice.getUpdatedAt())
+                .viewCount(notice.getViewCount())
+                .build();
+    }
+
 }

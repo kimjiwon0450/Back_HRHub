@@ -24,7 +24,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // 게이트웨이가 토큰 내에 클레임을 헤더에 담아서 보내준다.
         String userEmail = request.getHeader("X-User-Email");
         String userRole = request.getHeader("X-User-Role");
-        log.info("userEmail:{} userRole:{}", userEmail, userRole);
+        String userId = request.getHeader("X-User-Id");
+        String departmentId = request.getHeader("X-Department-Id");
+        log.info("userId: {}, userEmail:{}, userRole:{}, departmentId:{} ", userId, userEmail, userRole, departmentId);
 
         if (userEmail != null && userRole != null) {
 
@@ -39,7 +41,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             // 인증 완료 처리
             // 위에서 준비한 여러가지 사용자 정보, 인가정보 리스트를 하나의 객체로 포장
             Authentication auth = new UsernamePasswordAuthenticationToken(
-                    new TokenUserInfo(userEmail, Role.valueOf(userRole)), // 컨트롤러 등에서 활용할 유저 정보
+                    new TokenUserInfo(Long.parseLong(userId), userEmail, Role.valueOf(userRole), Long.parseLong(departmentId)), // 컨트롤러 등에서 활용할 유저 정보
                     "", // 인증된 사용자의 비밀번호: 보통 null 혹은 빈 문자열로 선언.
                     authorityList // 인가 정보 (권한)
             );

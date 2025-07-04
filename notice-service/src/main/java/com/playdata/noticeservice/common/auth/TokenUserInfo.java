@@ -8,7 +8,8 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class TokenUserInfo {
-
+    private Long employeeId;
     private String email;
     private Role role;
+    private Long DepartmentId;
 }

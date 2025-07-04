@@ -1,5 +1,6 @@
 package com.playdata.noticeservice.notice.service;
 
+import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.notice.dto.NoticeCreateRequest;
 import com.playdata.noticeservice.notice.dto.NoticeUpdateRequest;
 import com.playdata.noticeservice.notice.entity.Notice;
@@ -7,6 +8,7 @@ import com.playdata.noticeservice.notice.entity.NoticeRead;
 import com.playdata.noticeservice.notice.repository.NoticeReadRepository;
 import com.playdata.noticeservice.notice.repository.NoticeRepository;
 import com.playdata.noticeservice.common.client.HrUserClient;
+import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.NoticeResponse;
 
@@ -34,6 +36,7 @@ public class NoticeService {
     private final NoticeReadRepository noticeReadRepository;
     private final S3Service s3Service;
     private final HrUserClient hrUserClient;
+    private final DepartmentClient departmentClient;
 
     public List<Notice> getTopNotices() {
         return noticeRepository.findByIsNoticeTrueOrderByCreatedAtDesc();
@@ -137,6 +140,22 @@ public class NoticeService {
                 .toList();
     }
 
+    public List<NoticeResponse> getDepartmentPosts(Long userId) {
+        HrUserResponse user = hrUserClient.getUserInfo(userId);
+        Long departmentId = user.getDepartmentId();
+        DepResponse dep = departmentClient.getDepInfo(departmentId);
+
+        List<Notice> notices = noticeRepository.findByDepartmentIdOrderByCreatedAtDesc(departmentId);
+
+        return notices.stream()
+                .map(notice -> {
+                    HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
+                    return NoticeResponse.fromEntity(notice, writer.getName(), dep.getName());
+                })
+                .toList();
+    }
+
+
     public List<Notice> getTopNoticesByDepartment(Long departmentId) {
         return noticeRepository.findByIsNoticeTrueAndDepartmentIdOrderByCreatedAtDesc(departmentId);
     }
@@ -174,14 +193,5 @@ public class NoticeService {
         }).toList();
     }
 
-    public List<NoticeResponse> getDepartmentPosts(Long userId) {
-        HrUserResponse user = hrUserClient.getUserInfo(userId);
-        Long departmentId = user.getDepartmentId();
 
-        List<Notice> notices = noticeRepository.findByDepartmentIdOrderByCreatedAtDesc(departmentId);
-
-        return notices.stream()
-                .map(notice -> NoticeResponse.fromEntity(notice, user.getName()))
-                .toList();
-    }
 }

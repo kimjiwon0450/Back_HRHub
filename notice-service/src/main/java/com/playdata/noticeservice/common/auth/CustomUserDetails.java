@@ -16,6 +16,8 @@ public class CustomUserDetails implements UserDetails {
     private Long departmentId;
     private String username;
     private String password;
+    private String email;
+    private String role;
 
     @Builder.Default
     private boolean enabled = true;
