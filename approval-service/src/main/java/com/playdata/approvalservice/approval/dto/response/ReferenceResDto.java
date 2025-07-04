@@ -22,7 +22,7 @@ public class ReferenceResDto {
     public static ReferenceResDto fromReportReferences(ReportReferences ref) {
         return ReferenceResDto.builder()
                 .referenceId(ref.getReferenceId())
-                .reportId(ref.getReportApprovalId())
+                .reportId(ref.getReports().getId())
                 .employeeId(ref.getEmployeeId())
                 .build();
     }

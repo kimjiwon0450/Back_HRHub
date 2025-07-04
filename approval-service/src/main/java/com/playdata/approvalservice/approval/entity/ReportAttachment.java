@@ -28,12 +28,6 @@ public class ReportAttachment extends BaseTimeEntity {
     private Long id;
 
     /**
-     * 보고서 결재 id
-     */
-    @Column(name = "report_approval_id", nullable = false)
-    private Long reportApprovalId;
-
-    /**
      * FK → BoardReport.id
      */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -61,7 +55,6 @@ public class ReportAttachment extends BaseTimeEntity {
     public static ReportAttachment fromAttachmentReqDto(Reports report, AttachmentReqDto dto) {
         return ReportAttachment.builder()
                 .reports(report)
-                .reportApprovalId(report.getId())
                 .name(dto.getFileName())
                 .url(dto.getUrl())
                 .uploadTime(LocalDateTime.now())

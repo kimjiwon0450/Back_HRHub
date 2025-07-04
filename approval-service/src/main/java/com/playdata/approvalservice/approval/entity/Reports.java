@@ -144,6 +144,7 @@ public class Reports extends BaseTimeEntity {
                     .employeeId(dto.getEmployeeId())
                     .approvalOrder(dto.getOrder())
                     .status(ApprovalStatus.PENDING)
+                    .approvalDateTime(LocalDateTime.now())
                     .build();
             approvalLines.add(line);
         });

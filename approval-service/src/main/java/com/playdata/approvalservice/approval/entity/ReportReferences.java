@@ -22,9 +22,6 @@ public class ReportReferences {
     @Column(name = "employee_id", nullable = false)
     private Long employeeId;
 
-    @Column(name = "report_approval_id", nullable = false)
-    private Long reportApprovalId;
-
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "report_approval_id", insertable = false, updatable = false)
     private Reports reports;
@@ -34,7 +31,7 @@ public class ReportReferences {
      */
     public static ReportReferences fromReferenceReqDto(Reports report, ReferenceReqDto dto) {
         return ReportReferences.builder()
-                .reportApprovalId(report.getId())
+                .referenceId(report.getId())
                 .employeeId(dto.getEmployeeId())
                 .build();
     }

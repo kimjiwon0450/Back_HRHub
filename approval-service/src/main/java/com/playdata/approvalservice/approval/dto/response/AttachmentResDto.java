@@ -24,7 +24,7 @@ public class AttachmentResDto {
     public static AttachmentResDto fromReportAttachment(ReportAttachment att) {
         return AttachmentResDto.builder()
                 .attachmentId(att.getId())
-                .reportId(att.getReportApprovalId())
+                .reportId(att.getReports().getId())
                 .fileName(att.getName())
                 .url(att.getUrl())
                 .uploadedAt(att.getUploadTime())
