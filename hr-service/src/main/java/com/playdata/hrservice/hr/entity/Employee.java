@@ -44,6 +44,8 @@ public class Employee extends BaseTimeEntity {
     private LocalDateTime retireDate;
 
     private Boolean isNewEmployee; // 경력 또는 신입 (입사구분) - yhj
+
+    @Enumerated(EnumType.STRING)
     private EmployeeStatus status;
     @Enumerated(EnumType.STRING)
     private Role role;
