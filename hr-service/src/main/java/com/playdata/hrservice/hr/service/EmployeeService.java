@@ -29,19 +29,15 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.AccessDeniedException;
 import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.Map;
+import java.util.*;
 
 import org.springframework.http.HttpStatus;
-
-import java.util.List;
-import java.util.Optional;
 
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -141,8 +137,49 @@ public class EmployeeService {
         return employee.toDto();
     }
 
-    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable) {
-        Page<Employee> page = employeeRepository.findAll(pageable);
+    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable, String field, String keyword, String department) {
+        Page<Employee> page = null;
+        log.info("getEmployeeList: field={}, keyword={}, department={}", field, keyword, department);
+
+        if (field != null) {
+            switch (field) {
+                case "name" -> {
+                    if (department != null) {
+                        page = employeeRepository.findByNameContainingAndDepartmentNameContaining(keyword, department, pageable);
+                    } else {
+                        page = employeeRepository.findByNameContaining(keyword, pageable);
+                    }
+                }
+                case "position" -> {
+                    List<String> roles = Arrays.stream(Role.values()).map(Enum::name).collect(Collectors.toList());
+                    String matchedRoleName = roles.stream()
+                            .filter(roleName -> roleName.contains(keyword))
+                            .findFirst().orElse(null);
+                    Role role = null;
+                    if (matchedRoleName != null) {
+                        role = Role.valueOf(matchedRoleName);
+                    }
+                    if (department != null) {
+                        page = employeeRepository.findByRoleAndDepartmentNameContaining(role, department, pageable);
+                    } else {
+                        page = employeeRepository.findByRole(role, pageable);
+                    }
+                }
+                case "department" -> page = employeeRepository.findByDepartmentNameContaining(keyword, pageable);
+                case "phone" -> {
+                    if (department != null) {
+                        page = employeeRepository.findByPhoneContainingAndDepartmentNameContaining(keyword, department, pageable);
+                    } else {
+                        page = employeeRepository.findByPhoneContaining(keyword, pageable);
+                    }
+                }
+            }
+        } else if (department != null) {
+            page = employeeRepository.findByDepartmentNameContaining(department, pageable);
+        }
+        if (page == null) {
+            page = employeeRepository.findAll(pageable);
+        }
         return page.map(employee -> EmployeeListResDto.builder()
                 .id(employee.getEmployeeId())
                 .name(employee.getName())
@@ -154,6 +191,12 @@ public class EmployeeService {
 
     public EmployeeResDto getEmployee(Long id) {
         return employeeRepository.findById(id).orElseThrow(
+                () -> new EntityNotFoundException("해당 직원은 존재하지 않습니다.")
+        ).toDto();
+    }
+
+    public EmployeeResDto getEmployeeByEmail(String email) {
+        return employeeRepository.findByEmail(email).orElseThrow(
                 () -> new EntityNotFoundException("해당 직원은 존재하지 않습니다.")
         ).toDto();
     }

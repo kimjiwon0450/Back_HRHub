@@ -1,5 +1,4 @@
 package com.playdata.hrservice.hr.controller;
-
 import com.playdata.hrservice.common.auth.JwtTokenProvider;
 import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.common.auth.TokenUserInfo;
@@ -53,7 +52,7 @@ public class EmployeeController {
     @PatchMapping("/employees/password")
     public ResponseEntity<?> modifyPassword(@RequestBody EmployeePasswordDto dto) {
         employeeService.modifyPassword(dto);
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null),HttpStatus.OK);
     }
 
     // 로그인
@@ -82,8 +81,9 @@ public class EmployeeController {
 
     // 간소화 된 직원 리스트
     @GetMapping("/employees")
-    public ResponseEntity<?> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable) {
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeList(pageable)), HttpStatus.OK);
+    public ResponseEntity<?> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable, @RequestParam(required = false) String field,
+                                              @RequestParam(required = false) String keyword, @RequestParam(required = false) String department) {
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeList(pageable, field, keyword, department)), HttpStatus.OK);
     }
 
     // 직원 상세조회
@@ -92,12 +92,22 @@ public class EmployeeController {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
     }
 
+    // 직원 상세조회 (Feign을 위함)
+    @GetMapping("/feign/employees/{id}")
+    public ResponseEntity<EmployeeResDto> getById(@PathVariable("id") Long id) {
+        return new ResponseEntity<>(employeeService.getEmployee(id), HttpStatus.OK);
+    }
+
+    @GetMapping("/employees/email/{email}")
+    public ResponseEntity<EmployeeResDto> getEmployeeByEmail(@PathVariable("email") String email) {
+        return new ResponseEntity<>(employeeService.getEmployeeByEmail(email), HttpStatus.OK);
+    }
+
     // 직원 이름 조회
     @GetMapping("/employees/{id}/name")
     public ResponseEntity<?> getEmployeeName(@PathVariable("id") Long id) {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeName(id)), HttpStatus.OK);
     }
-
     // 직원 부서명 조회
     @GetMapping("/employees/{id}/name/department")
     public ResponseEntity<?> getDepartmentNameOfEmployee(@PathVariable("id") Long id) {
@@ -116,7 +126,7 @@ public class EmployeeController {
     // 직원 퇴사 처리
     @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
     @PatchMapping("/employee/{id}/retire")
-    public ResponseEntity<?> retireEmployee(@PathVariable("id") Long id) {
+    public ResponseEntity<?> retireEmployee(@PathVariable("id") Long id){
 
         employeeService.deleteEmployee(id);
 
@@ -172,7 +182,7 @@ public class EmployeeController {
     @GetMapping("/health-check")
     public String healthCheck() {
         String msg = "";
-        msg += "token.exp_time:" + env.getProperty("token.expiration_time") + "\n";
+        msg += "token.exp_time:" + env.getProperty("token.expiration_time") +"\n";
         return msg;
     }
 
