@@ -2,6 +2,7 @@ package com.playdata.noticeservice.notice.dto;
 
 import com.playdata.noticeservice.notice.entity.Notice;
 import lombok.*;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 
@@ -25,6 +26,7 @@ public class NoticeResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private int viewCount;
+
 
     // 엔티티 -> DTO 변환 정적 메서드
     public static NoticeResponse fromEntity(Notice notice) {
