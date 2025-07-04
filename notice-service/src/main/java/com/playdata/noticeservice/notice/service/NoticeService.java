@@ -108,8 +108,7 @@ public class NoticeService {
     }
 
     @Transactional
-    public void markAsRead(Long noticeId, Long userId) {
-        // 이미 읽은 경우 처리 X
+    public void markAsRead( Long userId, Long noticeId) {
         boolean alreadyRead = noticeReadRepository.findByNoticeIdAndUserId(noticeId, userId).isPresent();
         if (alreadyRead) return;
 
@@ -118,8 +117,12 @@ public class NoticeService {
                 .userId(userId)
                 .readAt(LocalDateTime.now())
                 .build();
-
         noticeReadRepository.save(read);
+
+        // 🔥 조회수 증가
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new EntityNotFoundException("해당 게시글이 존재하지 않습니다."));
+        notice.setViewCount(notice.getViewCount() + 1);
     }
 
     public int getUnreadNoticeCount(Long userId) {
