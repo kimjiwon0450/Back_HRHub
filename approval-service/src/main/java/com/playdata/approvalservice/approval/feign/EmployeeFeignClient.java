@@ -6,13 +6,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.ResponseEntity;
 
-@FeignClient(name = "hr-service", path = "/hr-service/employees")
+@FeignClient(name = "hr-service", path="/hr-service")
 public interface EmployeeFeignClient {
     /**
      * 직원 단건 조회
      */
-    @GetMapping("/{id}")
-    ResponseEntity<EmployeeResDto> getById(@PathVariable("id") Long id);
+    @GetMapping("/feign/employees/{id}")
+    ResponseEntity<EmployeeResDto> getById(@PathVariable("id") Long employeeId);
 
 
     /**
@@ -20,6 +20,6 @@ public interface EmployeeFeignClient {
      * @param email
      * @return
      */
-    @GetMapping("/email/{email}")
+    @GetMapping("/employees/email/{email}")
     ResponseEntity<EmployeeResDto> getEmployeeByEmail(@PathVariable("email") String email);
 }

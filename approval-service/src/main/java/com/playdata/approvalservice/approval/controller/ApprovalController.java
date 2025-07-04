@@ -27,8 +27,23 @@ import org.springframework.web.server.ResponseStatusException;
 public class ApprovalController {
 
     private final ApprovalService approvalService;
-    private final EmployeeFeignClient employeeFeignClient; // ✅ 추가: FeignClient 주입
+    private final EmployeeFeignClient employeeFeignClient;
 
+
+    /**
+     * employeeId 넣어주는 메서드
+     * @param userInfo
+     * @return
+     */
+    private Long getCurrentUserId(TokenUserInfo userInfo) {
+        String email = userInfo.getEmail();
+        ResponseEntity<EmployeeResDto> response = employeeFeignClient.getEmployeeByEmail(email);
+        EmployeeResDto employee = response.getBody();
+        if (employee == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다: " + email);
+        }
+        return employee.getEmployeeId();
+    }
 
     /**
      * 보고서 생성 (DRAFT)
@@ -38,12 +53,8 @@ public class ApprovalController {
             @RequestBody @Valid ReportCreateReqDto req,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
         ReportCreateResDto res = approvalService.createReport(req, writerId);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -60,12 +71,8 @@ public class ApprovalController {
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
         ReportUpdateResDto res = approvalService.updateReport(reportId, req, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 수정 완료", res));
@@ -84,12 +91,8 @@ public class ApprovalController {
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
         ReportStatus statusEnum = (status != null && !status.isEmpty())
                 ? ReportStatus.valueOf(status.toUpperCase())
@@ -108,12 +111,8 @@ public class ApprovalController {
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
         ReportDetailResDto res = approvalService.getReportDetail(reportId, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 상세 조회", res));
@@ -129,12 +128,8 @@ public class ApprovalController {
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
         ApprovalProcessResDto res = approvalService.processApproval(reportId, writerId, req);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "결재 처리", res));
@@ -149,12 +144,8 @@ public class ApprovalController {
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
         ReportRecallResDto res = approvalService.recallReport(reportId, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 회수 완료", res));
@@ -169,12 +160,8 @@ public class ApprovalController {
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
         ReportRemindResDto res = approvalService.remindReport(reportId, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "리마인드 알림 완료", res));
@@ -190,12 +177,8 @@ public class ApprovalController {
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
         ResubmitResDto res = approvalService.resubmitReport(reportId, writerId, req);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 재상신 완료", res));
@@ -210,12 +193,8 @@ public class ApprovalController {
             @RequestBody @Valid ReferenceReqDto req,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+
+        Long writerId = getCurrentUserId(userInfo);
 
 
         ReferenceResDto res = approvalService.addReference(reportId, writerId, req);
@@ -232,12 +211,7 @@ public class ApprovalController {
             @PathVariable Long employeeId,
             @AuthenticationPrincipal TokenUserInfo userInfo // [수정] 파라미터로 writerId 주입
     ) {
-        String email = userInfo.getEmail();
-        EmployeeResDto employee = employeeFeignClient.getEmployeeByEmail(email).getBody();
-        if (employee == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "직원을 찾을 수 없습니다.");
-        }
-        Long writerId = employee.getEmployeeId();
+        Long writerId = getCurrentUserId(userInfo);
 
         ReportReferencesResDto res = approvalService.deleteReferences(reportId, writerId, employeeId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "참조자 삭제 완료", res));

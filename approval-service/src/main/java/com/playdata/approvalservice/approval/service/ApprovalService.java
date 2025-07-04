@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -46,10 +47,25 @@ public class ApprovalService {
     public ReportCreateResDto createReport(ReportCreateReqDto req, Long writerId) {
         Reports report = Reports.fromDto(req, writerId);
         Reports saved = reportsRepository.save(report);
+
+        ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
+        Long firstApprovalId = firstLine != null ? firstLine.getId() : null;
+        ApprovalStatus firstStatus = firstLine != null ? firstLine.getStatus() : null;
+
         return ReportCreateResDto.builder()
                 .id(saved.getId())
-                .title(saved.getTitle())
+                .writerId(saved.getWriterId())
                 .status(saved.getStatus())
+                .title(saved.getTitle())
+                .content(saved.getContent())
+                .approvalStatus(firstStatus)
+                .createAt(saved.getCreatedAt()) // 만든 시각
+                .submittedAt(saved.getSubmittedAt()) // 승인 시각, 날짜
+                .returnAt(saved.getReturnAt()) // 반려된 날짜
+                .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
+                .approvalId(firstApprovalId) // 하나의 전자결재 고유 ID
+                .reminderCount(saved.getReminderCount()) // 리마인드 카운터
+                .remindedAt(saved.getRemindedAt()) // 리마인드 시각
                 .build();
     }
 
