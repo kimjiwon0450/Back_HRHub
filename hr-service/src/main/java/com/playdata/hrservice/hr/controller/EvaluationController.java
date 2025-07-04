@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.*;
 public class EvaluationController {
     private final EvaluationService evaluationService;
 
+    // 인사 평가
+    @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
     @PostMapping("/evaluation/{id}")
     public ResponseEntity<CommonResDto> evaluateEmployee(@PathVariable Long id, @RequestBody EvaluationReqDto dto) {
         evaluationService.evaluateEmployee(id, dto);
@@ -24,6 +27,7 @@ public class EvaluationController {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
     }
 
+    // 인사평가 조회
     @GetMapping("/evaluation/{id}")
     public ResponseEntity<CommonResDto> getEvaluation(@PathVariable Long id) {
         CommonResDto commonResDto = new CommonResDto(HttpStatus.OK, "Success", evaluationService.getLatestEvaluation(id));
