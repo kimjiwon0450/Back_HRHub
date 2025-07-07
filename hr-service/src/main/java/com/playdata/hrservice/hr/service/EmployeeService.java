@@ -68,6 +68,7 @@ public class EmployeeService {
                         .address(dto.getAddress())
                         .department(departmentService.getDepartmentEntity(dto.getDepartmentId()))
                         .birthday(dto.getBirthday())
+                        .hireDate(dto.getHireDate())
                         .isNewEmployee(dto.getIsNewEmployee())
                         .status(EmployeeStatus.valueOf(dto.getStatus()))
                         .role(Role.valueOf(dto.getRole()))

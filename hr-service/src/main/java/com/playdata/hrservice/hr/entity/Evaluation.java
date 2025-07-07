@@ -67,6 +67,7 @@ public class Evaluation extends BaseTimeEntity {
                 .comment(this.getComment())
                 .interviewDate(this.getInterviewDate())
                 .totalEvaluation(this.totalEvaluation)
+                .updateMemo(this.getUpdateMemo())
                 .build();
     }
 

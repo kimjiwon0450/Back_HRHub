@@ -45,14 +45,15 @@ public class EvaluationService {
                 .comment(dto.getComment())
                 .totalEvaluation(dto.getTotalEvaluation())
                 .interviewDate(dto.getInterviewDate())
+                .updateMemo("해당 없음.")
                 .build();
 
         evaluationRepository.save(evaluation);
     }
 
     // 평가 수정
-    public void updateEvaluation(Long id, EvaluationReqDto dto) {
-        Employee evaluatee = employeeService.findById(id);
+    public void updateEvaluation(Long evaluationId, EvaluationReqDto dto) {
+        Employee evaluatee = employeeService.findById(dto.getEvaluateeId());
         Employee evaluator = employeeService.findById(dto.getEvaluatorId());
         // 이번 달의 시작, 끝 계산
         YearMonth thisMonth = YearMonth.now();
@@ -63,9 +64,11 @@ public class EvaluationService {
                 .findTopByEvaluateeAndCreatedAtBetweenOrderByCreatedAtDesc(evaluatee, monthStart, monthEnd)
                 .orElseThrow(() -> new RuntimeException("이번 달의 평가가 존재하지 않습니다."));
         evaluation.updateEvaluator(evaluator);
+        evaluation.updateFromReqDto(dto);
         evaluationRepository.save(evaluation);
     }
 
+    // 평가 조회
     public EvaluationResDto getLatestEvaluation(Long id) {
         Employee evaluatee = employeeService.findById(id);
 

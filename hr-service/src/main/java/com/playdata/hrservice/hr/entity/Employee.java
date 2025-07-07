@@ -38,10 +38,8 @@ public class Employee extends BaseTimeEntity {
     @JoinColumn(name = "departmentId")
     private Department department;
 
-    @CreatedDate
-    @Column(updatable = false)
-    private LocalDateTime hireDate;
-    private LocalDateTime retireDate;
+    private LocalDate hireDate;
+    private LocalDate retireDate;
 
     private Boolean isNewEmployee; // 경력 또는 신입 (입사구분) - yhj
 
@@ -81,6 +79,7 @@ public class Employee extends BaseTimeEntity {
         if (dto.getAddress() != null) this.address = dto.getAddress();
         if (dto.getBirthday() != null) this.birthday = dto.getBirthday();
         if (dto.getMemo() != null) this.memo = dto.getMemo();
+        if (dto.getHireDate() != null) this.hireDate = dto.getHireDate();
     }
 
     public void  updateRole(Role role){
@@ -89,7 +88,7 @@ public class Employee extends BaseTimeEntity {
 
     public void updateStatus(EmployeeStatus status){
         this.status = status;
-        this.retireDate = LocalDateTime.now();
+        this.retireDate = LocalDate.now();
     }
 
     public void updateProfileImageUri(String profileImageUri){

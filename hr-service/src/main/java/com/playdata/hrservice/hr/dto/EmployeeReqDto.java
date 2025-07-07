@@ -5,6 +5,7 @@ import com.playdata.hrservice.hr.entity.Department;
 import com.playdata.hrservice.hr.entity.EmployeeStatus;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 
@@ -23,8 +24,8 @@ public class EmployeeReqDto {
     private Date birthday;
     private Long departmentId;
     private Boolean isNewEmployee;
-    private LocalDateTime hireDate;
-    private LocalDateTime retireDate;
+    private LocalDate hireDate;
+    private LocalDate retireDate;
 
     private String status;
     private String role;

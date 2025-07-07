@@ -29,9 +29,9 @@ public class EvaluationController {
 
     // 인사 평가 수정
     @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
-    @PatchMapping("/evaluation/{id}")
-    public ResponseEntity<CommonResDto> updateEvaluation(@PathVariable Long id, @RequestBody EvaluationReqDto dto) {
-        evaluationService.updateEvaluation(id, dto);
+    @PatchMapping("/evaluation/{evaluationId}")
+    public ResponseEntity<CommonResDto> updateEvaluation(@PathVariable Long evaluationId, @RequestBody EvaluationReqDto dto) {
+        evaluationService.updateEvaluation(evaluationId, dto);
 
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
     }
