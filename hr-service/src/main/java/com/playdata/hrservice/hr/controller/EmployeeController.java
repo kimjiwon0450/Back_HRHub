@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -104,6 +105,11 @@ public class EmployeeController {
     @GetMapping("/employees/email/{email}")
     public ResponseEntity<EmployeeResDto> getEmployeeByEmail(@PathVariable("email") String email) {
         return new ResponseEntity<>(employeeService.getEmployeeByEmail(email), HttpStatus.OK);
+    }
+
+    @GetMapping("/employees/names")
+    Map<Long, String> getEmployeeNamesByEmployeeIds(@@RequestParam("ids") List<Long> employeeIds) {
+        return employeeService.getEmployeeNamesByEmployeeIds(employeeIds);
     }
 
     // 직원 이름 조회

@@ -34,7 +34,9 @@ public class SecurityConfig {
             auth
 //                    .requestMatchers("/user/list").hasRole("ROLE_ADMIN")
                     .requestMatchers("/user-service/add-black", "user-service/user-list", "user-service/change-status").hasRole("ADMIN")
-                    .requestMatchers("/hr-service/employees", "/hr-service/employees/*",
+                    .requestMatchers("/hr-service/employees", 
+                            "/hr-service/employees/*",
+                            "/hr-service/employees/names",
                             "/hr-service/employees/login",
                             "/hr-service/employees/password",
                             "/hr-service/departments", "/hr-service/departments/*",
