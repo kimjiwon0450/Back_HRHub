@@ -72,7 +72,7 @@ public class ApprovalService {
      */
     @Transactional
     public ReportUpdateResDto updateReport(Long reportId, ReportUpdateReqDto req, Long writerId) {
-        Reports report = reportsRepository.findByIdAndStatus(reportId, ReportStatus.DRAFT)
+        Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
         if (!report.getWriterId().equals(writerId)) {
@@ -96,7 +96,7 @@ public class ApprovalService {
         Page<Reports> pr;
         if ("writer".equalsIgnoreCase(role)) {
             pr = (status != null)
-                    ? reportsRepository.findByWriterIdAndStatus(writerId, status, pageable)
+                    ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
                     : reportsRepository.findByWriterId(writerId, pageable);
         } else if ("approver".equalsIgnoreCase(role)) {
             pr = reportsRepository.findByApproverId(writerId, pageable);
@@ -200,7 +200,7 @@ public class ApprovalService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다"));
 
         ApprovalLine currentline = approvalRepository
-                .findByReportsIdAndEmployeeIdAndStatus(reportId, writerId, ApprovalStatus.PENDING)
+                .findByReportsIdAndEmployeeIdAndApprovalStatus(reportId, writerId, ApprovalStatus.PENDING)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN, "결재 권한이 없거나, 이미 처리된 결재입니다."));
 
