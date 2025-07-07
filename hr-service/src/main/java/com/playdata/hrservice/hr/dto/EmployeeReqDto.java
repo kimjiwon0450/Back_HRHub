@@ -28,6 +28,7 @@ public class EmployeeReqDto {
 
     private String status;
     private String role;
+    private String position;
     private String profileImageUri;
     private String memo;
 }

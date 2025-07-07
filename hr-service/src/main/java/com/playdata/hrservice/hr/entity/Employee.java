@@ -49,6 +49,8 @@ public class Employee extends BaseTimeEntity {
     private EmployeeStatus status;
     @Enumerated(EnumType.STRING)
     private Role role;
+    @Enumerated(EnumType.STRING)
+    private Position position; // 직급 추가
     private String profileImageUri;
     private String memo;
 
@@ -66,6 +68,7 @@ public class Employee extends BaseTimeEntity {
                 .isNewEmployee(isNewEmployee)
                 .status(status.name())
                 .role(role.name())
+                .position(position.name())
                 .profileImageUri(profileImageUri)
                 .memo(memo)
                 .build();
@@ -83,8 +86,9 @@ public class Employee extends BaseTimeEntity {
         if (dto.getMemo() != null) this.memo = dto.getMemo();
     }
 
-    public void  updateRole(Role role){
+    public void  updateRoleAndPosition(Role role, Position position) {
         this.role = role;
+        this.position = position;
     }
 
     public void updateStatus(EmployeeStatus status){

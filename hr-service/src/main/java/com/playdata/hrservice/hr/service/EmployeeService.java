@@ -11,6 +11,7 @@ import com.playdata.hrservice.hr.dto.EmployeeResDto;
 import com.playdata.hrservice.hr.entity.Employee;
 import com.playdata.hrservice.hr.entity.EmployeePassword;
 import com.playdata.hrservice.hr.entity.EmployeeStatus;
+import com.playdata.hrservice.hr.entity.Position;
 import com.playdata.hrservice.hr.repository.EmployeePasswordRepository;
 import com.playdata.hrservice.hr.repository.EmployeeRepository;
 import jakarta.mail.MessagingException;
@@ -71,6 +72,7 @@ public class EmployeeService {
                         .isNewEmployee(dto.getIsNewEmployee())
                         .status(EmployeeStatus.valueOf(dto.getStatus()))
                         .role(Role.valueOf(dto.getRole()))
+                        .position(Position.valueOf(dto.getPosition()))
                         .profileImageUri(dto.getProfileImageUri())
                         .memo(dto.getMemo())
                         .build()
@@ -207,7 +209,7 @@ public class EmployeeService {
                 () -> new EntityNotFoundException("Employee not found!")
         );
         if (role.equals(Role.ADMIN) || role.equals(Role.HR_MANAGER)) {
-            employee.updateRole(Role.valueOf(dto.getRole()));
+            employee.updateRoleAndPosition(Role.valueOf(dto.getRole()), Position.valueOf(dto.getPosition()));
         }
         employee.updateFromDto(dto);
         employee.updateDepartment(departmentService.getDepartmentEntity(dto.getDepartmentId()));
