@@ -12,7 +12,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ApprovalProcessReqDto {
-    @NotNull
+    @NotNull(message = "결재 상태는 필수입니다.")
     private ApprovalStatus approvalStatus; // APPROVE or REJECT
 
     private String comment;
