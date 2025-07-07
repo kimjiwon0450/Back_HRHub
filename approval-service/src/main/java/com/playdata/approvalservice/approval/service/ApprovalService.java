@@ -48,12 +48,12 @@ public class ApprovalService {
 
         ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
         Long firstApprovalId = firstLine != null ? firstLine.getId() : null;
-        ApprovalStatus firstStatus = firstLine != null ? firstLine.getStatus() : null;
+        ApprovalStatus firstStatus = firstLine != null ? firstLine.getApprovalStatus() : null;
 
         return ReportCreateResDto.builder()
                 .id(saved.getId())
                 .writerId(saved.getWriterId())
-                .status(saved.getStatus())
+                .reportStatus(saved.getReportStatus())
                 .title(saved.getTitle())
                 .content(saved.getContent())
                 .approvalStatus(firstStatus)
@@ -83,7 +83,7 @@ public class ApprovalService {
         return ReportUpdateResDto.builder()
                 .id(updated.getId())
                 .title(updated.getTitle())
-                .status(updated.getStatus().name())
+                .reportStatus(updated.getReportStatus())
                 .build();
     }
 
@@ -119,7 +119,7 @@ public class ApprovalService {
                             .title(r.getTitle())
                             .name(writerName)
                             .createdAt(r.getCreatedAt().format(fmt))
-                            .status(r.getStatus().name())
+                            .reportStatus(r.getReportStatus())
                             .currentApprover(approverName)
                             .build();
                 })
@@ -161,7 +161,7 @@ public class ApprovalService {
                     return ReportDetailResDto.ApprovalLineResDto.builder()
                             .employeeId(l.getEmployeeId())
                             .name(name)
-                            .status(l.getStatus().name())
+                            .approvalStatus(l.getApprovalStatus())
                             .order(l.getApprovalOrder())
                             .approvedAt(l.getApprovalDateTime() != null
                                     ? l.getApprovalDateTime().format(fmt) : null)
@@ -182,7 +182,7 @@ public class ApprovalService {
                         .name(writerName)
                         .build())
                 .createdAt(r.getCreatedAt().format(fmt))
-                .status(r.getStatus().name())
+                .reportStatus(r.getReportStatus())
                 .approvalLine(lines)
                 .currentApprover(currentApprover)
                 .dueDate(null)
@@ -207,9 +207,9 @@ public class ApprovalService {
 
 
         // ② action에 따라 approve/rejected 호출 (approvalDateTime, approvalComment가 세팅됨)
-        if (req.getAction() == ApprovalStatus.APPROVED) {
+        if (req.getApprovalStatus() == ApprovalStatus.APPROVED) {
             currentline.approve(req.getComment());
-        } else if (req.getAction() == ApprovalStatus.REJECTED) {
+        } else if (req.getApprovalStatus() == ApprovalStatus.REJECTED) {
             currentline.rejected(req.getComment());
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "알 수 없는 action 입니다.");
@@ -219,6 +219,8 @@ public class ApprovalService {
 
         // 보고서 상태 이동
         Reports report = currentline.getReports();
+        ApprovalStatus approvalLine = currentline.getApprovalStatus();
+
         report.moveToNextOrComplete(currentline);
         reportsRepository.save(report);
 
@@ -231,8 +233,8 @@ public class ApprovalService {
         // DTO 반환
         return ApprovalProcessResDto.builder()
                 .reportId(reportId)
-                .action(req.getAction())
-                .status(report.getStatus())
+                .approvalStatus(approvalLine)
+                .reportStatus(report.getReportStatus())
                 .nextApprover(nextName)
                 .build();
     }
@@ -245,14 +247,14 @@ public class ApprovalService {
         Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        if (!report.getWriterId().equals(writerId) || report.getStatus() != ReportStatus.IN_PROGRESS) {
+        if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
         }
         report.recall();
         Reports updated = reportsRepository.save(report);
         return ReportRecallResDto.builder()
                 .id(updated.getId())
-                .status(updated.getStatus().name())
+                .reportStatus(updated.getReportStatus())
                 .build();
     }
 
@@ -264,7 +266,7 @@ public class ApprovalService {
         Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        if (!report.getCurrentApproverId().equals(writerId) || report.getStatus() != ReportStatus.IN_PROGRESS) {
+        if (!report.getCurrentApproverId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "리마인드 권한이 없습니다.");
         }
         report.remind();
@@ -285,14 +287,14 @@ public class ApprovalService {
         Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        if (!report.getWriterId().equals(writerId) || report.getStatus() != ReportStatus.REJECTED) {
+        if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.REJECTED) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
         }
         report.resubmit(req.getComment());
         Reports updated = reportsRepository.save(report);
         return ResubmitResDto.builder()
                 .reportId(updated.getId())
-                .status(updated.getStatus().name())
+                .reportStatus(updated.getReportStatus())
                 .resubmittedAt(updated.getSubmittedAt())
                 .build();
     }

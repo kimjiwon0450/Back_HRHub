@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.dto.response;
 
+import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
 @Getter
@@ -10,5 +11,5 @@ import lombok.*;
 @Builder
 public class ReportRecallResDto {
     private Long id;
-    private String status;
+    private ReportStatus reportStatus;
 }

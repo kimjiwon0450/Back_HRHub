@@ -12,7 +12,7 @@ import lombok.*;
 @Builder
 public class ApprovalProcessResDto {
     private Long reportId;
-    private ApprovalStatus action;
-    private ReportStatus status;
+    private ApprovalStatus approvalStatus;
+    private ReportStatus reportStatus;
     private String nextApprover;
 }

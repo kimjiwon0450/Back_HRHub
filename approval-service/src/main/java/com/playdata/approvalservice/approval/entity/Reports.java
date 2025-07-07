@@ -39,7 +39,7 @@ public class Reports extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "report_status", nullable = false)
-    private ReportStatus status;
+    private ReportStatus reportStatus;
 
     @Column(name = "report_created_at")
     private LocalDateTime createdAt;

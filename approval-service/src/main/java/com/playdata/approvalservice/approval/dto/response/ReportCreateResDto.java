@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class ReportCreateResDto {
     private Long id;
     private Long writerId;
-    private ReportStatus status;
+    private ReportStatus reportStatus;
     private String title;
     private String content;
     private ApprovalStatus approvalStatus;

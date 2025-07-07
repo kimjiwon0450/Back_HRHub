@@ -12,7 +12,7 @@ import lombok.*;
 @Builder
 public class ApprovalProcessReqDto {
     @NotBlank
-    private ApprovalStatus action; // APPROVE or REJECT
+    private ApprovalStatus approvalStatus; // APPROVE or REJECT
 
     private String comment;
 }
