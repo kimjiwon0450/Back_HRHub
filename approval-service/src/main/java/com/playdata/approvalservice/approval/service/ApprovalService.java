@@ -297,6 +297,14 @@ public class ApprovalService {
         Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+
+        // --- 여기에 로그 추가 ---
+        System.out.println("요청된 보고서 ID: " + reportId);
+        System.out.println("토큰에서 추출한 작성자 ID (userInfo): " + writerId);
+        System.out.println("보고서 엔티티의 작성자 ID: " + report.getWriterId());
+        System.out.println("보고서 현재 상태: " + report.getReportStatus());
+        // --- 로그 추가 끝 ---
+
         if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
         }
