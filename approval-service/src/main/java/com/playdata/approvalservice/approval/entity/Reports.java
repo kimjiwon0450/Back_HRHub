@@ -39,7 +39,7 @@ public class Reports extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "report_status", nullable = false)
-    private ReportStatus status;
+    private ReportStatus reportStatus;
 
     @Column(name = "report_created_at")
     private LocalDateTime createdAt;
@@ -90,7 +90,7 @@ public class Reports extends BaseTimeEntity {
                 .type(dto.getType())
                 .title(dto.getTitle())
                 .content(dto.getContent())
-                .status(ReportStatus.DRAFT)
+                .reportStatus(ReportStatus.DRAFT)
                 .createdAt(LocalDateTime.now())
                 .reminderCount(0)
                 .build();
@@ -144,7 +144,7 @@ public class Reports extends BaseTimeEntity {
                     .reports(this)
                     .employeeId(dto.getEmployeeId())
                     .approvalOrder(dto.getOrder())
-                    .status(ApprovalStatus.PENDING)
+                    .approvalStatus(ApprovalStatus.PENDING)
                     .approvalDateTime(LocalDateTime.now())
                     .build();
             approvalLines.add(line);
@@ -170,7 +170,7 @@ public class Reports extends BaseTimeEntity {
      * 보고서 상신 처리 (초안 → 결재 대기)
      */
     public void submit() {
-        this.status = ReportStatus.IN_PROGRESS;
+        this.reportStatus = ReportStatus.IN_PROGRESS;
         this.submittedAt = LocalDateTime.now();
 
         ApprovalLine next = approvalLines.stream()
@@ -183,7 +183,7 @@ public class Reports extends BaseTimeEntity {
      * 보고서 회수 처리 (결재 대기 → 회수)
      */
     public void recall() {
-        this.status = ReportStatus.RECALLED;
+        this.reportStatus = ReportStatus.RECALLED;
         this.returnAt = LocalDateTime.now();
         this.currentApproverId = null;
     }
@@ -200,15 +200,15 @@ public class Reports extends BaseTimeEntity {
      * 재상신 처리 (반려 → 결재 대기)
      */
     public void resubmit(String comment) {
-        this.status = ReportStatus.DRAFT;
+        this.reportStatus = ReportStatus.DRAFT;
         // 재상신 시 추가 로직 필요 시 적용
     }
 
     // ② 결재 처리 후 호출
     public void moveToNextOrComplete(ApprovalLine line) {
-        if (line.getStatus() == ApprovalStatus.REJECTED) {
+        if (line.getApprovalStatus() == ApprovalStatus.REJECTED) {
             // 반려
-            this.status   = ReportStatus.REJECTED;
+            this.reportStatus = ReportStatus.REJECTED;
             this.returnAt = line.getApprovalDateTime();
             this.currentApproverId = null;
             return;
@@ -221,11 +221,11 @@ public class Reports extends BaseTimeEntity {
 
         if (next.isPresent()) {
             // 아직 남은 결재자가 있으면 in progress
-            this.status = ReportStatus.IN_PROGRESS;
+            this.reportStatus = ReportStatus.IN_PROGRESS;
             this.currentApproverId = next.get().getEmployeeId();
         } else {
             // 마지막 결재자였으면 최종 승인
-            this.status      = ReportStatus.APPROVED;
+            this.reportStatus      = ReportStatus.APPROVED;
             this.completedAt = line.getApprovalDateTime();
             this.currentApproverId = null;
         }

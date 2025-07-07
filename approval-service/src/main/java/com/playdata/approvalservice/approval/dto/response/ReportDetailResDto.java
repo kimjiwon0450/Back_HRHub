@@ -1,5 +1,7 @@
 package com.playdata.approvalservice.approval.dto.response;
 
+import com.playdata.approvalservice.approval.entity.ApprovalStatus;
+import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
 import java.util.List;
@@ -13,7 +15,7 @@ public class ReportDetailResDto {
     private List<AttachmentResDto> attachments;
     private WriterInfoDto writer;
     private String createdAt;
-    private String status;
+    private ReportStatus reportStatus;
     private List<ApprovalLineResDto> approvalLine;
     private String currentApprover;
     private String dueDate;
@@ -41,7 +43,7 @@ public class ReportDetailResDto {
     public static class ApprovalLineResDto {
         private Long employeeId;
         private String name;
-        private String status;
+        private ApprovalStatus approvalStatus;
         private Integer order;
         private String approvedAt;
     }

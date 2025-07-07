@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.dto.response;
 
+import com.playdata.approvalservice.approval.entity.ApprovalStatus;
 import lombok.*;
 
 import java.util.List;
@@ -18,7 +19,7 @@ public class ApprovalHistoryResDto {
     public static class ApprovalHistoryItemDto {
         private Integer order;
         private String approverName;
-        private String action;
+        private ApprovalStatus approvalStatus;
         private String comment;
         private String processedAt;
     }
