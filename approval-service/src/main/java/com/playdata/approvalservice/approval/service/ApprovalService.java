@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
@@ -309,6 +308,46 @@ public class ApprovalService {
                 .build();
     }
 
+
+    /**
+     * 보고서 재상신
+     */
+    @Transactional
+    public ResubmitResDto resubmit(Long originalReportId, Long writerId, ResubmitReqDto req) {
+
+        // 1. 원본 보고서를 찾고, 권한을 확인합니다. (반려 상태의 보고서만 재상신 가능)
+        Reports originalReport = reportsRepository.findById(originalReportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
+
+        if (!originalReport.getWriterId().equals(writerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
+        }
+        if (originalReport.getReportStatus() != ReportStatus.REJECTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려된 보고서만 재상신할 수 있습니다.");
+        }
+
+        // 2) 새로운 라인 리스트와 제목·본문을 넘기도록 변경
+        Reports newReport = originalReport.resubmit(
+                req.getNewTitle(),
+                req.getNewContent(),
+                req.getApprovalLine()
+        );
+
+        // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
+        Reports savedNewReport = reportsRepository.save(newReport);
+
+        // 4. 원본 보고서의 상태를 변경하여 더 이상 유효하지 않음을 표시합니다.
+        originalReport.markAsResubmitted();
+        reportsRepository.save(originalReport);
+
+        // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
+        return ResubmitResDto.builder()
+                .reportId(savedNewReport.getId()) // 새로 생성된 ID
+                .reportStatus(savedNewReport.getReportStatus())
+                .resubmittedAt(savedNewReport.getSubmittedAt())
+                .build();
+    }
+
     /**
      * 리마인드 전송 처리
      */
@@ -330,25 +369,7 @@ public class ApprovalService {
                 .build();
     }
 
-    /**
-     * 재상신 처리
-     */
-    @Transactional
-    public ResubmitResDto resubmitReport(Long reportId, Long writerId, ResubmitReqDto req) {
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.REJECTED) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
-        }
-        report.resubmit(req.getComment());
-        Reports updated = reportsRepository.save(report);
-        return ResubmitResDto.builder()
-                .reportId(updated.getId())
-                .reportStatus(updated.getReportStatus())
-                .resubmittedAt(updated.getSubmittedAt())
-                .build();
-    }
+
 
     /**
      * 참조자 추가 처리
@@ -383,42 +404,6 @@ public class ApprovalService {
         return ReportReferencesResDto.builder()
                 .reportId(reportId)
                 .employeeId(employeeId)
-                .build();
-    }
-
-    @Transactional
-    public ResubmitResDto resubmit(Long originalReportId, Long writerId, ResubmitReqDto req) {
-
-        // 1. 원본 보고서를 찾고, 권한을 확인합니다. (반려 상태의 보고서만 재상신 가능)
-        Reports originalReport = reportsRepository.findById(originalReportId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
-
-        if (!originalReport.getWriterId().equals(writerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
-        }
-        if (originalReport.getReportStatus() != ReportStatus.REJECTED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려된 보고서만 재상신할 수 있습니다.");
-        }
-
-        // 2. 원본 보고서 엔티티를 통해 새로운 재상신 보고서를 생성합니다.
-        Reports newReport = originalReport.resubmit(
-                req.getNewTitle(),
-                req.getComment(),
-                req.getApprovalLine()
-        );
-
-        // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
-        Reports savedNewReport = reportsRepository.save(newReport);
-
-        // 4. 원본 보고서의 상태를 변경하여 더 이상 유효하지 않음을 표시합니다.
-        originalReport.markAsResubmitted();
-        reportsRepository.save(originalReport);
-
-        // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
-        return ResubmitResDto.builder()
-                .reportId(savedNewReport.getId()) // 새로 생성된 ID
-                .reportStatus(savedNewReport.getReportStatus())
-                .resubmittedAt(savedNewReport.getSubmittedAt())
                 .build();
     }
 }

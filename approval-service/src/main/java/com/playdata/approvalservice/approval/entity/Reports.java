@@ -178,14 +178,6 @@ public class Reports extends BaseTimeEntity {
         this.remindedAt = LocalDateTime.now();
     }
 
-    /**
-     * 재상신 처리 (반려 → 결재 대기)
-     */
-    public void resubmit(String comment) {
-        this.reportStatus = ReportStatus.DRAFT;
-        // 재상신 시 추가 로직 필요 시 적용
-    }
-
     // ② 결재 처리 후 호출
     public void moveToNextOrComplete(ApprovalLine line) {
         if (line.getApprovalStatus() == ApprovalStatus.REJECTED) {

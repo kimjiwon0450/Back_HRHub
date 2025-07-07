@@ -1,7 +1,10 @@
 package com.playdata.approvalservice.approval.dto.request;
 
 import com.playdata.approvalservice.approval.entity.ApprovalLine;
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
+
+import java.util.List;
 
 @Getter
 @Setter
@@ -9,8 +12,13 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ResubmitReqDto {
+    @NotBlank
     private String newTitle;
-    private ApprovalLine approvalLine;
+
+    private String newContent;               // 보고서 본문도 수정 가능하다면
+
+    private List<ApprovalLineReqDto> approvalLine;  // List 타입으로 변경
 
     private String comment;
+
 }

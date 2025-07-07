@@ -140,7 +140,6 @@ public class ApprovalController {
     /**
      * 보고서의 전체 결재 이력 조회
      * @param approvalId
-     * @param req
      * @param userInfo
      * @return
      */
@@ -200,7 +199,7 @@ public class ApprovalController {
 
         Long writerId = getCurrentUserId(userInfo);
 
-        ResubmitResDto res = approvalService.resubmitReport(reportId, writerId, req);
+        ResubmitResDto res = approvalService.resubmit(reportId, writerId, req);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 재상신 완료", res));
     }
 
@@ -237,17 +236,17 @@ public class ApprovalController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "참조자 삭제 완료", res));
     }
 
-    /**
-     * 첨부파일 업로드 처리
-     * (기존 코드에서 writerId를 사용하지 않으므로 여기서는 주입받지 않습니다.)
-     */
-    @PostMapping("/reports/{reportId}/attachments")
-    public ResponseEntity<CommonResDto> uploadAttachment(
-            @PathVariable Long reportId,
-            @RequestBody @Valid AttachmentReqDto req
-    ) {
-        AttachmentResDto res = approvalService.uploadAttachment(reportId, req);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new CommonResDto(HttpStatus.CREATED, "첨부파일 등록 완료", res));
-    }
+//    /**
+//     * 첨부파일 업로드 처리
+//     * (기존 코드에서 writerId를 사용하지 않으므로 여기서는 주입받지 않습니다.)
+//     */
+//    @PostMapping("/reports/{reportId}/attachments")
+//    public ResponseEntity<CommonResDto> uploadAttachment(
+//            @PathVariable Long reportId,
+//            @RequestBody @Valid AttachmentReqDto req
+//    ) {
+//        AttachmentResDto res = approvalService.uploadAttachment(reportId, req);
+//        return ResponseEntity.status(HttpStatus.CREATED)
+//                .body(new CommonResDto(HttpStatus.CREATED, "첨부파일 등록 완료", res));
+//    }
 }
