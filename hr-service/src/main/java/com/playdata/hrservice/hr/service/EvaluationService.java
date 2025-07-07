@@ -50,6 +50,22 @@ public class EvaluationService {
         evaluationRepository.save(evaluation);
     }
 
+    // 평가 수정
+    public void updateEvaluation(Long id, EvaluationReqDto dto) {
+        Employee evaluatee = employeeService.findById(id);
+        Employee evaluator = employeeService.findById(dto.getEvaluatorId());
+        // 이번 달의 시작, 끝 계산
+        YearMonth thisMonth = YearMonth.now();
+        LocalDateTime monthStart = thisMonth.atDay(1).atStartOfDay();
+        LocalDateTime monthEnd = thisMonth.atEndOfMonth().atTime(23, 59, 59);
+
+        Evaluation evaluation = evaluationRepository
+                .findTopByEvaluateeAndCreatedAtBetweenOrderByCreatedAtDesc(evaluatee, monthStart, monthEnd)
+                .orElseThrow(() -> new RuntimeException("이번 달의 평가가 존재하지 않습니다."));
+        evaluation.updateEvaluator(evaluator);
+        evaluationRepository.save(evaluation);
+    }
+
     public EvaluationResDto getLatestEvaluation(Long id) {
         Employee evaluatee = employeeService.findById(id);
 
