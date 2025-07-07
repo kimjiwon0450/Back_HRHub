@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Table(name = "approval_line")
 public class ApprovalLine {
 
-    /** PK: 결재 코드 */
+    /** PK: 결재 라인 코드 */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "approval_line_id")
@@ -26,7 +26,7 @@ public class ApprovalLine {
     @JoinColumn(name = "report_approval_id")
     private Reports reports;
 
-    /** 결재자(사번) */
+    /** 승인자 */
     @Column(name = "employee_id", nullable = false)
     private Long employeeId;
 
@@ -35,10 +35,10 @@ public class ApprovalLine {
     private ApprovalStatus approvalStatus;
 
     /** 결재 순서 */
-    @Column(name = "approval_order", nullable = false)
-    private Integer approvalOrder;
+    @Column(name = "approval_context", nullable = false)
+    private Integer approvalContext;
 
-    /** 결재 처리 일시 (승인/반려/회수 등 최종 변경 시각) */
+    /** 승인 일시 (승인/반려/회수 등 최종 변경 시각) */
     @Column(name = "approval_date_time", nullable = false)
     private LocalDateTime approvalDateTime;
 

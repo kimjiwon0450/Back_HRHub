@@ -20,56 +20,106 @@ import java.util.stream.Collectors;
 @Table(name = "reports")
 public class Reports extends BaseTimeEntity {
 
+    /**
+     * 보고서 ID
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "report_id")
     private Long id;
 
+    /**
+     * 기안직원 (FK)
+     */
     @Column(name = "report_writer_id", nullable = false)
     private Long writerId;
 
-    @Column(name = "report_type", nullable = false)
-    private String type;
+    /**
+     * 기안 양식 (FK)
+     */
+    @Column(name = "report_template", columnDefinition = "JSON")
+    private Long reportTemplate;
 
+    /**
+     * 템플릿 데이터
+     */
+    @Column(name = "report_template_data", columnDefinition = "JSON")
+    private Long reportTemplateData;
+
+    /**
+     * 기안 제목
+     */
     @Column(name = "report_title", nullable = false)
     private String title;
 
+    /**
+     * 기안 내용
+     */
     @Column(name = "report_content", columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    /**
+     * 결재 상태
+     */
     @Enumerated(EnumType.STRING)
     @Column(name = "report_status", nullable = false)
     private ReportStatus reportStatus;
 
+    /**
+     * 제출 일시
+     */
     @Column(name = "report_created_at")
     private LocalDateTime createdAt;
 
+    /**
+     * 승인 일시
+     */
     @Column(name = "report_submitted_at")
     private LocalDateTime submittedAt;
 
+    /**
+     * 회수 일시
+     */
     @Column(name = "report_return_at")
     private LocalDateTime returnAt;
 
+    /**
+     * 완료 일시
+     */
     @Column(name = "report_completed_at")
     private LocalDateTime completedAt;
 
+    /**
+     * 현재 결재 상태
+     */
     @Setter
     @Column(name = "report_current_approver_id")
     private Long currentApproverId;
 
+    /**
+     * 보고서 첨부 파일
+     */
     @Setter
     @Column(name = "report_detail", columnDefinition = "JSON")
     private String detail;
 
+    /**
+     * 리마인더 횟수
+     */
     @Column(name = "reminder_count", nullable = false)
     private Integer reminderCount;
 
+    /**
+     * 리마인더 발송 시각
+     */
     @Column(name = "reminded_at")
     private LocalDateTime remindedAt;
 
+    /**
+     * 재상신 이력
+     */
     @Column(name = "previous_report_id")
     private Long previousReportId;
-
 
     @Builder.Default
     @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -77,7 +127,7 @@ public class Reports extends BaseTimeEntity {
 
     @Builder.Default
     @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("approvalOrder ASC")
+    @OrderBy("approvalContext ASC")
     private List<ApprovalLine> approvalLines = new ArrayList<>();
 
     @Builder.Default
@@ -90,7 +140,7 @@ public class Reports extends BaseTimeEntity {
     public static Reports fromDto(ReportCreateReqDto dto, Long userId) {
         Reports report = Reports.builder()
                 .writerId(userId)
-                .type(dto.getType())
+                .reportStatus(dto.getReportStatus())
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .reportStatus(ReportStatus.DRAFT)
@@ -138,7 +188,7 @@ public class Reports extends BaseTimeEntity {
             ApprovalLine line = ApprovalLine.builder()
                     .reports(this)
                     .employeeId(dto.getEmployeeId())
-                    .approvalOrder(dto.getOrder())
+                    .approvalContext(dto.getOrder())
                     .approvalStatus(ApprovalStatus.PENDING)
                     .approvalDateTime(LocalDateTime.now())
                     .build();
@@ -190,8 +240,8 @@ public class Reports extends BaseTimeEntity {
 
         // 승인된 경우, 다음 결재자 찾기
         Optional<ApprovalLine> next = approvalLines.stream()
-                .filter(l -> l.getApprovalOrder() > line.getApprovalOrder())
-                .min(Comparator.comparing(ApprovalLine::getApprovalOrder));
+                .filter(l -> l.getApprovalContext() > line.getApprovalContext())
+                .min(Comparator.comparing(ApprovalLine::getApprovalContext));
 
         if (next.isPresent()) {
             // 아직 남은 결재자가 있으면 in progress
@@ -216,10 +266,11 @@ public class Reports extends BaseTimeEntity {
         // 1. 새로운 Reports 객체 생성
         Reports newReport = Reports.builder()
                 .writerId(this.writerId)
-                .type(this.type)
+                .reportTemplate(this.reportTemplate)
+                .reportTemplateData(this.reportTemplateData)
                 .title(newTitle)
                 .content(newContent)
-                .reportStatus(ReportStatus.IN_PROGRESS) // 재상신 시 바로 진행 상태로
+                .reportStatus(ReportStatus.DRAFT)
                 .createdAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now())
                 .previousReportId(this.id)

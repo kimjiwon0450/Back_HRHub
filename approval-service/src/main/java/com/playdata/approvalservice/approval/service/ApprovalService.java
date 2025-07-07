@@ -163,7 +163,7 @@ public class ApprovalService {
                             .employeeId(l.getEmployeeId())
                             .name(name)
                             .approvalStatus(l.getApprovalStatus())
-                            .order(l.getApprovalOrder())
+                            .order(l.getApprovalContext())
                             .approvedAt(l.getApprovalDateTime() != null
                                     ? l.getApprovalDateTime().format(fmt) : null)
                             .build();
@@ -277,7 +277,7 @@ public class ApprovalService {
         // 4) DTO로 변환
         return lines.stream()
                 .map(line -> ApprovalHistoryResDto.builder()
-                        .order(line.getApprovalOrder())
+                        .order(line.getApprovalContext())
                         .employeeId(line.getEmployeeId())
                         .employeeName(nameMap.get(line.getEmployeeId()))
                         .approvalStatus(line.getApprovalStatus())
