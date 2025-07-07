@@ -109,25 +109,25 @@ public class NoticeController {
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) throws IOException {
-        Long userId = userDetails.getId();
-        HrUserResponse user = hrUserClient.getUserInfo(userId);
+        Long employeeId = userDetails.getId();
+        HrUserResponse user = hrUserClient.getUserInfo(employeeId);
 
         boolean hasAttachment = (files != null && !files.isEmpty());
         request.setHasAttachment(hasAttachment);
 
         List<String> fileUrls = hasAttachment ? s3Service.uploadFiles(files) : Collections.emptyList();
 
-        noticeService.createNotice(request, userId, user.getDepartmentId(), fileUrls);
+        noticeService.createNotice(request, employeeId, user.getDepartmentId(), fileUrls);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     // 글 수정 페이지
-    @PutMapping("/noticeboard/{id}")
+    @PutMapping("/noticeboard/edit/{id}")
     public ResponseEntity<Void> updateNotice(@PathVariable Long id,
                                              @RequestBody @Valid NoticeUpdateRequest request,
                                              @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long userId = userDetails.getId();
-        noticeService.updateNotice(id, request, userId);
+        Long employeeId = userDetails.getId();
+        noticeService.updateNotice(id, request, employeeId);
         return ResponseEntity.ok().build();
     }
 
@@ -169,6 +169,7 @@ public class NoticeController {
         return ResponseEntity.ok(noticeService.getUnreadNoticeCount(userInfo.getEmployeeId()));
     }
 
+
     // 부서별 조회
     @GetMapping("/noticeboard/department/{departmentId}")
     public ResponseEntity<Map<String, Object>> getPostsByDepartment(
@@ -206,6 +207,15 @@ public class NoticeController {
         response.put("currentPage", filteredPosts.getNumber());
 
         return ResponseEntity.ok(response);
+    }
+
+    // 👉 추후 기타 알림 (ex: 전자결재, 일정 알림 등) 도 여기에 추가할 수 있음.
+    @GetMapping("/alerts")
+    public ResponseEntity<Map<String, List<NoticeResponse>>> getUserAlerts(
+            @RequestParam Long userId
+    ) {
+        Map<String, List<NoticeResponse>> result = noticeService.getUserAlerts(userId);
+        return ResponseEntity.ok(result);
     }
 
 }

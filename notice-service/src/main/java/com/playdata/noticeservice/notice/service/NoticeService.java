@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -104,17 +105,18 @@ public class NoticeService {
             s3Service.deleteFiles(urls);
         }
 
-        noticeRepository.delete(notice);
+        notice.setBoardStatus(false); // 삭제 대신 게시글 비활성화
+
     }
 
     @Transactional
-    public void markAsRead( Long userId, Long noticeId) {
-        boolean alreadyRead = noticeReadRepository.findByNoticeIdAndUserId(noticeId, userId).isPresent();
+    public void markAsRead( Long employeeId, Long noticeId) {
+        boolean alreadyRead = noticeReadRepository.findByNoticeIdAndEmployeeId(noticeId, employeeId).isPresent();
         if (alreadyRead) return;
 
         NoticeRead read = NoticeRead.builder()
                 .noticeId(noticeId)
-                .userId(userId)
+                .employeeId(employeeId)
                 .readAt(LocalDateTime.now())
                 .build();
         noticeReadRepository.save(read);
@@ -125,8 +127,8 @@ public class NoticeService {
         notice.setViewCount(notice.getViewCount() + 1);
     }
 
-    public int getUnreadNoticeCount(Long userId) {
-        List<Long> readNoticeIds = noticeReadRepository.findNoticeIdsByUserId(userId);
+    public int getUnreadNoticeCount(Long employeeId) {
+        List<Long> readNoticeIds = noticeReadRepository.findNoticeIdsByEmployeeId(employeeId);
         List<Notice> allNotices = noticeRepository.findByIsNoticeTrueOrderByCreatedAtDesc();
 
         return (int) allNotices.stream()
@@ -134,17 +136,17 @@ public class NoticeService {
                 .count();
     }
 
-    public List<NoticeResponse> getMyPosts(Long userId) {
-        List<Notice> notices = noticeRepository.findByEmployeeIdOrderByCreatedAtDesc(userId);
-        HrUserResponse user = hrUserClient.getUserInfo(userId);
+    public List<NoticeResponse> getMyPosts(Long employeeId) {
+        List<Notice> notices = noticeRepository.findByEmployeeIdOrderByCreatedAtDesc(employeeId);
+        HrUserResponse user = hrUserClient.getUserInfo(employeeId);
 
         return notices.stream()
                 .map(notice -> NoticeResponse.fromEntity(notice, user.getName()))
                 .toList();
     }
 
-    public List<NoticeResponse> getDepartmentPosts(Long userId) {
-        HrUserResponse user = hrUserClient.getUserInfo(userId);
+    public List<NoticeResponse> getDepartmentPosts(Long employeeId) {
+        HrUserResponse user = hrUserClient.getUserInfo(employeeId);
         Long departmentId = user.getDepartmentId();
         DepResponse dep = departmentClient.getDepInfo(departmentId);
 
@@ -195,6 +197,38 @@ public class NoticeService {
                     .build();
         }).toList();
     }
+
+
+    public Map<String, List<NoticeResponse>> getUserAlerts(Long employeeId) {
+        // 1. 사용자가 읽은 공지글 ID 목록
+        List<Long> readNoticeIds = noticeReadRepository.findNoticeIdsByEmployeeId(employeeId);
+
+        // 2. 모든 공지글 조회
+        List<Notice> allNotices = noticeRepository.findByIsNoticeTrueOrderByCreatedAtDesc();
+
+        // 3. 읽지 않은 공지글만 필터링
+        List<Notice> unreadNotices = allNotices.stream()
+                .filter(notice -> !readNoticeIds.contains(notice.getId()))
+                .toList();
+
+        // 4. 작성자 이름 주입 후 DTO로 변환
+        List<NoticeResponse> unreadNoticeResponses = unreadNotices.stream()
+                .map(notice -> {
+                    HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
+                    return NoticeResponse.fromEntity(notice, writer.getName());
+                })
+                .toList();
+
+        // 5. 기타 알림은 현재는 없음
+        List<NoticeResponse> otherAlerts = List.of();
+
+        // 6. Map 형태로 반환
+        return Map.of(
+                "unreadNotices", unreadNoticeResponses,
+                "otherAlerts", otherAlerts
+        );
+    }
+
 
 
 }
