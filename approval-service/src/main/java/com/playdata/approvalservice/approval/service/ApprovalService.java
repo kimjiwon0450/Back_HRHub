@@ -16,8 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -32,7 +35,6 @@ public class ApprovalService {
 
     private final ReportsRepository reportsRepository;
     private final ApprovalRepository approvalRepository;
-    private final ReportAttachmentRepository attachmentRepository;
     private final ReferenceRepository referenceRepository;
     private final EmployeeFeignClient employeeFeignClient;
 
@@ -240,6 +242,55 @@ public class ApprovalService {
     }
 
     /**
+     * 결재 이력/상세 확인
+     */
+    @Transactional(readOnly = true)
+    public List<ApprovalHistoryResDto> getApprovalHistory(Long reportId, Long writerId) {
+
+        Reports report = reportsRepository.findById(reportId).orElseThrow
+                (() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+
+        boolean isWriter = report.getWriterId().equals(writerId);
+        boolean isApprover = report.getApprovalLines().stream()
+                .anyMatch(l -> l.getEmployeeId().equals(writerId));
+        if (!isWriter && !isApprover) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+        }
+
+
+        List<ApprovalLine> lines = approvalRepository
+                .findApprovalLinesByReportId(reportId);
+
+        if (lines.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 3) 사번에 대한 이름을 한 번에 조회 (Feign 배치 API 필요)
+        List<Long> employeeIds = lines.stream()
+                .map(ApprovalLine::getEmployeeId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, String> nameMap =
+                employeeFeignClient.getEmployeeNamesByEmployeeIds(employeeIds);
+
+        // 4) DTO로 변환
+        return lines.stream()
+                .map(line -> ApprovalHistoryResDto.builder()
+                        .order(line.getApprovalOrder())
+                        .employeeId(line.getEmployeeId())
+                        .employeeName(nameMap.get(line.getEmployeeId()))
+                        .approvalStatus(line.getApprovalStatus())
+                        .comment(line.getApprovalComment())
+                        .approvalDateTime(line.getApprovalDateTime())
+                        .build()
+                )
+                .collect(Collectors.toList());
+    }
+
+
+    /**
      * 보고서 회수 처리
      */
     @Transactional
@@ -333,18 +384,5 @@ public class ApprovalService {
                 .reportId(reportId)
                 .employeeId(employeeId)
                 .build();
-    }
-
-    /**
-     * 첨부파일 업로드 처리
-     */
-    @Transactional
-    public AttachmentResDto uploadAttachment(Long reportId, AttachmentReqDto req) {
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        ReportAttachment att = ReportAttachment.fromAttachmentReqDto(report, req);
-        ReportAttachment saved = attachmentRepository.save(att);
-        return AttachmentResDto.fromReportAttachment(saved);
     }
 }

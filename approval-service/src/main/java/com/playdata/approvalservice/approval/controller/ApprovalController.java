@@ -17,6 +17,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 /**
  * 전자결재 API 컨트롤러
  */
@@ -133,6 +135,24 @@ public class ApprovalController {
 
         ApprovalProcessResDto res = approvalService.processApproval(reportId, writerId, req);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "결재 처리", res));
+    }
+
+    /**
+     * 보고서의 전체 결재 이력 조회
+     * @param approvalId
+     * @param req
+     * @param userInfo
+     * @return
+     */
+    @GetMapping("/reports/{approvalId}/history")
+    public ResponseEntity<CommonResDto> processApprovalHistory(
+            @PathVariable Long approvalId,
+            @AuthenticationPrincipal TokenUserInfo userInfo
+    ){
+        Long writerId = getCurrentUserId(userInfo);
+
+        List<ApprovalHistoryResDto> res = approvalService.getApprovalHistory(approvalId, writerId);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "결재 이력 조회", res));
     }
 
     /**
