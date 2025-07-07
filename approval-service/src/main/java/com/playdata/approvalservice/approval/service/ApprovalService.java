@@ -195,49 +195,44 @@ public class ApprovalService {
     @Transactional
     public ApprovalProcessResDto processApproval(Long reportId, Long writerId, ApprovalProcessReqDto req) {
 
-        Reports submit = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서가 없습니다"));
 
-        ApprovalLine line = approvalRepository
+        Reports submit = reportsRepository.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다"));
+
+        ApprovalLine currentline = approvalRepository
                 .findByReportsIdAndEmployeeIdAndStatus(reportId, writerId, ApprovalStatus.PENDING)
                 .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN, "결재 권한이 없습니다."));
+                        HttpStatus.FORBIDDEN, "결재 권한이 없거나, 이미 처리된 결재입니다."));
 
 
 
         // ② action에 따라 approve/rejected 호출 (approvalDateTime, approvalComment가 세팅됨)
-        if ("APPROVE".equalsIgnoreCase(req.getAction())) {
-            submit.submit();
-            reportsRepository.save(submit);
-        } else if ("REJECTED".equalsIgnoreCase(req.getAction())) {
-            submit.submit();
-            reportsRepository.save(submit);
+        if (req.getAction() == ApprovalStatus.APPROVED) {
+            currentline.approve(req.getComment());
+        } else if (req.getAction() == ApprovalStatus.REJECTED) {
+            currentline.rejected(req.getComment());
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "알 수 없는 action 입니다.");
         }
 
-        // ③ 변경된 라인 저장
-        line.approve(req.getComment());
-        approvalRepository.save(line);
+        approvalRepository.save(currentline);
 
-
-
-        // ④ 보고서 상태 이동
-        Reports report = line.getReports();
-        report.moveToNextOrComplete(line);
+        // 보고서 상태 이동
+        Reports report = currentline.getReports();
+        report.moveToNextOrComplete(currentline);
         reportsRepository.save(report);
 
-        // ⑤ 다음 결재자 이름 조회
+        // 다음 결재자 이름 조회
         String nextName = report.getCurrentApproverId() != null
                 ? employeeFeignClient.getById(report.getCurrentApproverId())
                 .getBody().getName()
                 : null;
 
-        // ⑥ DTO 반환
+        // DTO 반환
         return ApprovalProcessResDto.builder()
                 .reportId(reportId)
                 .action(req.getAction())
-                .status(report.getStatus().name())
+                .status(report.getStatus())
                 .nextApprover(nextName)
                 .build();
     }
