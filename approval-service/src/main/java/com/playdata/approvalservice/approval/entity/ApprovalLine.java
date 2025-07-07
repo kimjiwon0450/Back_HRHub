@@ -39,8 +39,7 @@ public class ApprovalLine {
     private Integer approvalOrder;
 
     /** 결재 처리 일시 (승인/반려/회수 등 최종 변경 시각) */
-    @CreationTimestamp
-    @Column(name = "approval_date_time", nullable = false, updatable = false)
+    @Column(name = "approval_date_time", nullable = false)
     private LocalDateTime approvalDateTime;
 
     /** 결재 코멘트 */

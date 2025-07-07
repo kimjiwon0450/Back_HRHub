@@ -11,9 +11,9 @@ import java.util.Optional;
 
 @Repository
 public interface NoticeReadRepository extends JpaRepository<NoticeRead, Long> {
-    Optional<NoticeRead> findByNoticeIdAndUserId(Long noticeId, Long userId);
+    Optional<NoticeRead> findByNoticeIdAndEmployeeId(Long noticeId, Long employeeId);
 
-    @Query("SELECT nr.noticeId FROM NoticeRead nr WHERE nr.userId = :userId")
-    List<Long> findNoticeIdsByUserId(@Param("userId") Long userId);
+    @Query("SELECT nr.noticeId FROM NoticeRead nr WHERE nr.employeeId = :employeeId")
+    List<Long> findNoticeIdsByEmployeeId(@Param("employeeId") Long employeeId);
 
 }

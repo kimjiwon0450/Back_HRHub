@@ -67,6 +67,9 @@ public class Reports extends BaseTimeEntity {
     @Column(name = "reminded_at")
     private LocalDateTime remindedAt;
 
+    @Column(name = "previous_report_id")
+    private Long previousReportId;
+
 
     @Builder.Default
     @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -127,14 +130,6 @@ public class Reports extends BaseTimeEntity {
     }
 
     /**
-     * 제목과 본문을 업데이트
-     */
-    public void updateContent(String newTitle, String newContent) {
-        this.title = newTitle;
-        this.content = newContent;
-    }
-
-    /**
      * 결재 라인을 DTO 목록으로 교체
      */
     public void replaceApprovalLines(List<ApprovalLineReqDto> dtoList) {
@@ -164,19 +159,6 @@ public class Reports extends BaseTimeEntity {
                     .build();
             attachments.add(att);
         });
-    }
-
-    /**
-     * 보고서 상신 처리 (초안 → 결재 대기)
-     */
-    public void submit() {
-        this.reportStatus = ReportStatus.IN_PROGRESS;
-        this.submittedAt = LocalDateTime.now();
-
-        ApprovalLine next = approvalLines.stream()
-                .min(Comparator.comparing(ApprovalLine::getApprovalOrder))
-                .orElseThrow();
-        this.currentApproverId = next.getEmployeeId();
     }
 
     /**
@@ -231,5 +213,44 @@ public class Reports extends BaseTimeEntity {
         }
     }
 
+    /**
+     * 현재 보고서의 정보를 바탕으로 재상신할 새로운 보고서를 생성합니다.
+     * @param newTitle 새로운 제목
+     * @param newContent 새로운 내용
+     * @param newLinesDto 새로운 결재 라인 정보
+     * @return 재상신된 새로운 Reports 객체
+     */
+    public Reports resubmit(String newTitle, String newContent, List<ApprovalLineReqDto> newLinesDto) {
+        // 1. 새로운 Reports 객체 생성
+        Reports newReport = Reports.builder()
+                .writerId(this.writerId)
+                .type(this.type)
+                .title(newTitle)
+                .content(newContent)
+                .reportStatus(ReportStatus.IN_PROGRESS) // 재상신 시 바로 진행 상태로
+                .createdAt(LocalDateTime.now())
+                .submittedAt(LocalDateTime.now())
+                .previousReportId(this.id)
+                .reminderCount(0)
+                .build();
+
+        // 2. 새로운 결재 라인 설정
+        newReport.replaceApprovalLines(newLinesDto); // 기존 메소드 재활용
+        if (!newReport.getApprovalLines().isEmpty()) {
+            newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
+        }
+
+        // 3. (선택) 첨부파일도 복사하려면 로직 추가
+        // this.attachments.forEach(att -> newReport.addAttachment(att.cloneFor(newReport)));
+
+        return newReport;
+    }
+
+    // 기존 보고서의 상태를 변경하는 메소드
+    public void markAsResubmitted() {
+        this.reportStatus = ReportStatus.RECALLED; // 또는 'RESUBMITTED' 같은 새로운 상태
+        this.returnAt = LocalDateTime.now();
+        this.currentApproverId = null;
+    }
 }
 

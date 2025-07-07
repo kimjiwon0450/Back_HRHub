@@ -27,6 +27,15 @@ public class EvaluationController {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
     }
 
+    // 인사 평가 수정
+    @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
+    @PatchMapping("/evaluation/{id}")
+    public ResponseEntity<CommonResDto> updateEvaluation(@PathVariable Long id, @RequestBody EvaluationReqDto dto) {
+        evaluationService.updateEvaluation(id, dto);
+
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
+    }
+
     // 인사평가 조회
     @GetMapping("/evaluation/{id}")
     public ResponseEntity<CommonResDto> getEvaluation(@PathVariable Long id) {

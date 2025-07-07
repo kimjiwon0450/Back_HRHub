@@ -239,6 +239,15 @@ public class EmployeeService {
         employeeRepository.save(employee);
     }
 
+    public Map<Long, String> getEmployeeNamesByEmployeeIds(List<Long> employeeIds) {
+        List<Employee> employees = employeeRepository.findAllById(employeeIds);
+
+        Map<Long, String> map = employees.stream().collect(
+                Collectors.toMap(Employee::getEmployeeId, Employee::getName)
+        );
+
+        return map;
+    }
 }
 
 
