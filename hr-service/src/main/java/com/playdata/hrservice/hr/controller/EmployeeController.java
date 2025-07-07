@@ -108,7 +108,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/employees/names")
-    Map<Long, String> getEmployeeNamesByEmployeeIds(@@RequestParam("ids") List<Long> employeeIds) {
+    Map<Long, String> getEmployeeNamesByEmployeeIds(@RequestParam("ids") List<Long> employeeIds) {
         return employeeService.getEmployeeNamesByEmployeeIds(employeeIds);
     }
 
