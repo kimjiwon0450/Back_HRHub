@@ -20,7 +20,7 @@ public class NoticeRead {
 
     private Long noticeId;
 
-    private Long userId;
+    private Long employeeId;
 
     private LocalDateTime readAt;
 }
