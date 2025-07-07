@@ -15,10 +15,7 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
      */
     Page<Reports> findByWriterId(Long writerId, Pageable pageable);
 
-    /**
-     * 작성자 + 상태 기준 페이징 조회
-     */
-    Page<Reports> findByWriterIdAndStatus(Long writerId, ReportStatus status, Pageable pageable);
+    Page<Reports> findByWriterIdAndReportStatus(Long writerId, ReportStatus reportStatus, Pageable pageable);
 
     /**
      * 결재자(ApprovalLine)로 조회
@@ -33,8 +30,5 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
             "(r.title like %:kw% or r.content like %:kw%)")
     Page<Reports> findByWriterIdAndKeyword(Long writerId, String kw, Pageable pageable);
 
-    /**
-     * 상세 조회 (상태 확인용)
-     */
-    Optional<Reports> findByIdAndStatus(Long id, ReportStatus status);
+    Optional<Reports> findByIdAndReportStatus(Long id, ReportStatus reportStatus);
 }

@@ -16,8 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -32,7 +35,6 @@ public class ApprovalService {
 
     private final ReportsRepository reportsRepository;
     private final ApprovalRepository approvalRepository;
-    private final ReportAttachmentRepository attachmentRepository;
     private final ReferenceRepository referenceRepository;
     private final EmployeeFeignClient employeeFeignClient;
 
@@ -72,7 +74,7 @@ public class ApprovalService {
      */
     @Transactional
     public ReportUpdateResDto updateReport(Long reportId, ReportUpdateReqDto req, Long writerId) {
-        Reports report = reportsRepository.findByIdAndStatus(reportId, ReportStatus.DRAFT)
+        Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
         if (!report.getWriterId().equals(writerId)) {
@@ -96,7 +98,7 @@ public class ApprovalService {
         Page<Reports> pr;
         if ("writer".equalsIgnoreCase(role)) {
             pr = (status != null)
-                    ? reportsRepository.findByWriterIdAndStatus(writerId, status, pageable)
+                    ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
                     : reportsRepository.findByWriterId(writerId, pageable);
         } else if ("approver".equalsIgnoreCase(role)) {
             pr = reportsRepository.findByApproverId(writerId, pageable);
@@ -200,7 +202,7 @@ public class ApprovalService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다"));
 
         ApprovalLine currentline = approvalRepository
-                .findByReportsIdAndEmployeeIdAndStatus(reportId, writerId, ApprovalStatus.PENDING)
+                .findByReportsIdAndEmployeeIdAndApprovalStatus(reportId, writerId, ApprovalStatus.PENDING)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.FORBIDDEN, "결재 권한이 없거나, 이미 처리된 결재입니다."));
 
@@ -238,6 +240,55 @@ public class ApprovalService {
                 .nextApprover(nextName)
                 .build();
     }
+
+    /**
+     * 결재 이력/상세 확인
+     */
+    @Transactional(readOnly = true)
+    public List<ApprovalHistoryResDto> getApprovalHistory(Long reportId, Long writerId) {
+
+        Reports report = reportsRepository.findById(reportId).orElseThrow
+                (() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+
+        boolean isWriter = report.getWriterId().equals(writerId);
+        boolean isApprover = report.getApprovalLines().stream()
+                .anyMatch(l -> l.getEmployeeId().equals(writerId));
+        if (!isWriter && !isApprover) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+        }
+
+
+        List<ApprovalLine> lines = approvalRepository
+                .findApprovalLinesByReportId(reportId);
+
+        if (lines.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 3) 사번에 대한 이름을 한 번에 조회 (Feign 배치 API 필요)
+        List<Long> employeeIds = lines.stream()
+                .map(ApprovalLine::getEmployeeId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, String> nameMap =
+                employeeFeignClient.getEmployeeNamesByEmployeeIds(employeeIds);
+
+        // 4) DTO로 변환
+        return lines.stream()
+                .map(line -> ApprovalHistoryResDto.builder()
+                        .order(line.getApprovalOrder())
+                        .employeeId(line.getEmployeeId())
+                        .employeeName(nameMap.get(line.getEmployeeId()))
+                        .approvalStatus(line.getApprovalStatus())
+                        .comment(line.getApprovalComment())
+                        .approvalDateTime(line.getApprovalDateTime())
+                        .build()
+                )
+                .collect(Collectors.toList());
+    }
+
 
     /**
      * 보고서 회수 처리
@@ -335,16 +386,32 @@ public class ApprovalService {
                 .build();
     }
 
-    /**
-     * 첨부파일 업로드 처리
-     */
     @Transactional
-    public AttachmentResDto uploadAttachment(Long reportId, AttachmentReqDto req) {
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        ReportAttachment att = ReportAttachment.fromAttachmentReqDto(report, req);
-        ReportAttachment saved = attachmentRepository.save(att);
-        return AttachmentResDto.fromReportAttachment(saved);
+    public ResubmitResDto resubmit(Long originalReportId, Long writerId, ResubmitReqDto req) {
+
+        // 1. 원본 보고서를 찾고, 권한을 확인합니다. (반려 상태의 보고서만 재상신 가능)
+        Reports originalReport = reportsRepository.findById(originalReportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
+
+        if (!originalReport.getWriterId().equals(writerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
+        }
+        if (originalReport.getReportStatus() != ReportStatus.REJECTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려된 보고서만 재상신할 수 있습니다.");
+        }
+
+        // 2. 원본 보고서 엔티티를 통해 새로운 재상신 보고서를 생성합니다.
+        Reports newReport = originalReport.resubmit();
+
+        // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
+        Reports savedNewReport = reportsRepository.save(newReport);
+
+        // 4. 원본 보고서의 상태를 변경하여 더 이상 유효하지 않음을 표시합니다.
+        originalReport.markAsResubmitted();
+        reportsRepository.save(originalReport);
+
+        // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
+        return ResubmitResDto.builder()
+                .build();
     }
 }
