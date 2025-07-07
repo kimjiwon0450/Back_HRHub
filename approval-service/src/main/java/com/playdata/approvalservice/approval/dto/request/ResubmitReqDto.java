@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.dto.request;
 
+import com.playdata.approvalservice.approval.entity.ApprovalLine;
 import lombok.*;
 
 @Getter
@@ -8,6 +9,8 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ResubmitReqDto {
-    // 재상신 시 코멘트는 선택 입력
+    private String newTitle;
+    private ApprovalLine approvalLine;
+
     private String comment;
 }

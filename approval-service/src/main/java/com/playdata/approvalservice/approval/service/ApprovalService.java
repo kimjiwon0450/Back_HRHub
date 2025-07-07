@@ -401,7 +401,11 @@ public class ApprovalService {
         }
 
         // 2. 원본 보고서 엔티티를 통해 새로운 재상신 보고서를 생성합니다.
-        Reports newReport = originalReport.resubmit();
+        Reports newReport = originalReport.resubmit(
+                req.getNewTitle(),
+                req.getComment(),
+                req.getApprovalLine()
+        );
 
         // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
         Reports savedNewReport = reportsRepository.save(newReport);
@@ -412,6 +416,9 @@ public class ApprovalService {
 
         // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
         return ResubmitResDto.builder()
+                .reportId(savedNewReport.getId()) // 새로 생성된 ID
+                .reportStatus(savedNewReport.getReportStatus())
+                .resubmittedAt(savedNewReport.getSubmittedAt())
                 .build();
     }
 }
