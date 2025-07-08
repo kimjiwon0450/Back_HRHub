@@ -189,6 +189,9 @@ public class EmployeeService {
                 .phone(employee.getPhone())
                 .department(employee.getDepartment().getName())
                 .position(employee.getPosition().name())
+                .email(employee.getEmail())
+                .profileImageUri(employee.getProfileImageUri())
+                .role(employee.getRole().name())
                 .build());
     }
 
