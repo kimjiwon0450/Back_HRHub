@@ -1,6 +1,6 @@
 package com.playdata.approvalservice.approval.dto.request;
 
-import com.playdata.approvalservice.approval.entity.ApprovalLine;
+import com.playdata.approvalservice.approval.dto.response.ReportDetailResDto;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
@@ -22,5 +22,7 @@ public class ResubmitReqDto {
     private String comment;
 
     private List<AttachmentJsonReqDto> attachments;
+
+    private List<ReportDetailResDto.ReferenceJsonResDto> references;
 
 }
