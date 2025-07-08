@@ -30,6 +30,7 @@ public class EmployeeResDto {
 
     private String status;
     private String role;
+    private String position;
     private String profileImageUri;
     private String memo;
     private Boolean isNewEmployee;

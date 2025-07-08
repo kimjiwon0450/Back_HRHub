@@ -74,6 +74,7 @@ public class EmployeeController {
         loginInfo.put("id", employeeDto.getEmployeeId());
         loginInfo.put("name", employeeDto.getName());
         loginInfo.put("role", employeeDto.getRole().toString());
+        loginInfo.put("position", employeeDto.getPosition());
         loginInfo.put("depId", employeeDto.getDepartmentId());
 
 
@@ -154,7 +155,6 @@ public class EmployeeController {
         // 토큰으로 인증 유저 정보 확인
         String userEmail = userInfo.getEmail();
         Role userRole = userInfo.getRole();
-
         //타인 사진을 변경하는 요청이 들어오는 요청거부(employee 일때)
         if(userRole.equals(Role.EMPLOYEE)&& !userEmail.equals(targetEmail)) {
             return new ResponseEntity<>(new CommonResDto(HttpStatus.BAD_REQUEST, "본인 사진만 변경가능합니다", null), HttpStatus.BAD_REQUEST);
