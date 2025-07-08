@@ -154,6 +154,21 @@ public class EmployeeService {
                     }
                 }
                 case "position" -> {
+                    List<String> positions = Arrays.stream(Position.values()).map(Enum::name).collect(Collectors.toList());
+                    String matchedPositionName = positions.stream()
+                            .filter(roleName -> roleName.contains(keyword))
+                            .findFirst().orElse(null);
+                    Position position = null;
+                    if (matchedPositionName != null) {
+                        position = Position.valueOf(matchedPositionName);
+                    }
+                    if (department != null) {
+                        page = employeeRepository.findByPositionAndDepartmentNameContaining(position, department, pageable);
+                    } else {
+                        page = employeeRepository.findByPosition(position, pageable);
+                    }
+                }
+                case "role" -> {
                     List<String> roles = Arrays.stream(Role.values()).map(Enum::name).collect(Collectors.toList());
                     String matchedRoleName = roles.stream()
                             .filter(roleName -> roleName.contains(keyword))
