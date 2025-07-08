@@ -21,8 +21,6 @@ public class ReportCreateReqDto {
 
     @NotEmpty
     private List<ApprovalLineReqDto> approvalLine;
+    private List<AttachmentJsonReqDto> attachments;
 
-    private List<AttachmentReqDto> attachments;
-
-    private String type;
 }
