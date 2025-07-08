@@ -33,8 +33,6 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
             "/hr-service/departments", "/hr-service/departments/*",
             "/badges/**",
             "/icons/**", "/notice-service",
-//            "/notice-service/noticeboard", "/notice-service/noticeboard/*",
-//            "/notice-service/noticeboard/write", "/notice-service/noticeboard/department/**",
             "/notice-service/reviews/user/*", "/hr-service/user/*",
             "/restaurant-service/restaurant/list",
             "/restaurant-service/restaurants/*",

@@ -16,6 +16,30 @@ public class S3Service {
 
     private final AwsS3Config awsS3Config; // ✅ 기존 AmazonS3 → AwsS3Config 주입
 
+    public String uploadFile(MultipartFile file, String dir) throws IOException {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("빈 파일입니다.");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        String uuid = UUID.randomUUID().toString();
+        String fileName = dir + "/" + uuid + "_" + originalFilename;
+
+        byte[] fileBytes = file.getBytes();
+        return awsS3Config.uploadToS3Bucket(fileBytes, fileName); // 업로드 후 URL 반환
+    }
+
+    public List<String> uploadFiles(List<MultipartFile> files, String dir) throws IOException {
+        List<String> urls = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (!file.isEmpty()) {
+                urls.add(uploadFile(file, dir));
+            }
+        }
+        return urls;
+    }
+
+
     public List<String> uploadFiles(List<MultipartFile> files) throws IOException {
         List<String> urls = new ArrayList<>();
         for (MultipartFile file : files) {

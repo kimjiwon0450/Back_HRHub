@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -64,7 +65,7 @@ public class NoticeController {
         ) {
             Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-            List<Notice> noticeList = noticeService.getTopNotices();
+            List<Notice> noticeList = noticeService.getTopNotices(keyword, fromDate, toDate, departmentId);
             Page<Notice> postList = noticeService.getFilteredPosts(keyword, fromDate, toDate, departmentId, pageable);
 
             log.info("noticeList: {}", noticeList);
@@ -105,11 +106,11 @@ public class NoticeController {
     // 글 작성 페이지
     @PostMapping("/noticeboard/write")
     public ResponseEntity<Void> createNotice(
-            @RequestPart("data") NoticeCreateRequest request,
+            @RequestBody @Valid NoticeCreateRequest request,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
-            @AuthenticationPrincipal CustomUserDetails userDetails
+            @AuthenticationPrincipal TokenUserInfo userInfo
     ) throws IOException {
-        Long employeeId = userDetails.getId();
+        Long employeeId = userInfo.getEmployeeId();
         HrUserResponse user = hrUserClient.getUserInfo(employeeId);
 
         boolean hasAttachment = (files != null && !files.isEmpty());
@@ -122,20 +123,36 @@ public class NoticeController {
     }
 
     // 글 수정 페이지
-    @PutMapping("/noticeboard/edit/{id}")
-    public ResponseEntity<Void> updateNotice(@PathVariable Long id,
-                                             @RequestBody @Valid NoticeUpdateRequest request,
-                                             @AuthenticationPrincipal CustomUserDetails userDetails) {
-        Long employeeId = userDetails.getId();
-        noticeService.updateNotice(id, request, employeeId);
+    @PutMapping(value = "/noticeboard/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> updateNotice(
+            @PathVariable Long id,
+            @RequestBody @Valid NoticeUpdateRequest request,
+            @AuthenticationPrincipal TokenUserInfo userInfo) {
+
+        Long employeeId = userInfo.getEmployeeId();
+        // 파일이 없기 때문에 null 전달 또는 별도 처리
+        noticeService.updateNotice(id, request, null, employeeId);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping(value = "/noticeboard/{id}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> uploadFiles(
+            @PathVariable Long id,
+            @RequestParam("files") List<MultipartFile> files,
+            @AuthenticationPrincipal TokenUserInfo userInfo) {
+
+        Long employeeId = userInfo.getEmployeeId();
+        noticeService.uploadNoticeFiles(id, files, employeeId);
+        return ResponseEntity.ok().build();
+    }
+
+
 
     // 글 삭제
     @DeleteMapping("/noticeboard/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id,
-                                           @AuthenticationPrincipal CustomUserDetails userDetails) {
-        noticeService.deletePost(id, userDetails.getId());
+                                           @AuthenticationPrincipal TokenUserInfo userInfo) {
+        noticeService.deletePost(id, userInfo.getEmployeeId());
         return ResponseEntity.noContent().build();
     }
 
@@ -166,7 +183,7 @@ public class NoticeController {
 
     @GetMapping("/noticeboard/unread-count")
     public ResponseEntity<Integer> getUnreadNoticeCount(@AuthenticationPrincipal TokenUserInfo userInfo) {
-        return ResponseEntity.ok(noticeService.getUnreadNoticeCount(userInfo.getEmployeeId()));
+        return ResponseEntity.ok(noticeService.getUnreadNoticeCount(userInfo.getEmployeeId(),null,null,null,null));
     }
 
 

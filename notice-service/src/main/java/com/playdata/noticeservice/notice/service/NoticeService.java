@@ -4,29 +4,36 @@ import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.notice.dto.NoticeCreateRequest;
 import com.playdata.noticeservice.notice.dto.NoticeUpdateRequest;
 import com.playdata.noticeservice.notice.entity.Notice;
+import com.playdata.noticeservice.notice.entity.NoticeAttachment;
 import com.playdata.noticeservice.notice.entity.NoticeRead;
+import com.playdata.noticeservice.notice.repository.NoticeAttachmentRepository;
 import com.playdata.noticeservice.notice.repository.NoticeReadRepository;
 import com.playdata.noticeservice.notice.repository.NoticeRepository;
 import com.playdata.noticeservice.common.client.HrUserClient;
 import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.NoticeResponse;
-
+import java.io.IOException;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.fileupload.FileUploadException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -38,9 +45,12 @@ public class NoticeService {
     private final S3Service s3Service;
     private final HrUserClient hrUserClient;
     private final DepartmentClient departmentClient;
+    private final NoticeAttachmentRepository noticeAttachmentRepository;
 
-    public List<Notice> getTopNotices() {
-        return noticeRepository.findByIsNoticeTrueOrderByCreatedAtDesc();
+
+    public List<Notice> getTopNotices(String keyword, LocalDate from, LocalDate to, Long departmentId) {
+        Pageable pageable = PageRequest.of(0, 10);
+        return noticeRepository.findFilteredNotices(keyword, from, to, departmentId, pageable);
     }
 
     public Page<Notice> getFilteredPosts(String keyword, LocalDate from, LocalDate to, Long departmentId, Pageable pageable) {
@@ -76,7 +86,7 @@ public class NoticeService {
 
 
     @Transactional
-    public void updateNotice(Long id, NoticeUpdateRequest request, Long currentUserId) {
+    public void updateNotice(Long id, NoticeUpdateRequest request, List<MultipartFile> files, Long currentUserId) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
 
@@ -87,7 +97,7 @@ public class NoticeService {
         notice.setTitle(request.getTitle());
         notice.setContent(request.getContent());
         notice.setNotice(request.isNotice());
-        notice.setHasAttachment(request.isHasAttachment());
+        notice.setHasAttachment(files != null && !files.isEmpty());
         // updatedAt은 @PreUpdate로 자동 설정
     }
 
@@ -127,9 +137,10 @@ public class NoticeService {
         notice.setViewCount(notice.getViewCount() + 1);
     }
 
-    public int getUnreadNoticeCount(Long employeeId) {
+    public int getUnreadNoticeCount(Long employeeId, String keyword, LocalDate from, LocalDate to, Long departmentId) {
         List<Long> readNoticeIds = noticeReadRepository.findNoticeIdsByEmployeeId(employeeId);
-        List<Notice> allNotices = noticeRepository.findByIsNoticeTrueOrderByCreatedAtDesc();
+        Pageable pageable = PageRequest.of(0, 100);
+        List<Notice> allNotices = noticeRepository.findFilteredNotices(keyword, from, to, departmentId, pageable);
 
         return (int) allNotices.stream()
                 .filter(notice -> !readNoticeIds.contains(notice.getId()))
@@ -137,7 +148,7 @@ public class NoticeService {
     }
 
     public List<NoticeResponse> getMyPosts(Long employeeId) {
-        List<Notice> notices = noticeRepository.findByEmployeeIdOrderByCreatedAtDesc(employeeId);
+        List<Notice> notices = noticeRepository.findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(employeeId);
         HrUserResponse user = hrUserClient.getUserInfo(employeeId);
 
         return notices.stream()
@@ -149,8 +160,7 @@ public class NoticeService {
         HrUserResponse user = hrUserClient.getUserInfo(employeeId);
         Long departmentId = user.getDepartmentId();
         DepResponse dep = departmentClient.getDepInfo(departmentId);
-
-        List<Notice> notices = noticeRepository.findByDepartmentIdOrderByCreatedAtDesc(departmentId);
+        List<Notice> notices = noticeRepository.findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(departmentId);
 
         return notices.stream()
                 .map(notice -> {
@@ -162,7 +172,8 @@ public class NoticeService {
 
 
     public List<Notice> getTopNoticesByDepartment(Long departmentId) {
-        return noticeRepository.findByIsNoticeTrueAndDepartmentIdOrderByCreatedAtDesc(departmentId);
+        Pageable pageable = PageRequest.of(0, 10);
+        return noticeRepository.findByIsNoticeTrueAndBoardStatusTrueAndDepartmentIdOrderByCreatedAtDesc(departmentId, pageable);
     }
 
     public Page<Notice> getPostsByDepartment(Long departmentId, String keyword,
@@ -179,8 +190,9 @@ public class NoticeService {
         return noticeRepository.findFilteredPosts(keyword, fromDate, toDate, departmentId, pageable);
     }
 
-    public List<NoticeResponse> getNoticesForListView() {
-        List<Notice> notices = noticeRepository.findByIsNoticeTrueOrderByCreatedAtDesc();
+    public List<NoticeResponse> getNoticesForListView(String keyword, LocalDate from, LocalDate to, Long departmentId) {
+        Pageable pageable = PageRequest.of(0, 10);
+        List<Notice> notices = noticeRepository.findFilteredNotices(keyword, from, to, departmentId, pageable);
 
         return notices.stream().map(notice -> {
             HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
@@ -200,18 +212,23 @@ public class NoticeService {
 
 
     public Map<String, List<NoticeResponse>> getUserAlerts(Long employeeId) {
-        // 1. 사용자가 읽은 공지글 ID 목록
+        // 1. 사용자의 부서 ID 가져오기
+        HrUserResponse userInfo = hrUserClient.getUserInfo(employeeId);
+        Long departmentId = userInfo.getDepartmentId();
+
+        // 3. 사용자가 읽은 공지글 ID 목록
         List<Long> readNoticeIds = noticeReadRepository.findNoticeIdsByEmployeeId(employeeId);
 
-        // 2. 모든 공지글 조회
-        List<Notice> allNotices = noticeRepository.findByIsNoticeTrueOrderByCreatedAtDesc();
+        // 4. 부서별 공지글 중 필터 조건에 맞는 글 10개 조회
+        Pageable pageable = PageRequest.of(0, 10);
+        List<Notice> allNotices = noticeRepository.findFilteredNotices(null, null, null, departmentId, pageable);
 
-        // 3. 읽지 않은 공지글만 필터링
+        // 5. 읽지 않은 공지글만 필터링
         List<Notice> unreadNotices = allNotices.stream()
                 .filter(notice -> !readNoticeIds.contains(notice.getId()))
                 .toList();
 
-        // 4. 작성자 이름 주입 후 DTO로 변환
+        // 6. 작성자 이름 주입 후 DTO로 변환
         List<NoticeResponse> unreadNoticeResponses = unreadNotices.stream()
                 .map(notice -> {
                     HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
@@ -219,14 +236,54 @@ public class NoticeService {
                 })
                 .toList();
 
-        // 5. 기타 알림은 현재는 없음
+        // 7. 기타 알림은 현재는 없음
         List<NoticeResponse> otherAlerts = List.of();
 
-        // 6. Map 형태로 반환
+        // 8. Map 형태로 반환
         return Map.of(
                 "unreadNotices", unreadNoticeResponses,
                 "otherAlerts", otherAlerts
         );
+    }
+
+
+    @Transactional
+    public void uploadNoticeFiles(Long noticeId, List<MultipartFile> files, Long currentUserId) {
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
+
+        if (!notice.getEmployeeId().equals(currentUserId)) {
+            throw new AccessDeniedException("작성자만 첨부파일을 업로드할 수 있습니다.");
+        }
+
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) continue;
+
+            try {
+                // S3에 업로드 후 URL 반환
+                String fileUrl = s3Service.uploadFile(file, "notice/" + noticeId);
+
+                // DB에 저장
+                NoticeAttachment attachment = NoticeAttachment.builder()
+                        .notice(notice)
+                        .originalName(file.getOriginalFilename())
+                        .savedName(extractFileNameFromUrl(fileUrl))
+                        .uploadPath(fileUrl)
+                        .build();
+
+                noticeAttachmentRepository.save(attachment);
+
+            } catch (IOException e) {
+                throw new RuntimeException("파일 업로드 실패: " + file.getOriginalFilename());
+            }
+        }
+
+        notice.setHasAttachment(true);
+    }
+
+    private String extractFileNameFromUrl(String url) {
+        if (url == null || !url.contains("/")) return url;
+        return url.substring(url.lastIndexOf('/') + 1);
     }
 
 

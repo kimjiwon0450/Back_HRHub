@@ -32,11 +32,7 @@ public class SecurityConfig {
         // 요청 권한 설정 (어떤 url이냐에 따라 검사를 할 지 말지를 결정)
         http.authorizeHttpRequests(auth -> {
             auth
-//                    .requestMatchers("/user/list").hasRole("ROLE_ADMIN")
                     .requestMatchers(
-//                             "/notice-service/noticeboard", "/notice-service/noticeboard/*",
-//                            "/notice-service/noticeboard/write",
-//                            "/notice-service/noticeboard/department/*",
                             "/notice-service", "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });

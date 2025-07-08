@@ -16,11 +16,24 @@ import java.util.Optional;
 public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     // ✅ 공지글 전체 조회 (isNotice = true)
-    List<Notice> findByIsNoticeTrueOrderByCreatedAtDesc();
+    @Query("SELECT n FROM Notice n WHERE " +
+            "n.isNotice = true AND " +
+            "n.boardStatus = true AND " +
+            "LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%')) AND " +
+            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
+            "(:toDate IS NULL OR n.createdAt <= :toDate) AND " +
+            "(:departmentId IS NULL OR n.departmentId = :departmentId)")
+    List<Notice> findFilteredNotices(@Param("keyword") String keyword,
+                                     @Param("fromDate") LocalDate fromDate,
+                                     @Param("toDate") LocalDate toDate,
+                                     @Param("departmentId") Long departmentId,
+                                     Pageable pageable);
+
 
     // ✅ 일반 게시글 필터링 및 페이징
     @Query("SELECT n FROM Notice n WHERE " +
             "n.isNotice = false AND " +
+            "n.boardStatus = true AND " +
             "LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%')) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR n.createdAt <= :toDate) AND " +
@@ -31,11 +44,12 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                    @Param("departmentId") Long departmentId,
                                    Pageable pageable);
 
-    List<Notice> findByEmployeeIdOrderByCreatedAtDesc(Long employeeId);
+    // 내가 작성한 글
+    List<Notice> findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(Long employeeId);
 
     // 부서별 공지글 (상단 고정용)
-    List<Notice> findByIsNoticeTrueAndDepartmentIdOrderByCreatedAtDesc(Long departmentId);
+    List<Notice> findByIsNoticeTrueAndBoardStatusTrueAndDepartmentIdOrderByCreatedAtDesc(Long departmentId, Pageable pageable);
 
-
-    List<Notice> findByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
+    // 부서별 일반글
+    List<Notice> findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(Long departmentId);
 }
