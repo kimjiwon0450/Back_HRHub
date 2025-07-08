@@ -47,6 +47,7 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final EmployeePasswordRepository employeePasswordRepository;
     private final HrTransferHistoryRepository hrTransferHistoryRepository;
+    private final MailService mailService;
     private final PasswordEncoder encoder;
     private final RedisTemplate<String, Object> redisTemplate;
     private final DepartmentService departmentService;
@@ -80,6 +81,7 @@ public class EmployeeService {
         initTransferHistory(save, save.getDepartment().getId(), save.getPosition().name(), "");
         EmployeePassword employeePassword = EmployeePassword.builder()
                 .userId(save.getEmployeeId()).build();
+        mailService.sendVerificationMail(save.getEmail());
         employeePasswordRepository.save(employeePassword);
     }
 
