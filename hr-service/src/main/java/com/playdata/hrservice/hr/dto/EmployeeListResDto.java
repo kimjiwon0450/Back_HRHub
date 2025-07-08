@@ -13,6 +13,7 @@ public class EmployeeListResDto {
     private Long id;
     private String name;
     private String department;
-    private String role; // String?? or Role?
+//    private String role;
+    private String position;
     private String phone;
 }

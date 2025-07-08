@@ -73,6 +73,7 @@ public class EmployeeController {
         loginInfo.put("id", employeeDto.getEmployeeId());
         loginInfo.put("name", employeeDto.getName());
         loginInfo.put("role", employeeDto.getRole().toString());
+        loginInfo.put("position", employeeDto.getPosition());
         loginInfo.put("depId", employeeDto.getDepartmentId());
 
 

@@ -187,7 +187,7 @@ public class EmployeeService {
                 .name(employee.getName())
                 .phone(employee.getPhone())
                 .department(employee.getDepartment().getName())
-                .role(employee.getRole().name())
+                .position(employee.getPosition().name())
                 .build());
     }
 
