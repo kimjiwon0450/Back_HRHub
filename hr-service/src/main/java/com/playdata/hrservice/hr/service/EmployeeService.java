@@ -247,14 +247,17 @@ public class EmployeeService {
         String json = hrTransferHistory.getTransferHistory();
         List<HrTransferHistoryDto> hrTransferHistoryDtos = new ObjectMapper()
                 .readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {});
-        hrTransferHistoryDtos.add(HrTransferHistoryDto.builder()
-                .sequenceId((long)hrTransferHistoryDtos.size())
-                .departmentId(departmentId)
-                .positionName(positionName)
-                .memo(memo)
-                .build());
-        hrTransferHistory.updateTransferHistory(new ObjectMapper().writeValueAsString(hrTransferHistoryDtos));
-        hrTransferHistoryRepository.save(hrTransferHistory);
+        if (!hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getDepartmentId().equals(departmentId) || !hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getPositionName().equals(positionName)) {
+            hrTransferHistoryDtos.add(HrTransferHistoryDto.builder()
+                    .sequenceId((long)hrTransferHistoryDtos.size())
+                    .departmentId(departmentId)
+                    .positionName(positionName)
+                    .memo(memo)
+                    .build());
+            hrTransferHistory.updateTransferHistory(new ObjectMapper().writeValueAsString(hrTransferHistoryDtos));
+            hrTransferHistoryRepository.save(hrTransferHistory);
+        }
+
     }
 
     public String getEmployeeName(Long id) {
@@ -284,6 +287,22 @@ public class EmployeeService {
         );
 
         return map;
+    }
+
+    public HrTransferHistoryResDto getTransferHistory(Long employeeId) throws JsonProcessingException {
+        HrTransferHistory hrTransferHistory = hrTransferHistoryRepository.findByEmployee(findById(employeeId));
+        if (hrTransferHistory == null) {
+            throw new EntityNotFoundException("해당 직원의 인사이동 이력이 존재하지 않습니다.");
+        }
+
+        String json = hrTransferHistory.getTransferHistory();
+        List<HrTransferHistoryDto> hrTransferHistoryDtos = new ObjectMapper().readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {});
+
+        return HrTransferHistoryResDto.builder()
+                .tranferHistoryId(hrTransferHistory.getId())
+                .employeeId(employeeId)
+                .hrTransferHistories(hrTransferHistoryDtos)
+                .build();
     }
 }
 

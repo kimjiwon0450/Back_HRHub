@@ -8,6 +8,7 @@ import com.playdata.hrservice.common.dto.CommonResDto;
 import com.playdata.hrservice.hr.dto.EmployeePasswordDto;
 import com.playdata.hrservice.hr.dto.EmployeeReqDto;
 import com.playdata.hrservice.hr.dto.EmployeeResDto;
+import com.playdata.hrservice.hr.dto.HrTransferHistoryResDto;
 import com.playdata.hrservice.hr.entity.Employee;
 import com.playdata.hrservice.hr.service.EmployeeService;
 import com.playdata.hrservice.hr.service.S3Service;
@@ -167,6 +168,14 @@ public class EmployeeController {
 
         String resImageUri = s3Service.uploadProfile(targetEmail, file);
         return ResponseEntity.ok(resImageUri);
+    }
+
+    // 인사 이동 이력
+    @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
+    @GetMapping("/transfer-history/{employeeId}")
+    public ResponseEntity<?> getTransferHistory(@PathVariable("employeeId") Long employeeId) throws JsonProcessingException {
+        HrTransferHistoryResDto resDto = employeeService.getTransferHistory(employeeId);
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "success", resDto), HttpStatus.OK);
     }
 
     // 토큰 리프레시
