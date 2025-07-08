@@ -1,19 +1,17 @@
 package com.playdata.hrservice.hr.service;
 
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.common.auth.TokenUserInfo;
 import com.playdata.hrservice.common.config.AwsS3Config;
-import com.playdata.hrservice.hr.dto.EmployeeListResDto;
-import com.playdata.hrservice.hr.dto.EmployeePasswordDto;
-import com.playdata.hrservice.hr.dto.EmployeeReqDto;
-import com.playdata.hrservice.hr.dto.EmployeeResDto;
-import com.playdata.hrservice.hr.entity.Employee;
-import com.playdata.hrservice.hr.entity.EmployeePassword;
-import com.playdata.hrservice.hr.entity.EmployeeStatus;
-import com.playdata.hrservice.hr.entity.Position;
+import com.playdata.hrservice.hr.dto.*;
+import com.playdata.hrservice.hr.entity.*;
 import com.playdata.hrservice.hr.repository.EmployeePasswordRepository;
 import com.playdata.hrservice.hr.repository.EmployeeRepository;
+import com.playdata.hrservice.hr.repository.HrTransferHistoryRepository;
 import jakarta.mail.MessagingException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.constraints.NotBlank;
@@ -48,13 +46,14 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final EmployeePasswordRepository employeePasswordRepository;
+    private final HrTransferHistoryRepository hrTransferHistoryRepository;
     private final PasswordEncoder encoder;
     private final RedisTemplate<String, Object> redisTemplate;
     private final DepartmentService departmentService;
 
 
     @Transactional
-    public void createUser(EmployeeReqDto dto) {
+    public void createUser(EmployeeReqDto dto) throws JsonProcessingException {
         // 1. 이메일 중복 확인 (신규 가입에만 해당)
         if (employeeRepository.findByEmail(dto.getEmail()).isPresent()) {
             throw new IllegalArgumentException("이미 존재하는 이메일 입니다!");
@@ -78,6 +77,7 @@ public class EmployeeService {
                         .memo(dto.getMemo())
                         .build()
         );
+        initTransferHistory(save, save.getDepartment().getId(), save.getPosition().name(), "");
         EmployeePassword employeePassword = EmployeePassword.builder()
                 .userId(save.getEmployeeId()).build();
         employeePasswordRepository.save(employeePassword);
@@ -209,21 +209,52 @@ public class EmployeeService {
 
     // 직원 수정
     @Transactional
-    public void modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) {
+    public void modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) throws JsonProcessingException {
         Employee employee = employeeRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found!")
         );
         if (role.equals(Role.ADMIN) || role.equals(Role.HR_MANAGER)) {
             employee.updateRoleAndPosition(Role.valueOf(dto.getRole()), Position.valueOf(dto.getPosition()));
             employee.updateDepartment(departmentService.getDepartmentEntity(dto.getDepartmentId()));
+            insertTransferHistory(employee, dto.getDepartmentId(), dto.getPosition(), "");
         }
         employee.updateFromDto(dto);
 
     }
 
-    public void insertTransferHistory() {
-        //여기서 인사이동
-
+    // 인사이동 이력 초기화
+    private void initTransferHistory(Employee employee, Long departmentId, String positionName, String memo) throws JsonProcessingException {
+        List<HrTransferHistoryDto> hrTransferHistoryDtos = new ArrayList<>();
+        hrTransferHistoryDtos.add(HrTransferHistoryDto.builder()
+                        .sequenceId(0L)
+                        .departmentId(departmentId)
+                        .positionName(positionName)
+                        .memo(memo)
+                        .build());
+        HrTransferHistory hrTransferHistory = HrTransferHistory.builder()
+                    .employee(employee)
+                    .transferHistory(new ObjectMapper().writeValueAsString(hrTransferHistoryDtos))
+                    .build();
+        hrTransferHistoryRepository.save(hrTransferHistory);
+    }
+    // 인사이동
+    private void insertTransferHistory(Employee employee, Long departmentId, String positionName, String memo) throws JsonProcessingException {
+        HrTransferHistory hrTransferHistory = hrTransferHistoryRepository.findByEmployee(employee);
+        if (hrTransferHistory == null) {
+            initTransferHistory(employee, departmentId, positionName, memo);
+            return;
+        }
+        String json = hrTransferHistory.getTransferHistory();
+        List<HrTransferHistoryDto> hrTransferHistoryDtos = new ObjectMapper()
+                .readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {});
+        hrTransferHistoryDtos.add(HrTransferHistoryDto.builder()
+                .sequenceId((long)hrTransferHistoryDtos.size())
+                .departmentId(departmentId)
+                .positionName(positionName)
+                .memo(memo)
+                .build());
+        hrTransferHistory.updateTransferHistory(new ObjectMapper().writeValueAsString(hrTransferHistoryDtos));
+        hrTransferHistoryRepository.save(hrTransferHistory);
     }
 
     public String getEmployeeName(Long id) {

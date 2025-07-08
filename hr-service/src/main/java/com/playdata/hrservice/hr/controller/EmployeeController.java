@@ -1,4 +1,5 @@
 package com.playdata.hrservice.hr.controller;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.playdata.hrservice.common.auth.JwtTokenProvider;
 import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.common.auth.TokenUserInfo;
@@ -44,7 +45,7 @@ public class EmployeeController {
 
     // 직원 등록
     @PostMapping("/employees")
-    public ResponseEntity<?> createUser(@RequestBody EmployeeReqDto dto) {
+    public ResponseEntity<?> createUser(@RequestBody EmployeeReqDto dto) throws JsonProcessingException {
         log.info("Create employee : {}", dto);
         employeeService.createUser(dto);
         return ResponseEntity.ok().build();
@@ -132,7 +133,7 @@ public class EmployeeController {
 
     // 직원 정보수정
     @PatchMapping("/employees/{id}")
-    public ResponseEntity<?> modifyEmployeeInfo(@PathVariable("id") Long id, @RequestBody EmployeeReqDto dto, @AuthenticationPrincipal TokenUserInfo tokenUserInfo) {
+    public ResponseEntity<?> modifyEmployeeInfo(@PathVariable("id") Long id, @RequestBody EmployeeReqDto dto, @AuthenticationPrincipal TokenUserInfo tokenUserInfo) throws JsonProcessingException {
         log.info("Modify employee : {}", dto);
         Role role = tokenUserInfo.getRole();
         employeeService.modifyEmployeeInfo(id, dto, role);

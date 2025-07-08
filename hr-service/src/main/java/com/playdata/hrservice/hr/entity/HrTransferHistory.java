@@ -20,15 +20,23 @@ public class HrTransferHistory extends BaseTimeEntity {
     @JoinColumn(name = "employeeId")
     private Employee employee;
 
-    @ManyToOne
-    @JoinColumn(name = "oldDepartmentId")
-    private Department oldDepartment;
+    /*
+        [
+         { "sequence_id" : 0,
+            "department_id" : 10,
+            "position_id" : 11,
+             "memo" : "" } ,
+            .....
+           { "sequence_id" : 3,
+            "department_id" : 30,
+            "position_id" : 31,
+             "memo" : "" }
+        ]
+    */
+    @Column(columnDefinition = "json")
+    private String transferHistory;
 
-    @ManyToOne
-    @JoinColumn(name = "newDepartmentId")
-    private Department currentDepartment;
-
-    private String oldRole;
-    private String currentRole;
-    private String memo;
+    public void updateTransferHistory(String transferHistory) {
+        this.transferHistory = transferHistory;
+    }
 }
