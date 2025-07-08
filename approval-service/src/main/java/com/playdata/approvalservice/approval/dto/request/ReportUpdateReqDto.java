@@ -20,4 +20,5 @@ public class ReportUpdateReqDto {
 
     private List<ApprovalLineReqDto> approvalLine;
     private List<AttachmentJsonReqDto> attachments;
+    private List<ReferenceJsonReqDto> references;
 }

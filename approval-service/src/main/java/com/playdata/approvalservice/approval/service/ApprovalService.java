@@ -21,10 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.format.DateTimeFormatter;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -53,18 +50,21 @@ public class ApprovalService {
     public ReportCreateResDto createReport(ReportCreateReqDto req, Long writerId) {
         Reports report = Reports.fromDto(req, writerId);
 
-
-        if(req.getAttachments() != null && !req.getAttachments().isEmpty()) {
-            try{
-                Map<String, Object> detailMap = new HashMap<>();
-                detailMap.put("attachments", req.getAttachments());
-                String detailJson = objectMapper.writeValueAsString(detailMap);
-                report.setDetail(detailJson);
-            }catch (JsonProcessingException e){
-                throw new ResponseStatusException
-                        (HttpStatus.BAD_REQUEST, "첨부파일 JSON 실패", e);
+        Map<String,Object> detailMap = new HashMap<>();
+        if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
+            detailMap.put("attachments", req.getAttachments());
+        }
+        if (req.getReferences() != null && !req.getReferences().isEmpty()) {
+            detailMap.put("references", req.getReferences());
+        }
+        if (!detailMap.isEmpty()) {
+            try {
+                report.setDetail(objectMapper.writeValueAsString(detailMap));
+            } catch (JsonProcessingException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패", e);
             }
         }
+
         Reports saved = reportsRepository.save(report);
 
         ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
@@ -103,15 +103,19 @@ public class ApprovalService {
         // 제목
         report.updateFromDto(req);
 
-        // JSON 첨부파일
-        if(req.getAttachments() != null){
+        // detail 에 attachments, references 담기
+        Map<String,Object> detailMap = new HashMap<>();
+        if (req.getAttachments() != null) {
+            detailMap.put("attachments", req.getAttachments());
+        }
+        if (req.getReferences() != null) {
+            detailMap.put("references", req.getReferences());
+        }
+        if (!detailMap.isEmpty()) {
             try {
-                Map<String, Object> detailMap = new HashMap<>();
-                detailMap.put("attachments", req.getAttachments());
-                String detailJson = objectMapper.writeValueAsString(detailMap);
-                report.setDetail(detailJson);
-            }catch (JsonProcessingException e){
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "첨부파일 JSON 실패", e);
+                report.setDetail(objectMapper.writeValueAsString(detailMap));
+            } catch (JsonProcessingException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패", e);
             }
         }
 
@@ -189,23 +193,32 @@ public class ApprovalService {
         String writerName = employeeFeignClient.getById(r.getWriterId())
                 .getBody().getName();
 
-        List<ReportDetailResDto.AttachmentResDto> atts;
-        try {
-            if(r.getDetail() != null){
+        List<ReportDetailResDto.AttachmentResDto> atts = Collections.emptyList();
+        List<ReportDetailResDto.ReferenceJsonResDto> refs = Collections.emptyList();
+
+        if (r.getDetail() != null && !r.getDetail().isBlank()) {
+            try {
                 JsonNode root = objectMapper.readTree(r.getDetail());
-                JsonNode arr = root.path("attachments");
-                List<AttachmentJsonReqDto> dtoList = objectMapper.convertValue(
-                        arr, new TypeReference<List<AttachmentJsonReqDto>>() {});
-                atts = dtoList.stream()
-                        .map(a -> new ReportDetailResDto.AttachmentResDto(
-                                a.getFileName(), a.getUrl()))
+
+                atts = Optional.of(root.path("attachments"))
+                        .filter(JsonNode::isArray)
+                        .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<AttachmentJsonReqDto>>(){}))
+                        .orElse(Collections.emptyList())
+                        .stream()
+                        .map(a -> new ReportDetailResDto.AttachmentResDto(a.getFileName(), a.getUrl()))
                         .collect(Collectors.toList());
+
+                refs = Optional.of(root.path("references"))
+                        .filter(JsonNode::isArray)
+                        .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<ReferenceJsonReqDto>>(){}))
+                        .orElse(Collections.emptyList())
+                        .stream()
+                        .map(rj -> new ReportDetailResDto.ReferenceJsonResDto(rj.getEmployeeId()))
+                        .collect(Collectors.toList());
+
+            } catch (JsonProcessingException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 파싱 실패", e);
             }
-            else{
-                atts = Collections.emptyList();
-            }
-        }catch (JsonProcessingException e){
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "첨부파일 JSON 실패", e);
         }
 
         List<ReportDetailResDto.ApprovalLineResDto> lines = r.getApprovalLines().stream()
@@ -216,22 +229,24 @@ public class ApprovalService {
                             .employeeId(l.getEmployeeId())
                             .name(name)
                             .approvalStatus(l.getApprovalStatus())
-                            .order(l.getApprovalContext())
+                            .context(l.getApprovalContext())
                             .approvedAt(l.getApprovalDateTime() != null
                                     ? l.getApprovalDateTime().format(fmt) : null)
                             .build();
                 })
                 .collect(Collectors.toList());
+
         String currentApprover = r.getCurrentApproverId() != null
-                ? employeeFeignClient.getById(r.getCurrentApproverId())
-                .getBody().getName()
+                ? employeeFeignClient.getById(r.getCurrentApproverId()).getBody().getName()
                 : null;
+
 
         return ReportDetailResDto.builder()
                 .id(r.getId())
                 .title(r.getTitle())
                 .content(r.getContent())
                 .attachments(atts)
+                .references(refs)
                 .writer(ReportDetailResDto.WriterInfoDto.builder()
                         .id(r.getWriterId())
                         .name(writerName)
@@ -397,16 +412,19 @@ public class ApprovalService {
                 req.getAttachments()
         );
 
-        // 새 첨부파일이 있으면 JSON으로 detail에 덮어쓰기
+        // 2) attachments/references 덮어쓰기
+        Map<String,Object> detailMap = new HashMap<>();
         if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
+            detailMap.put("attachments", req.getAttachments());
+        }
+        if (req.getReferences() != null && !req.getReferences().isEmpty()) {
+            detailMap.put("references", req.getReferences());
+        }
+        if (!detailMap.isEmpty()) {
             try {
-                Map<String,Object> detailMap = new HashMap<>();
-                detailMap.put("attachments", req.getAttachments());
-                String detailJson = objectMapper.writeValueAsString(detailMap);
-                newReport.setDetail(detailJson);
+                newReport.setDetail(objectMapper.writeValueAsString(detailMap));
             } catch (JsonProcessingException e) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "첨부파일 JSON 직렬화 실패", e);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 직렬화 실패", e);
             }
         }
 
