@@ -476,7 +476,7 @@ public class ApprovalService {
         }
 
         // 2) 참조 삭제
-        referenceRepository.deleteByReports_IdAndEmployeeId(reportId, employeeId);
+        referenceRepository.deleteByReportsIdAndEmployeeId(reportId, employeeId);
 
         // 3) 응답 DTO 반환
         return ReportReferencesResDto.builder()

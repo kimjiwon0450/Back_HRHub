@@ -26,9 +26,20 @@ public class TemplateService {
     @Transactional
     public TemplateResDto createTemplate(TemplateCreateReqDto req) {
         try {
-            ReportTemplate newTemplate = ReportTemplate.of(req, objectMapper);
+            // 1. DTO에서 JsonNode를 가져와서 명시적으로 String으로 변환
+            String jsonTemplate = objectMapper.writeValueAsString(req.getTemplate());
+
+            // 2. Builder를 사용하여 직접 엔티티 생성
+            ReportTemplate newTemplate = ReportTemplate.builder()
+                    .template(jsonTemplate)
+                    .build();
+
+            // 3. 엔티티 저장
             ReportTemplate savedTemplate = templateRepository.save(newTemplate);
+
+            // 4. 응답 DTO로 변환하여 반환
             return TemplateResDto.from(savedTemplate, objectMapper);
+
         } catch (JsonProcessingException e) {
             log.error("템플릿 JSON 직렬화/파싱 실패 (생성)", e);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 템플릿 JSON 형식입니다.", e);
