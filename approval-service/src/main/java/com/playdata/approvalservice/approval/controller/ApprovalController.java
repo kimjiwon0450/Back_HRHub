@@ -139,18 +139,18 @@ public class ApprovalController {
 
     /**
      * 보고서의 전체 결재 이력 조회
-     * @param approvalId
+     * @param reportId
      * @param userInfo
      * @return
      */
-    @GetMapping("/reports/{approvalId}/history")
+    @GetMapping("/reports/{reportId}/history")
     public ResponseEntity<CommonResDto> processApprovalHistory(
-            @PathVariable Long approvalId,
+            @PathVariable Long reportId,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ){
         Long writerId = getCurrentUserId(userInfo);
 
-        List<ApprovalHistoryResDto> res = approvalService.getApprovalHistory(approvalId, writerId);
+        List<ApprovalHistoryResDto> res = approvalService.getApprovalHistory(reportId, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "결재 이력 조회", res));
     }
 
@@ -161,7 +161,6 @@ public class ApprovalController {
     public ResponseEntity<CommonResDto> recallReport(
             @PathVariable Long reportId,
             @AuthenticationPrincipal TokenUserInfo userInfo
-            // [수정] 파라미터로 writerId 주입
     ) {
 
         Long writerId = getCurrentUserId(userInfo);
@@ -235,18 +234,4 @@ public class ApprovalController {
         ReportReferencesResDto res = approvalService.deleteReferences(reportId, writerId, employeeId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "참조자 삭제 완료", res));
     }
-
-//    /**
-//     * 첨부파일 업로드 처리
-//     * (기존 코드에서 writerId를 사용하지 않으므로 여기서는 주입받지 않습니다.)
-//     */
-//    @PostMapping("/reports/{reportId}/attachments")
-//    public ResponseEntity<CommonResDto> uploadAttachment(
-//            @PathVariable Long reportId,
-//            @RequestBody @Valid AttachmentReqDto req
-//    ) {
-//        AttachmentResDto res = approvalService.uploadAttachment(reportId, req);
-//        return ResponseEntity.status(HttpStatus.CREATED)
-//                .body(new CommonResDto(HttpStatus.CREATED, "첨부파일 등록 완료", res));
-//    }
 }

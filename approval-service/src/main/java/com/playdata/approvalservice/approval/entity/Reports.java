@@ -1,7 +1,8 @@
 package com.playdata.approvalservice.approval.entity;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.ApprovalLineReqDto;
-import com.playdata.approvalservice.approval.dto.request.AttachmentReqDto;
+import com.playdata.approvalservice.approval.dto.request.AttachmentJsonReqDto;
 import com.playdata.approvalservice.approval.dto.request.ReportCreateReqDto;
 import com.playdata.approvalservice.approval.dto.request.ReportUpdateReqDto;
 import com.playdata.approvalservice.common.entity.BaseTimeEntity;
@@ -10,7 +11,6 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 @NoArgsConstructor
@@ -123,10 +123,6 @@ public class Reports extends BaseTimeEntity {
 
     @Builder.Default
     @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ReportAttachment> attachments = new ArrayList<>();
-
-    @Builder.Default
-    @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("approvalContext ASC")
     private List<ApprovalLine> approvalLines = new ArrayList<>();
 
@@ -140,7 +136,6 @@ public class Reports extends BaseTimeEntity {
     public static Reports fromDto(ReportCreateReqDto dto, Long userId) {
         Reports report = Reports.builder()
                 .writerId(userId)
-                .reportStatus(dto.getReportStatus())
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .reportStatus(ReportStatus.DRAFT)
@@ -149,14 +144,20 @@ public class Reports extends BaseTimeEntity {
                 .build();
 
         // 첨부파일 설정
-        if (dto.getAttachments() != null) {
-            report.replaceAttachments(dto.getAttachments());
-        }
+
         // 결재 라인 설정
         report.replaceApprovalLines(dto.getApprovalLine());
         if (!report.approvalLines.isEmpty()) {
             report.currentApproverId = report.approvalLines.get(0).getEmployeeId();
         }
+
+        // 첫 결재자
+        if(!report.getApprovalLines().isEmpty()) {
+            report.setCurrentApproverId(
+                    report.getApprovalLines().get(0).getEmployeeId()
+            );
+        }
+
         return report;
     }
 
@@ -166,11 +167,7 @@ public class Reports extends BaseTimeEntity {
     public void updateFromDto(ReportUpdateReqDto dto) {
         this.title = dto.getTitle();
         this.content = dto.getContent();
-        if (dto.getDetail() != null) this.detail = dto.getDetail();
 
-        if (dto.getAttachments() != null) {
-            replaceAttachments(dto.getAttachments());
-        }
         if (dto.getApprovalLine() != null) {
             replaceApprovalLines(dto.getApprovalLine());
             if (!approvalLines.isEmpty()) {
@@ -193,21 +190,6 @@ public class Reports extends BaseTimeEntity {
                     .approvalDateTime(LocalDateTime.now())
                     .build();
             approvalLines.add(line);
-        });
-    }
-
-    /**
-     * 첨부파일 목록을 DTO 목록으로 교체
-     */
-    public void replaceAttachments(List<AttachmentReqDto> dtoList) {
-        attachments.clear();
-        dtoList.forEach(dto -> {
-            ReportAttachment att = ReportAttachment.builder()
-                    .reports(this)
-                    .name(dto.getFileName())
-                    .url(dto.getUrl())
-                    .build();
-            attachments.add(att);
         });
     }
 
@@ -257,12 +239,14 @@ public class Reports extends BaseTimeEntity {
 
     /**
      * 현재 보고서의 정보를 바탕으로 재상신할 새로운 보고서를 생성합니다.
-     * @param newTitle 새로운 제목
-     * @param newContent 새로운 내용
+     *
+     * @param newTitle    새로운 제목
+     * @param newContent  새로운 내용
      * @param newLinesDto 새로운 결재 라인 정보
+     * @param attachments
      * @return 재상신된 새로운 Reports 객체
      */
-    public Reports resubmit(String newTitle, String newContent, List<ApprovalLineReqDto> newLinesDto) {
+    public Reports resubmit(String newTitle, String newContent, List<ApprovalLineReqDto> newLinesDto, List<AttachmentJsonReqDto> attachments) {
         // 1. 새로운 Reports 객체 생성
         Reports newReport = Reports.builder()
                 .writerId(this.writerId)
@@ -283,8 +267,7 @@ public class Reports extends BaseTimeEntity {
             newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
         }
 
-        // 3. (선택) 첨부파일도 복사하려면 로직 추가
-        // this.attachments.forEach(att -> newReport.addAttachment(att.cloneFor(newReport)));
+        newReport.setDetail(this.getDetail());
 
         return newReport;
     }

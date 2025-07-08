@@ -1,5 +1,9 @@
 package com.playdata.approvalservice.approval.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.entity.*;
@@ -18,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,6 +42,8 @@ public class ApprovalService {
     private final ReferenceRepository referenceRepository;
     private final EmployeeFeignClient employeeFeignClient;
 
+    private final ObjectMapper objectMapper;
+
     private final DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     /**
@@ -45,6 +52,19 @@ public class ApprovalService {
     @Transactional
     public ReportCreateResDto createReport(ReportCreateReqDto req, Long writerId) {
         Reports report = Reports.fromDto(req, writerId);
+
+
+        if(req.getAttachments() != null && !req.getAttachments().isEmpty()) {
+            try{
+                Map<String, Object> detailMap = new HashMap<>();
+                detailMap.put("attachments", req.getAttachments());
+                String detailJson = objectMapper.writeValueAsString(detailMap);
+                report.setDetail(detailJson);
+            }catch (JsonProcessingException e){
+                throw new ResponseStatusException
+                        (HttpStatus.BAD_REQUEST, "첨부파일 JSON 실패", e);
+            }
+        }
         Reports saved = reportsRepository.save(report);
 
         ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
@@ -76,10 +96,26 @@ public class ApprovalService {
         Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
+
         if (!report.getWriterId().equals(writerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
         }
+        // 제목
         report.updateFromDto(req);
+
+        // JSON 첨부파일
+        if(req.getAttachments() != null){
+            try {
+                Map<String, Object> detailMap = new HashMap<>();
+                detailMap.put("attachments", req.getAttachments());
+                String detailJson = objectMapper.writeValueAsString(detailMap);
+                report.setDetail(detailJson);
+            }catch (JsonProcessingException e){
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "첨부파일 JSON 실패", e);
+            }
+        }
+
+
         Reports updated = reportsRepository.save(report);
         return ReportUpdateResDto.builder()
                 .id(updated.getId())
@@ -138,23 +174,40 @@ public class ApprovalService {
      * 보고서 상세 조회
      */
     public ReportDetailResDto getReportDetail(Long reportId, Long writerId) {
+
         Reports r = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+
         boolean writer = r.getWriterId().equals(writerId);
         boolean approver = r.getApprovalLines().stream()
                 .anyMatch(l -> l.getEmployeeId().equals(writerId));
         if (!writer && !approver) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
         }
+
         String writerName = employeeFeignClient.getById(r.getWriterId())
                 .getBody().getName();
-        List<ReportDetailResDto.AttachmentResDto> atts = r.getAttachments().stream()
-                .map(a -> ReportDetailResDto.AttachmentResDto.builder()
-                        .fileName(a.getName())
-                        .url(a.getUrl())
-                        .build())
-                .collect(Collectors.toList());
+
+        List<ReportDetailResDto.AttachmentResDto> atts;
+        try {
+            if(r.getDetail() != null){
+                JsonNode root = objectMapper.readTree(r.getDetail());
+                JsonNode arr = root.path("attachments");
+                List<AttachmentJsonReqDto> dtoList = objectMapper.convertValue(
+                        arr, new TypeReference<List<AttachmentJsonReqDto>>() {});
+                atts = dtoList.stream()
+                        .map(a -> new ReportDetailResDto.AttachmentResDto(
+                                a.getFileName(), a.getUrl()))
+                        .collect(Collectors.toList());
+            }
+            else{
+                atts = Collections.emptyList();
+            }
+        }catch (JsonProcessingException e){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "첨부파일 JSON 실패", e);
+        }
+
         List<ReportDetailResDto.ApprovalLineResDto> lines = r.getApprovalLines().stream()
                 .map(l -> {
                     String name = employeeFeignClient.getById(l.getEmployeeId())
@@ -173,6 +226,7 @@ public class ApprovalService {
                 ? employeeFeignClient.getById(r.getCurrentApproverId())
                 .getBody().getName()
                 : null;
+
         return ReportDetailResDto.builder()
                 .id(r.getId())
                 .title(r.getTitle())
@@ -298,7 +352,6 @@ public class ApprovalService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
-        // --- 여기에 로그 추가 ---
         System.out.println("요청된 보고서 ID: " + reportId);
         System.out.println("토큰에서 추출한 작성자 ID (userInfo): " + writerId);
         System.out.println("보고서 엔티티의 작성자 ID: " + report.getWriterId());
@@ -334,12 +387,29 @@ public class ApprovalService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려된 보고서만 재상신할 수 있습니다.");
         }
 
+
+
         // 2) 새로운 라인 리스트와 제목·본문을 넘기도록 변경
         Reports newReport = originalReport.resubmit(
                 req.getNewTitle(),
                 req.getNewContent(),
-                req.getApprovalLine()
+                req.getApprovalLine(),
+                req.getAttachments()
         );
+
+        // 새 첨부파일이 있으면 JSON으로 detail에 덮어쓰기
+        if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
+            try {
+                Map<String,Object> detailMap = new HashMap<>();
+                detailMap.put("attachments", req.getAttachments());
+                String detailJson = objectMapper.writeValueAsString(detailMap);
+                newReport.setDetail(detailJson);
+            } catch (JsonProcessingException e) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "첨부파일 JSON 직렬화 실패", e);
+            }
+        }
+
 
         // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
         Reports savedNewReport = reportsRepository.save(newReport);

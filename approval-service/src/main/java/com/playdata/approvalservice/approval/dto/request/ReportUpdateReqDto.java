@@ -18,7 +18,6 @@ public class ReportUpdateReqDto {
     @NotBlank
     private String content;
 
-    private String detail;
     private List<ApprovalLineReqDto> approvalLine;
-    private List<AttachmentReqDto> attachments;
+    private List<AttachmentJsonReqDto> attachments;
 }

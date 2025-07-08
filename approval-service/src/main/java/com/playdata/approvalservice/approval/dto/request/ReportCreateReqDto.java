@@ -1,6 +1,5 @@
 package com.playdata.approvalservice.approval.dto.request;
 
-import com.playdata.approvalservice.approval.entity.ReportStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.*;
@@ -22,8 +21,6 @@ public class ReportCreateReqDto {
 
     @NotEmpty
     private List<ApprovalLineReqDto> approvalLine;
+    private List<AttachmentJsonReqDto> attachments;
 
-    private List<AttachmentReqDto> attachments;
-
-    private ReportStatus reportStatus;
 }

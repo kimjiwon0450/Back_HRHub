@@ -21,4 +21,6 @@ public class ResubmitReqDto {
 
     private String comment;
 
+    private List<AttachmentJsonReqDto> attachments;
+
 }

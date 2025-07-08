@@ -17,6 +17,4 @@ public interface ApprovalRepository extends JpaRepository<ApprovalLine, Long> {
     @Query("SELECT al FROM ApprovalLine al WHERE al.reports.id = :reportId ORDER BY al.approvalContext ASC")
     List<ApprovalLine> findApprovalLinesByReportId(@Param("reportId") Long reportId);
 
-    // (3) 다음 결재(첫 PENDING) 한 건 조회
-    Optional<ApprovalLine> findFirstByReportsIdAndApprovalStatusOrderByApprovalContextAsc(Long reportId, ApprovalStatus approvalStatus);
 }
