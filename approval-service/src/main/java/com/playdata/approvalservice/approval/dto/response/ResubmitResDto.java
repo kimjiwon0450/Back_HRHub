@@ -1,10 +1,10 @@
 package com.playdata.approvalservice.approval.dto.response;
 
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import com.playdata.approvalservice.approval.entity.ReportStatus;
+import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Getter
 @ToString
@@ -13,6 +13,6 @@ import lombok.ToString;
 @Builder
 public class ResubmitResDto {
     private Long reportId;
-    private String status;
+    private ReportStatus reportStatus;
     private LocalDateTime resubmittedAt;
 }

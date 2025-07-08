@@ -21,4 +21,5 @@ public class EvaluationReqDto {
     private String comment;
     private LocalDate interviewDate;
     private double totalEvaluation;
+    private String updateMemo;
 }

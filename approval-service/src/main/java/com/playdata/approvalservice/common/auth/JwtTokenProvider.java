@@ -1,12 +1,22 @@
 package com.playdata.approvalservice.common.auth;
 
+import com.playdata.approvalservice.common.dto.EmployeeResDto;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 
 @Component
 public class JwtTokenProvider {
@@ -88,18 +98,4 @@ public class JwtTokenProvider {
                 .build();
     }
 
-    public Long getUserIdFromToken(String authHeader) {
-        // "Bearer " 제거
-        String token = authHeader.replace("Bearer ", "");
-        TokenUserInfo info;
-        try {
-            info = validateAndGetTokenUserInfo(token);
-        } catch (Exception e) {
-            throw new RuntimeException("Invalid JWT token", e);
-        }
-        // subject에 userId를 넣었다면
-        return Long.valueOf(info.getEmail());   // if you used subject=userId
-        // or, if you put it into a claim:
-        // return info.getUserId();
-    }
 }

@@ -1,6 +1,8 @@
 package com.playdata.approvalservice.approval.dto.request;
 
+import com.playdata.approvalservice.approval.entity.ApprovalStatus;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 @Getter
@@ -10,8 +12,8 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ApprovalProcessReqDto {
-    @NotBlank
-    private String action; // APPROVE or REJECT
+    @NotNull(message = "결재 상태는 필수입니다.")
+    private ApprovalStatus approvalStatus; // APPROVE or REJECT
 
     private String comment;
 }

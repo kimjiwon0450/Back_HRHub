@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.dto.request;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.util.List;
@@ -11,8 +12,13 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ReportUpdateReqDto {
+    @NotBlank
     private String title;
+
+    @NotBlank
     private String content;
+
+    private String detail;
     private List<ApprovalLineReqDto> approvalLine;
     private List<AttachmentReqDto> attachments;
 }

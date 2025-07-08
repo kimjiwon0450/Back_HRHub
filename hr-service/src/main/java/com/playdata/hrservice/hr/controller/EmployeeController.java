@@ -9,6 +9,7 @@ import com.playdata.hrservice.hr.dto.EmployeeReqDto;
 import com.playdata.hrservice.hr.dto.EmployeeResDto;
 import com.playdata.hrservice.hr.entity.Employee;
 import com.playdata.hrservice.hr.service.EmployeeService;
+import com.playdata.hrservice.hr.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
@@ -19,9 +20,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -35,7 +39,7 @@ public class EmployeeController {
     private final EmployeeService employeeService;
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTemplate<String, Object> redisTemplate;
-
+    private final S3Service s3Service;
     private final Environment env;
 
     // 직원 등록
@@ -91,15 +95,21 @@ public class EmployeeController {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
     }
 
-    // 직원 상세조회 (Feign을 위함)
+    // 직원 상세조회 by id (Feign을 위함)
     @GetMapping("/feign/employees/{id}")
     public ResponseEntity<EmployeeResDto> getById(@PathVariable("id") Long id) {
         return new ResponseEntity<>(employeeService.getEmployee(id), HttpStatus.OK);
     }
 
+    // 직원 상세조회 by email (Feign을 위함)
     @GetMapping("/employees/email/{email}")
     public ResponseEntity<EmployeeResDto> getEmployeeByEmail(@PathVariable("email") String email) {
         return new ResponseEntity<>(employeeService.getEmployeeByEmail(email), HttpStatus.OK);
+    }
+
+    @GetMapping("/employees/names")
+    Map<Long, String> getEmployeeNamesByEmployeeIds(@RequestParam("ids") List<Long> employeeIds) {
+        return employeeService.getEmployeeNamesByEmployeeIds(employeeIds);
     }
 
     // 직원 이름 조회
@@ -130,6 +140,26 @@ public class EmployeeController {
         employeeService.deleteEmployee(id);
 
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
+    }
+
+    //프로필 이미지 업로드
+    @PostMapping("/profileImage")
+    public ResponseEntity<?> uploadFile(
+            @AuthenticationPrincipal TokenUserInfo userInfo,
+            String targetEmail,
+            @RequestParam("file") MultipartFile file) throws Exception {
+
+        // 토큰으로 인증 유저 정보 확인
+        String userEmail = userInfo.getEmail();
+        Role userRole = userInfo.getRole();
+
+        //타인 사진을 변경하는 요청이 들어오는 요청거부(employee 일때)
+        if(userRole.equals(Role.EMPLOYEE)&& !userEmail.equals(targetEmail)) {
+            return new ResponseEntity<>(new CommonResDto(HttpStatus.BAD_REQUEST, "본인 사진만 변경가능합니다", null), HttpStatus.BAD_REQUEST);
+        }
+
+        String resImageUri = s3Service.uploadProfile(targetEmail, file);
+        return ResponseEntity.ok(resImageUri);
     }
 
     // 토큰 리프레시

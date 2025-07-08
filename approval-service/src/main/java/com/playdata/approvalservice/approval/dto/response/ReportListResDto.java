@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.dto.response;
 
+import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
 import java.util.List;
@@ -24,7 +25,7 @@ public class ReportListResDto {
         private String title;
         private String name;
         private String createdAt;
-        private String status;
+        private ReportStatus reportStatus;
         private String currentApprover;
     }
 }

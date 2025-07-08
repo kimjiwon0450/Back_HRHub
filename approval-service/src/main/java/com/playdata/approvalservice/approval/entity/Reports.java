@@ -2,127 +2,255 @@ package com.playdata.approvalservice.approval.entity;
 
 import com.playdata.approvalservice.approval.dto.request.ApprovalLineReqDto;
 import com.playdata.approvalservice.approval.dto.request.AttachmentReqDto;
+import com.playdata.approvalservice.approval.dto.request.ReportCreateReqDto;
+import com.playdata.approvalservice.approval.dto.request.ReportUpdateReqDto;
+import com.playdata.approvalservice.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-
-import com.playdata.approvalservice.common.entity.BaseTimeEntity;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Getter
-@ToString
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "board_report")
+@Table(name = "reports")
 public class Reports extends BaseTimeEntity {
 
-    /**
-     * 보고서 id
-     * PK
-     * 자동 생성
-     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "report_id")
     private Long id;
 
-    /** 기안 직원 */
     @Column(name = "report_writer_id", nullable = false)
     private Long writerId;
 
-
-    /** 기안 양식 */
     @Column(name = "report_type", nullable = false)
     private String type;
 
-    /** 기안 제목 */
     @Column(name = "report_title", nullable = false)
     private String title;
 
-    /** 기안 본문 */
     @Column(name = "report_content", columnDefinition = "TEXT", nullable = false)
     private String content;
 
-    /** 결재 상태*/
-    @Column(name = "report_status", columnDefinition = "ENUM", nullable = false)
-    private ApprovalStatus status;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "report_status", nullable = false)
+    private ReportStatus reportStatus;
 
-    /** 상신(제출) 일시 */
     @Column(name = "report_created_at")
     private LocalDateTime createdAt;
 
-    /** 승인 일시 */
     @Column(name = "report_submitted_at")
     private LocalDateTime submittedAt;
 
-    /** 회수(리콜) 일시 */
     @Column(name = "report_return_at")
     private LocalDateTime returnAt;
 
-    /** 최종 완료(모두 승인) 시각 */
     @Column(name = "report_completed_at")
     private LocalDateTime completedAt;
 
-    /** 현재 차례 결재자 ID */
+    @Setter
     @Column(name = "report_current_approver_id")
     private Long currentApproverId;
 
-    /** 상세 JSON */
+    @Setter
     @Column(name = "report_detail", columnDefinition = "JSON")
     private String detail;
 
-    /** 보낸 리마인더 횟수 */
     @Column(name = "reminder_count", nullable = false)
     private Integer reminderCount;
 
-    /** 마지막 리마인더 시각 */
     @Column(name = "reminded_at")
     private LocalDateTime remindedAt;
 
-    /** 첨부파일 (1:N) */
+    @Column(name = "previous_report_id")
+    private Long previousReportId;
+
+
     @Builder.Default
-    @OneToMany(mappedBy = "boardReport", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReportAttachment> attachments = new ArrayList<>();
 
-    /** 결재라인 (1:N) */
     @Builder.Default
-    @OneToMany(mappedBy = "boardReport", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("orderSequence ASC")
-    private List<ApprovalLine> approvalLine = new ArrayList<>();
+    @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("approvalOrder ASC")
+    private List<ApprovalLine> approvalLines = new ArrayList<>();
 
-    public void updateContent(String newTitle, String newContent) {
-        this.title = newTitle;
-        this.content = newContent;
+    @Builder.Default
+    @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReportReferences> references = new ArrayList<>();
+
+    /**
+     * 요청 DTO를 엔티티로 변환하는 팩토리 메서드
+     */
+    public static Reports fromDto(ReportCreateReqDto dto, Long userId) {
+        Reports report = Reports.builder()
+                .writerId(userId)
+                .type(dto.getType())
+                .title(dto.getTitle())
+                .content(dto.getContent())
+                .reportStatus(ReportStatus.DRAFT)
+                .createdAt(LocalDateTime.now())
+                .reminderCount(0)
+                .build();
+
+        // 첨부파일 설정
+        if (dto.getAttachments() != null) {
+            report.replaceAttachments(dto.getAttachments());
+        }
+        // 결재 라인 설정
+        report.replaceApprovalLines(dto.getApprovalLine());
+        if (!report.approvalLines.isEmpty()) {
+            report.currentApproverId = report.approvalLines.get(0).getEmployeeId();
+        }
+        return report;
     }
 
-    public void replaceApprovalLine(List<ApprovalLineReqDto> dtoList){
-        this.approvalLine.clear();
+    /**
+     * 수정 요청 DTO의 내용을 엔티티에 반영
+     */
+    public void updateFromDto(ReportUpdateReqDto dto) {
+        this.title = dto.getTitle();
+        this.content = dto.getContent();
+        if (dto.getDetail() != null) this.detail = dto.getDetail();
+
+        if (dto.getAttachments() != null) {
+            replaceAttachments(dto.getAttachments());
+        }
+        if (dto.getApprovalLine() != null) {
+            replaceApprovalLines(dto.getApprovalLine());
+            if (!approvalLines.isEmpty()) {
+                this.currentApproverId = approvalLines.get(0).getEmployeeId();
+            }
+        }
+    }
+
+    /**
+     * 결재 라인을 DTO 목록으로 교체
+     */
+    public void replaceApprovalLines(List<ApprovalLineReqDto> dtoList) {
+        approvalLines.clear();
         dtoList.forEach(dto -> {
-            ApprovalLine ap = ApprovalLine.builder()
+            ApprovalLine line = ApprovalLine.builder()
                     .reports(this)
                     .employeeId(dto.getEmployeeId())
                     .approvalOrder(dto.getOrder())
-                    .status(ApprovalStatus.PENDING)
+                    .approvalStatus(ApprovalStatus.PENDING)
+                    .approvalDateTime(LocalDateTime.now())
                     .build();
-            this.approvalLine.add(ap);
+            approvalLines.add(line);
         });
     }
 
-    public void replaceAttachments(List<AttachmentReqDto> dtoList){
-        this.attachments.clear();
-        if(dtoList != null){
-            dtoList.forEach(dto -> {
-                ReportAttachment att = ReportAttachment.builder()
-                        .reports(this)
-                        .name(dto.getFileName())
-                        .url(dto.getUrl())
-                        .build();
-                this.attachments.add(att);
-            });
+    /**
+     * 첨부파일 목록을 DTO 목록으로 교체
+     */
+    public void replaceAttachments(List<AttachmentReqDto> dtoList) {
+        attachments.clear();
+        dtoList.forEach(dto -> {
+            ReportAttachment att = ReportAttachment.builder()
+                    .reports(this)
+                    .name(dto.getFileName())
+                    .url(dto.getUrl())
+                    .build();
+            attachments.add(att);
+        });
+    }
+
+    /**
+     * 보고서 회수 처리 (결재 대기 → 회수)
+     */
+    public void recall() {
+        this.reportStatus = ReportStatus.RECALLED;
+        this.returnAt = LocalDateTime.now();
+        this.currentApproverId = null;
+    }
+
+    /**
+     * 리마인더 전송 처리
+     */
+    public void remind() {
+        this.reminderCount = this.reminderCount + 1;
+        this.remindedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 재상신 처리 (반려 → 결재 대기)
+     */
+    public void resubmit(String comment) {
+        this.reportStatus = ReportStatus.DRAFT;
+        // 재상신 시 추가 로직 필요 시 적용
+    }
+
+    // ② 결재 처리 후 호출
+    public void moveToNextOrComplete(ApprovalLine line) {
+        if (line.getApprovalStatus() == ApprovalStatus.REJECTED) {
+            // 반려
+            this.reportStatus = ReportStatus.REJECTED;
+            this.returnAt = line.getApprovalDateTime();
+            this.currentApproverId = null;
+            return;
+        }
+
+        // 승인된 경우, 다음 결재자 찾기
+        Optional<ApprovalLine> next = approvalLines.stream()
+                .filter(l -> l.getApprovalOrder() > line.getApprovalOrder())
+                .min(Comparator.comparing(ApprovalLine::getApprovalOrder));
+
+        if (next.isPresent()) {
+            // 아직 남은 결재자가 있으면 in progress
+            this.reportStatus = ReportStatus.IN_PROGRESS;
+            this.currentApproverId = next.get().getEmployeeId();
+        } else {
+            // 마지막 결재자였으면 최종 승인
+            this.reportStatus      = ReportStatus.APPROVED;
+            this.completedAt = line.getApprovalDateTime();
+            this.currentApproverId = null;
         }
     }
+
+    /**
+     * 현재 보고서의 정보를 바탕으로 재상신할 새로운 보고서를 생성합니다.
+     * @param newTitle 새로운 제목
+     * @param newContent 새로운 내용
+     * @param newLinesDto 새로운 결재 라인 정보
+     * @return 재상신된 새로운 Reports 객체
+     */
+    public Reports resubmit(String newTitle, String newContent, List<ApprovalLineReqDto> newLinesDto) {
+        // 1. 새로운 Reports 객체 생성
+        Reports newReport = Reports.builder()
+                .writerId(this.writerId)
+                .type(this.type)
+                .title(newTitle)
+                .content(newContent)
+                .reportStatus(ReportStatus.IN_PROGRESS) // 재상신 시 바로 진행 상태로
+                .createdAt(LocalDateTime.now())
+                .submittedAt(LocalDateTime.now())
+                .previousReportId(this.id)
+                .reminderCount(0)
+                .build();
+
+        // 2. 새로운 결재 라인 설정
+        newReport.replaceApprovalLines(newLinesDto); // 기존 메소드 재활용
+        if (!newReport.getApprovalLines().isEmpty()) {
+            newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
+        }
+
+        // 3. (선택) 첨부파일도 복사하려면 로직 추가
+        // this.attachments.forEach(att -> newReport.addAttachment(att.cloneFor(newReport)));
+
+        return newReport;
+    }
+
+    // 기존 보고서의 상태를 변경하는 메소드
+    public void markAsResubmitted() {
+        this.reportStatus = ReportStatus.RECALLED; // 또는 'RESUBMITTED' 같은 새로운 상태
+        this.returnAt = LocalDateTime.now();
+        this.currentApproverId = null;
+    }
 }
+

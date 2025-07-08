@@ -1,5 +1,7 @@
 package com.playdata.approvalservice.approval.dto.response;
 
+import com.playdata.approvalservice.approval.entity.ApprovalStatus;
+import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
 @Getter
@@ -10,7 +12,7 @@ import lombok.*;
 @Builder
 public class ApprovalProcessResDto {
     private Long reportId;
-    private String action;
-    private String status;
+    private ApprovalStatus approvalStatus;
+    private ReportStatus reportStatus;
     private String nextApprover;
 }
