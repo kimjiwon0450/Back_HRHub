@@ -1,5 +1,5 @@
 package com.playdata.noticeservice.common.auth;
 
 public enum Role {
-    USER, OWNER, ADMIN
+    ADMIN, HR_MANAGER, EMPLOYEE
 }

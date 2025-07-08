@@ -34,10 +34,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Stream;
 
 
 @RestController
@@ -59,39 +57,87 @@ public class NoticeController {
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(required = false) Long departmentId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
-        ) {
-            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+    ) {
+        log.info("~~~게시글 조회 페이지 진입함~~~");
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-            List<Notice> noticeList = noticeService.getTopNotices(keyword, fromDate, toDate, departmentId);
-            Page<Notice> postList = noticeService.getFilteredPosts(keyword, fromDate, toDate, departmentId, pageable);
+        boolean hasFilter = !(keyword.isBlank() && fromDate == null && toDate == null);
 
-            log.info("noticeList: {}", noticeList);
+        List<Notice> noticeList;
+        Page<Notice> postList;
 
-            // 🔥 작성자 이름 포함하여 변환
-            List<NoticeResponse> noticeDtos = noticeList.stream()
-                    .map(notice -> {
-                        log.info("notice in stream map: {}", notice);
-                        HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                        return NoticeResponse.fromEntity(notice, user.getName());
-                    }).toList();
-
-            List<NoticeResponse> postDtos = postList.getContent().stream()
-                    .map(notice -> {
-                        HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                        return NoticeResponse.fromEntity(notice, user.getName());
-                    }).toList();
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("notices", noticeDtos);
-            response.put("posts", postDtos);
-            response.put("totalPages", postList.getTotalPages());
-            response.put("currentPage", postList.getNumber());
-
-            return ResponseEntity.ok(response);
+        if (hasFilter) {
+            log.info("~~~~~필터링된 게시글 : {}, {}, {}~~~~~", keyword, fromDate, toDate);
+            noticeList = noticeService.getFilteredNotices(keyword, fromDate, toDate);
+            postList = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageable);
+        } else {
+            log.info("~~~~~필터링 안됨~~~~~");
+            noticeList = noticeService.getAllNotices(); // top 10 공지
+            postList = noticeService.getAllPosts(pageable); // 페이징 일반글
         }
+
+        // 🔥 작성자 이름 포함하여 변환
+        List<NoticeResponse> noticeDtos = noticeList.stream()
+                .map(notice -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+                    return NoticeResponse.fromEntity(notice, user.getName());
+                }).toList();
+
+        List<NoticeResponse> postDtos = postList.getContent().stream()
+                .map(notice -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+                    return NoticeResponse.fromEntity(notice, user.getName());
+                }).toList();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("notices", noticeDtos);
+        response.put("posts", postDtos);
+        response.put("totalPages", postList.getTotalPages());
+        response.put("currentPage", postList.getNumber());
+
+        return ResponseEntity.ok(response);
+    }
+
+    // 내가 쓴 글 조회
+    @GetMapping("/noticeboard/my")
+    public ResponseEntity<List<NoticeResponse>> getMyPosts(@AuthenticationPrincipal TokenUserInfo userInfo) {
+        List<Notice> notices = noticeService.getMyPosts(userInfo.getEmployeeId());
+
+        List<NoticeResponse> responseList = notices.stream()
+                .map(notice -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+                    return NoticeResponse.fromEntity(notice, user.getName());
+                })
+                .toList();
+
+        return ResponseEntity.ok(responseList);
+    }
+
+    // 나의 부서글 조회
+    @GetMapping("/noticeboard/mydepartment")
+    public ResponseEntity<List<NoticeResponse>> getDepartmentPosts(
+            @RequestParam(defaultValue = "") String keyword,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal TokenUserInfo userInfo) {
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<Notice> notices = noticeService.getNoticesByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate);
+        List<Notice> posts = noticeService.getPostsByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate, pageable);
+
+        List<NoticeResponse> responseList = Stream.concat(notices.stream(), posts.stream())
+                .map(notice -> {
+                    HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
+                    return NoticeResponse.fromEntity(notice, writer.getName());
+                })
+                .toList();
+
+        return ResponseEntity.ok(responseList);
+    }
 
     // 글 상세 화면 조회
     @GetMapping("/noticeboard/{id}")
@@ -147,7 +193,6 @@ public class NoticeController {
     }
 
 
-
     // 글 삭제
     @DeleteMapping("/noticeboard/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id,
@@ -166,72 +211,22 @@ public class NoticeController {
         return ResponseEntity.ok().build();
     }
 
-    // 내가 쓴 글 조회
-    @GetMapping("/noticeboard/my")
-    public ResponseEntity<List<NoticeResponse>> getMyPosts(@AuthenticationPrincipal TokenUserInfo userInfo) {
-        List<NoticeResponse> notices = noticeService.getMyPosts(userInfo.getEmployeeId());
-        return ResponseEntity.ok(notices);
-    }
 
-    // 나의 부서글 조회
-    @GetMapping("/noticeboard/mydepartment")
-    public ResponseEntity<List<NoticeResponse>> getDepartmentPosts(@AuthenticationPrincipal TokenUserInfo userInfo) {
-        List<NoticeResponse> notices = noticeService.getDepartmentPosts(userInfo.getEmployeeId());
-        return ResponseEntity.ok(notices);
-    }
-
-
+    // 읽지 않은 공지글 카운트
     @GetMapping("/noticeboard/unread-count")
     public ResponseEntity<Integer> getUnreadNoticeCount(@AuthenticationPrincipal TokenUserInfo userInfo) {
         return ResponseEntity.ok(noticeService.getUnreadNoticeCount(userInfo.getEmployeeId(),null,null,null,null));
     }
 
 
-    // 부서별 조회
-    @GetMapping("/noticeboard/department/{departmentId}")
-    public ResponseEntity<Map<String, Object>> getPostsByDepartment(
-            @PathVariable Long departmentId,
-            @RequestParam(defaultValue = "") String keyword,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
-    ) {
-        Sort sort = Sort.by(sortDir.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC, sortBy);
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        List<Notice> topNotices = noticeService.getTopNoticesByDepartment(departmentId);
-        Page<Notice> filteredPosts = noticeService.getPostsByDepartment(departmentId, keyword, fromDate, toDate, pageable);
-
-        List<NoticeResponse> noticeDtos = topNotices.stream()
-                .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-                    return NoticeResponse.fromEntity(n, user.getName());
-                }).toList();
-
-        List<NoticeResponse> postDtos = filteredPosts.getContent().stream()
-                .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-                    return NoticeResponse.fromEntity(n, user.getName());
-                }).toList();
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("notices", noticeDtos);
-        response.put("posts", postDtos);
-        response.put("totalPages", filteredPosts.getTotalPages());
-        response.put("currentPage", filteredPosts.getNumber());
-
-        return ResponseEntity.ok(response);
-    }
-
     // 👉 추후 기타 알림 (ex: 전자결재, 일정 알림 등) 도 여기에 추가할 수 있음.
-    @GetMapping("/alerts")
+    @GetMapping("/noticeboard/alerts")
     public ResponseEntity<Map<String, List<NoticeResponse>>> getUserAlerts(
-            @RequestParam Long userId
+            @AuthenticationPrincipal TokenUserInfo userInfo
     ) {
-        Map<String, List<NoticeResponse>> result = noticeService.getUserAlerts(userId);
+        Long userId = userInfo.getEmployeeId();
+        HrUserResponse user = hrUserClient.getUserInfo(userId);
+        Map<String, List<NoticeResponse>> result = noticeService.getUserAlerts(userId, user.getEmployeeId());
         return ResponseEntity.ok(result);
     }
 
