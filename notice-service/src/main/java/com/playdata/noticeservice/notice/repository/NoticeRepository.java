@@ -21,8 +21,8 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
             "n.isNotice = true AND " +
             "n.boardStatus = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-            "(n.createdAt >= :fromDate) AND " +
-            "(n.createdAt <= :toDate)")
+            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
+            "(:toDate IS NULL OR n.createdAt <= :toDate)")
     List<Notice> findFilteredNotices(@Param("keyword") String keyword,
                                      @Param("fromDate") LocalDate fromDate,
                                      @Param("toDate") LocalDate toDate,
@@ -34,8 +34,8 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
             "n.isNotice = false AND " +
             "n.boardStatus = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-            "(n.createdAt >= :fromDate) AND " +
-            "(n.createdAt <= :toDate)")
+            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
+            "(:toDate IS NULL OR n.createdAt <= :toDate)")
     Page<Notice> findFilteredPosts(@Param("keyword") String keyword,
                                    @Param("fromDate") LocalDate fromDate,
                                    @Param("toDate") LocalDate toDate,
@@ -49,8 +49,8 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
             "n.isNotice = true AND " +
             "n.boardStatus = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-            "(n.createdAt >= :fromDate) AND " +
-            "(n.createdAt <= :toDate) AND " +
+            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
+            "(:toDate IS NULL OR n.createdAt <= :toDate) AND " +
             "n.departmentId = :departmentId")
     List<Notice> findMyDepartmentNotices(@Param("keyword") String keyword,
                                          @Param("fromDate") LocalDate fromDate,
@@ -62,8 +62,8 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
             "n.isNotice = false AND " +
             "n.boardStatus = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-            "(n.createdAt >= :fromDate) AND " +
-            "(n.createdAt <= :toDate) AND " +
+            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
+            "(:toDate IS NULL OR n.createdAt <= :toDate) AND " +
             "n.departmentId = :departmentId")
     List<Notice> findMyDepartmentPosts(@Param("keyword") String keyword,
                                        @Param("fromDate") LocalDate fromDate,

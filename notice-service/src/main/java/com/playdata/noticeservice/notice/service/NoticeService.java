@@ -117,6 +117,11 @@ public class NoticeService {
 
     // 공지글/게시글 작성
     public void createNotice(NoticeCreateRequest request, Long employeeId, Long departmentId, List<String> fileUrls) {
+        log.info("!!!글 작성!!!");
+        log.info(request.getTitle());
+        log.info(request.getContent());
+        log.info(String.valueOf(request.isNotice()));
+
         Notice notice = Notice.builder()
                 .title(request.getTitle())
                 .content(request.getContent())
@@ -170,10 +175,14 @@ public class NoticeService {
 
     // 공지글/게시글 읽음 처리
     @Transactional
-    public void markAsRead( Long employeeId, Long noticeId) {
-        boolean alreadyRead = noticeReadRepository.findByNoticeIdAndEmployeeId(noticeId, employeeId).isPresent();
+    public void markAsRead(Long employeeId, Long noticeId) {
+        // 이미 읽은 공지인지 확인
+        boolean alreadyRead = noticeReadRepository
+                .findByNoticeIdAndEmployeeId(noticeId, employeeId)
+                .isPresent();
         if (alreadyRead) return;
 
+        // 읽음 기록 저장
         NoticeRead read = NoticeRead.builder()
                 .noticeId(noticeId)
                 .employeeId(employeeId)
@@ -181,60 +190,42 @@ public class NoticeService {
                 .build();
         noticeReadRepository.save(read);
 
-        // 🔥 조회수 증가
+        // 조회수 증가 및 저장
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new EntityNotFoundException("해당 게시글이 존재하지 않습니다."));
         notice.setViewCount(notice.getViewCount() + 1);
+        noticeRepository.save(notice); // 💥 실제로 DB 반영
     }
 
-    // 공지글/게시글 안읽은 수 카운트
-    public int getUnreadNoticeCount(Long employeeId, String keyword, LocalDate from, LocalDate to, Long departmentId) {
-        List<Long> readNoticeIds = noticeReadRepository.findNoticeIdsByEmployeeId(employeeId);
-        Pageable pageable = PageRequest.of(0, 100);
-        // 날짜 기본값 처리
-        if (from == null) {
-            from = LocalDate.of(2000, 1, 1);  // 아주 예전 날짜
-        }
-        if (to == null) {
-            to = LocalDate.now().plusDays(1);  // 오늘 포함
-        }
 
-        List<Notice> allNotices = noticeRepository.findMyDepartmentNotices(keyword, from, to, departmentId, pageable);
-
-        return (int) allNotices.stream()
-                .filter(notice -> !readNoticeIds.contains(notice.getId()))
-                .count();
+    // 읽지 않은 공지글 개수 조회
+    public int countUnreadNotices(Long employeeId, Long departmentId) {
+        return noticeReadRepository.countUnreadNoticesByDepartmentAndEmployeeId(departmentId, employeeId);
     }
 
 
     // 읽지 않은 공지글 알림
     public Map<String, List<NoticeResponse>> getUserAlerts(Long employeeId, Long departmentId) {
-
-        // 2. 사용자가 읽은 공지글 ID 목록
-        List<Long> readNoticeIds = noticeReadRepository.findNoticeIdsByEmployeeId(employeeId);
-
-        // 3. 부서별 공지글 중 필터 조건에 맞는 글 10개 조회
         Pageable pageable = PageRequest.of(0, 10);
-        List<Notice> allNotices = noticeRepository.findMyDepartmentNotices(null, null, null, departmentId, pageable);
 
-        // 4. 읽지 않은 공지글만 필터링 및 작성자 이름 포함 DTO 변환
-        List<NoticeResponse> unreadNoticeResponses = allNotices.stream()
-                .filter(notice -> !readNoticeIds.contains(notice.getId()))
+        // 읽지 않은 공지글을 한 번에 조회
+        List<Notice> unreadNotices = noticeReadRepository
+                .findUnreadNoticesByDepartmentAndEmployeeId(departmentId, employeeId, pageable);
+
+        // 작성자 이름 포함한 DTO로 변환
+        List<NoticeResponse> unreadNoticeResponses = unreadNotices.stream()
                 .map(notice -> {
                     HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
                     return NoticeResponse.fromEntity(notice, writer.getName());
                 })
                 .toList();
 
-        // 7. 기타 알림은 현재는 없음
-        List<NoticeResponse> otherAlerts = List.of();
-
-        // 8. Map 형태로 반환
         return Map.of(
                 "unreadNotices", unreadNoticeResponses,
-                "otherAlerts", otherAlerts
+                "otherAlerts", List.of()
         );
     }
+
 
     // 첨부파일 업로드
     @Transactional

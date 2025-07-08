@@ -11,7 +11,7 @@ public class NoticeCreateRequest {
 
     private String title;
     private String content;
-    private boolean isNotice;
+    private boolean notice;
     private boolean hasAttachment;
 
 }

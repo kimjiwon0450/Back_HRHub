@@ -60,10 +60,15 @@ public class NoticeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
+        if (keyword != null && keyword.isBlank()) {
+            keyword = null;
+        }
+
         log.info("~~~게시글 조회 페이지 진입함~~~");
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        boolean hasFilter = !(keyword.isBlank() && fromDate == null && toDate == null);
+        boolean hasFilter = !((keyword == null || keyword.isBlank()) && fromDate == null && toDate == null);
+
 
         List<Notice> noticeList;
         Page<Notice> postList;
@@ -214,8 +219,13 @@ public class NoticeController {
 
     // 읽지 않은 공지글 카운트
     @GetMapping("/noticeboard/unread-count")
-    public ResponseEntity<Integer> getUnreadNoticeCount(@AuthenticationPrincipal TokenUserInfo userInfo) {
-        return ResponseEntity.ok(noticeService.getUnreadNoticeCount(userInfo.getEmployeeId(),null,null,null,null));
+    public ResponseEntity<Integer> getUnreadNoticeCount(
+            @AuthenticationPrincipal TokenUserInfo userInfo
+    ) {
+        Long userId = userInfo.getEmployeeId();
+        HrUserResponse user = hrUserClient.getUserInfo(userId);
+        int count = noticeService.countUnreadNotices(userId, user.getDepartmentId());
+        return ResponseEntity.ok(count);
     }
 
 
@@ -226,7 +236,7 @@ public class NoticeController {
     ) {
         Long userId = userInfo.getEmployeeId();
         HrUserResponse user = hrUserClient.getUserInfo(userId);
-        Map<String, List<NoticeResponse>> result = noticeService.getUserAlerts(userId, user.getEmployeeId());
+        Map<String, List<NoticeResponse>> result = noticeService.getUserAlerts(userId, user.getDepartmentId());
         return ResponseEntity.ok(result);
     }
 
