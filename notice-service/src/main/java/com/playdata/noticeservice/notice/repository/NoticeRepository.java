@@ -1,5 +1,6 @@
 package com.playdata.noticeservice.notice.repository;
 
+import com.playdata.noticeservice.notice.dto.NoticeResponse;
 import com.playdata.noticeservice.notice.entity.Notice;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,27 +16,66 @@ import java.util.Optional;
 @Repository
 public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
-    // ✅ 공지글 전체 조회 (isNotice = true)
-    List<Notice> findByIsNoticeTrueOrderByCreatedAtDesc();
+    // ✅ 공지글 필터 조회 (isNotice = true)
+    @Query("SELECT n FROM Notice n WHERE " +
+            "n.isNotice = true AND " +
+            "n.boardStatus = true AND " +
+            "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(n.createdAt >= :fromDate) AND " +
+            "(n.createdAt <= :toDate)")
+    List<Notice> findFilteredNotices(@Param("keyword") String keyword,
+                                     @Param("fromDate") LocalDate fromDate,
+                                     @Param("toDate") LocalDate toDate,
+                                     Pageable pageable);
+
 
     // ✅ 일반 게시글 필터링 및 페이징
     @Query("SELECT n FROM Notice n WHERE " +
             "n.isNotice = false AND " +
-            "LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%')) AND " +
-            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
-            "(:toDate IS NULL OR n.createdAt <= :toDate) AND " +
-            "(:departmentId IS NULL OR n.departmentId = :departmentId)")
+            "n.boardStatus = true AND " +
+            "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(n.createdAt >= :fromDate) AND " +
+            "(n.createdAt <= :toDate)")
     Page<Notice> findFilteredPosts(@Param("keyword") String keyword,
                                    @Param("fromDate") LocalDate fromDate,
                                    @Param("toDate") LocalDate toDate,
-                                   @Param("departmentId") Long departmentId,
                                    Pageable pageable);
 
-    List<Notice> findByEmployeeIdOrderByCreatedAtDesc(Long employeeId);
+    // 내가 작성한 글
+    List<Notice> findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(Long employeeId);
 
-    // 부서별 공지글 (상단 고정용)
-    List<Notice> findByIsNoticeTrueAndDepartmentIdOrderByCreatedAtDesc(Long departmentId);
+    // 내 부서의 공지글 (상단 고정용)
+    @Query("SELECT n FROM Notice n WHERE " +
+            "n.isNotice = true AND " +
+            "n.boardStatus = true AND " +
+            "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(n.createdAt >= :fromDate) AND " +
+            "(n.createdAt <= :toDate) AND " +
+            "n.departmentId = :departmentId")
+    List<Notice> findMyDepartmentNotices(@Param("keyword") String keyword,
+                                         @Param("fromDate") LocalDate fromDate,
+                                         @Param("toDate") LocalDate toDate,
+                                         Long departmentId, Pageable pageable);
 
+    // 내 부서의 일반글
+    @Query("SELECT n FROM Notice n WHERE " +
+            "n.isNotice = false AND " +
+            "n.boardStatus = true AND " +
+            "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(n.createdAt >= :fromDate) AND " +
+            "(n.createdAt <= :toDate) AND " +
+            "n.departmentId = :departmentId")
+    List<Notice> findMyDepartmentPosts(@Param("keyword") String keyword,
+                                       @Param("fromDate") LocalDate fromDate,
+                                       @Param("toDate") LocalDate toDate,
+                                       Long departmentId);
 
-    List<Notice> findByDepartmentIdOrderByCreatedAtDesc(Long departmentId);
+    // 전체 일반글 조회
+    @Query("SELECT n FROM Notice n WHERE n.isNotice = false AND n.boardStatus = true ORDER BY n.createdAt DESC")
+    Page<Notice> findAllPosts(Pageable pageable);
+
+    // 전체 공지글 조회
+    @Query("SELECT n FROM Notice n WHERE n.isNotice = true AND n.boardStatus = true ORDER BY n.createdAt DESC")
+    List<Notice> findTopNotices(Pageable pageable);
+
 }

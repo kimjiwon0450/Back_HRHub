@@ -5,6 +5,7 @@ import lombok.*;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -23,7 +24,7 @@ public class NoticeResponse {
     private boolean isNotice;
     private boolean hasAttachment;
     private boolean boardStatus;
-    private LocalDateTime createdAt;
+    private LocalDate createdAt;
     private LocalDateTime updatedAt;
     private int viewCount;
 

@@ -29,6 +29,10 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
     private final List<String> allowedPaths = List.of(
             "/hr-service/employees",
             "/hr-service/employees/login",
+            "/hr-service/employees/password", "/hr-service/employees/*",
+            "/hr-service/departments", "/hr-service/departments/*",
+            "/badges/**",
+            "/icons/**", "/notice-service",
             "/hr-service/employees/password",
 //            "/hr-service/employees/*",
             "/hr-service/departments",
