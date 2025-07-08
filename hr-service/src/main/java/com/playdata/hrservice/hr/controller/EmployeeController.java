@@ -88,7 +88,11 @@ public class EmployeeController {
     @GetMapping("/employees")
     public ResponseEntity<?> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable, @RequestParam(required = false) String field,
                                               @RequestParam(required = false) String keyword, @RequestParam(required = false) String department) {
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeList(pageable, field, keyword, department)), HttpStatus.OK);
+        return new ResponseEntity<>(
+                new CommonResDto(HttpStatus.OK,
+                    "Success",
+                    employeeService.getEmployeeList(pageable, field, keyword, department))
+                , HttpStatus.OK);
     }
 
     // 직원 상세조회

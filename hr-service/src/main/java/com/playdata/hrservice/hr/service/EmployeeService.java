@@ -204,6 +204,7 @@ public class EmployeeService {
         ).toDto();
     }
 
+    // 직원 수정
     @Transactional
     public void modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) {
         Employee employee = employeeRepository.findById(id).orElseThrow(
@@ -211,9 +212,10 @@ public class EmployeeService {
         );
         if (role.equals(Role.ADMIN) || role.equals(Role.HR_MANAGER)) {
             employee.updateRoleAndPosition(Role.valueOf(dto.getRole()), Position.valueOf(dto.getPosition()));
+            employee.updateDepartment(departmentService.getDepartmentEntity(dto.getDepartmentId()));
         }
         employee.updateFromDto(dto);
-        employee.updateDepartment(departmentService.getDepartmentEntity(dto.getDepartmentId()));
+
     }
 
     public void insertTransferHistory() {

@@ -1,16 +1,21 @@
 package com.playdata.hrservice.hr.service;
 
+import com.playdata.hrservice.hr.dto.EvaluationListResDto;
 import com.playdata.hrservice.hr.dto.EvaluationReqDto;
 import com.playdata.hrservice.hr.dto.EvaluationResDto;
 import com.playdata.hrservice.hr.entity.Employee;
 import com.playdata.hrservice.hr.entity.Evaluation;
 import com.playdata.hrservice.hr.repository.EvaluationRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -81,6 +86,31 @@ public class EvaluationService {
                 .findTopByEvaluateeAndCreatedAtBetweenOrderByCreatedAtDesc(evaluatee, monthStart, monthEnd)
                 .orElseThrow(() -> new RuntimeException("이번 달의 평가가 존재하지 않습니다."));
 
+        return evaluation.toDto();
+    }
+
+    public Page<EvaluationListResDto> getEvaluationListByEmployeeId(Long employeeId, Pageable pageable) {
+
+        Page<Evaluation> evaluationPage = evaluationRepository.findAllByEvaluatee(
+                employeeService.findById(employeeId), pageable
+        );
+
+        Page<EvaluationListResDto> resDtos = evaluationPage.map(
+                evaluation -> EvaluationListResDto.builder()
+                        .evaluationId(evaluation.getId())
+                        .evaluatorId(evaluation.getEvaluator().getEmployeeId())
+                        .interviewDate(evaluation.getInterviewDate())
+                        .totalEvaluation(evaluation.getTotalEvaluation())
+                        .createdAt(evaluation.getCreatedAt())
+                        .build()
+        );
+        return resDtos;
+    }
+
+    public EvaluationResDto getEvaluationByEvaluationId(Long evaluationId) {
+        Evaluation evaluation = evaluationRepository.findById(evaluationId).orElseThrow(
+                () -> new EntityNotFoundException("해당 평가가 존재하지 않습니다.")
+        );
         return evaluation.toDto();
     }
 }
