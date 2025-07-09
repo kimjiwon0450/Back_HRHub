@@ -264,7 +264,7 @@ public class NoticeService {
         List<NoticeResponse> unreadNoticeResponses = unreadNotices.stream()
                 .map(notice -> {
                     HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, writer.getName());
+                    return NoticeResponse.fromEntity(notice, writer);
                 })
                 .toList();
 

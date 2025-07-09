@@ -92,13 +92,13 @@ public class NoticeController {
         List<NoticeResponse> noticeDtos = noticeList.stream()
                 .map(notice -> {
                     HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, user.getName());
+                    return NoticeResponse.fromEntity(notice, user);
                 }).toList();
 
         List<NoticeResponse> postDtos = postList.getContent().stream()
                 .map(notice -> {
                     HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, user.getName());
+                    return NoticeResponse.fromEntity(notice, user);
                 }).toList();
 
         Map<String, Object> response = new HashMap<>();
@@ -118,7 +118,7 @@ public class NoticeController {
         List<NoticeResponse> responseList = notices.stream()
                 .map(notice -> {
                     HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, user.getName());
+                    return NoticeResponse.fromEntity(notice, user);
                 })
                 .toList();
 
@@ -142,7 +142,7 @@ public class NoticeController {
         List<NoticeResponse> responseList = Stream.concat(notices.stream(), posts.stream())
                 .map(notice -> {
                     HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, writer.getName());
+                    return NoticeResponse.fromEntity(notice, writer);
                 })
                 .toList();
 
@@ -155,7 +155,7 @@ public class NoticeController {
         Notice notice = noticeService.findPostById(id);
         HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
         DepResponse dep = departmentClient.getDepInfo(notice.getDepartmentId());
-        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user.getName(), dep.getName()));
+        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user));
 
     }
 
