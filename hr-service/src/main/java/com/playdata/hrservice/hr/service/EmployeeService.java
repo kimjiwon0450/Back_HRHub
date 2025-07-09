@@ -269,7 +269,8 @@ public class EmployeeService {
         String json = hrTransferHistory.getTransferHistory();
         List<HrTransferHistoryDto> hrTransferHistoryDtos = new ObjectMapper()
                 .readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {});
-        if (!hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getDepartmentId().equals(departmentId) || !hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getPositionName().equals(positionName)) {
+        if (!hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getDepartmentId().equals(departmentId)
+                || !hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getPositionName().equals(positionName)) {
             hrTransferHistoryDtos.add(HrTransferHistoryDto.builder()
                     .sequenceId((long)hrTransferHistoryDtos.size())
                     .departmentId(departmentId)
