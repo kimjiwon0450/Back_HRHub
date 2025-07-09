@@ -18,7 +18,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     // ✅ 공지글 필터 조회 (isNotice = true)
     @Query("SELECT n FROM Notice n WHERE " +
-            "n.isNotice = true AND " +
+            "n.notice = true AND " +
             "n.boardStatus = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
@@ -31,7 +31,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     // ✅ 일반 게시글 필터링 및 페이징
     @Query("SELECT n FROM Notice n WHERE " +
-            "n.isNotice = false AND " +
+            "n.notice = false AND " +
             "n.boardStatus = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
@@ -46,7 +46,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     // 내 부서의 공지글 (상단 고정용)
     @Query("SELECT n FROM Notice n WHERE " +
-            "n.isNotice = true AND " +
+            "n.notice = true AND " +
             "n.boardStatus = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
@@ -59,7 +59,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     // 내 부서의 일반글
     @Query("SELECT n FROM Notice n WHERE " +
-            "n.isNotice = false AND " +
+            "n.notice = false AND " +
             "n.boardStatus = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
@@ -71,11 +71,11 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                        Long departmentId);
 
     // 전체 일반글 조회
-    @Query("SELECT n FROM Notice n WHERE n.isNotice = false AND n.boardStatus = true ORDER BY n.createdAt DESC")
+    @Query("SELECT n FROM Notice n WHERE n.notice = false AND n.boardStatus = true ORDER BY n.createdAt DESC")
     Page<Notice> findAllPosts(Pageable pageable);
 
     // 전체 공지글 조회
-    @Query("SELECT n FROM Notice n WHERE n.isNotice = true AND n.boardStatus = true ORDER BY n.createdAt DESC")
+    @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true ORDER BY n.createdAt DESC")
     List<Notice> findTopNotices(Pageable pageable);
 
 }

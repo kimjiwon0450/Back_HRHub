@@ -1,12 +1,15 @@
 package com.playdata.noticeservice.notice.service;
 
+import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.playdata.noticeservice.common.config.AwsS3Config;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -56,8 +59,8 @@ public class S3Service {
         return urls;
     }
 
-    public void deleteFiles(List<String> fileUrls) {
-        for (String url : fileUrls) {
+    public void deleteFiles(List<String> attachmentUri) {
+        for (String url : attachmentUri) {
             try {
                 awsS3Config.deleteFromS3Bucket(url); // ✅ 변경
             } catch (Exception e) {
@@ -65,4 +68,9 @@ public class S3Service {
             }
         }
     }
+
+    public String generatePresignedUrl(String fileName) {
+        return awsS3Config.generatePresignedUrl(fileName);
+    }
+
 }

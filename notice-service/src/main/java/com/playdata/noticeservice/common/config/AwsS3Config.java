@@ -11,6 +11,9 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.net.URL;
 import java.net.URLDecoder;
@@ -93,4 +96,31 @@ public class AwsS3Config {
 
         s3Client.deleteObject(request);
     }
+
+
+    public String generatePresignedUrl(String fileName) {
+        // Presigner 객체 생성
+        S3Presigner presigner = S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(
+                        StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey))
+                )
+                .build();
+
+        PutObjectRequest objectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .build();
+
+        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                .putObjectRequest(objectRequest)
+                .signatureDuration(java.time.Duration.ofMinutes(5))
+                .build();
+
+        String url = presigner.presignPutObject(presignRequest).url().toString();
+        presigner.close();
+        return url;
+    }
+
+
 }
