@@ -116,7 +116,7 @@ public class NoticeService {
     }
 
     // 공지글/게시글 작성
-    public void createNotice(NoticeCreateRequest request, Long employeeId, Long departmentId, List<String> fileUrls) {
+    public void createNotice(NoticeCreateRequest request, Long employeeId, Long departmentId, List<String> attachmentUri) {
         log.info("!!!글 작성!!!");
         log.info(request.getTitle());
         log.info(request.getContent());
@@ -125,13 +125,13 @@ public class NoticeService {
         Notice notice = Notice.builder()
                 .title(request.getTitle())
                 .content(request.getContent())
-                .isNotice(request.isNotice())
-                .hasAttachment(request.isHasAttachment())
+                .notice(request.isNotice())
+                .attachmentUri(request.getAttachmentUri())
                 .employeeId(employeeId)
                 .departmentId(departmentId)
                 .boardStatus(true)
                 .createdAt(LocalDate.now())
-                .fileUrls(String.join(",", fileUrls)) // 저장
+                .attachmentUri(String.join(",", attachmentUri)) // 저장
                 .build();
 
         noticeRepository.save(notice);
@@ -139,7 +139,7 @@ public class NoticeService {
 
     // 공지글/게시글 수정
     @Transactional
-    public void updateNotice(Long id, NoticeUpdateRequest request, List<MultipartFile> files, Long currentUserId) {
+    public void updateNotice(Long id, NoticeUpdateRequest request, List<String> attachmentUri, Long currentUserId) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
 
@@ -150,7 +150,7 @@ public class NoticeService {
         notice.setTitle(request.getTitle());
         notice.setContent(request.getContent());
         notice.setNotice(request.isNotice());
-        notice.setHasAttachment(files != null && !files.isEmpty());
+        notice.setAttachmentUri(String.join(",", attachmentUri));
         // updatedAt은 @PreUpdate로 자동 설정
     }
 
@@ -164,8 +164,8 @@ public class NoticeService {
             throw new AccessDeniedException("작성자만 삭제할 수 있습니다.");
         }
 
-        if (notice.isHasAttachment() && notice.getFileUrls() != null) {
-            List<String> urls = Arrays.asList(notice.getFileUrls().split(","));
+        if (notice.getAttachmentUri() != null) {
+            List<String> urls = Arrays.asList(notice.getAttachmentUri().split(","));
             s3Service.deleteFiles(urls);
         }
 
@@ -225,49 +225,6 @@ public class NoticeService {
                 "otherAlerts", List.of()
         );
     }
-
-
-    // 첨부파일 업로드
-    @Transactional
-    public void uploadNoticeFiles(Long noticeId, List<MultipartFile> files, Long currentUserId) {
-        Notice notice = noticeRepository.findById(noticeId)
-                .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
-
-        if (!notice.getEmployeeId().equals(currentUserId)) {
-            throw new AccessDeniedException("작성자만 첨부파일을 업로드할 수 있습니다.");
-        }
-
-        for (MultipartFile file : files) {
-            if (file.isEmpty()) continue;
-
-            try {
-                // S3에 업로드 후 URL 반환
-                String fileUrl = s3Service.uploadFile(file, "notice/" + noticeId);
-
-                // DB에 저장
-                NoticeAttachment attachment = NoticeAttachment.builder()
-                        .notice(notice)
-                        .originalName(file.getOriginalFilename())
-                        .savedName(extractFileNameFromUrl(fileUrl))
-                        .uploadPath(fileUrl)
-                        .build();
-
-                noticeAttachmentRepository.save(attachment);
-
-            } catch (IOException e) {
-                throw new RuntimeException("파일 업로드 실패: " + file.getOriginalFilename());
-            }
-        }
-
-        notice.setHasAttachment(true);
-    }
-
-    // 첨부파일 이름 추춘
-    private String extractFileNameFromUrl(String url) {
-        if (url == null || !url.contains("/")) return url;
-        return url.substring(url.lastIndexOf('/') + 1);
-    }
-
 
 
 }
