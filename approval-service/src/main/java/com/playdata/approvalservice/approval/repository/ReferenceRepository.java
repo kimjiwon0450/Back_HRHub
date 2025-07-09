@@ -11,9 +11,9 @@ public interface ReferenceRepository extends JpaRepository<ReportReferences, Lon
      * 특정 보고서의 모든 참조자 조회
      * @param reportId 보고서 ID
      */
-    List<ReportReferences> findByReports_Id(Long reportId);
+    List<ReportReferences> findByReportsId(Long reportId);
 
-    Optional<ReportReferences> findByReports_IdAndEmployeeId(Long reportsId, Long employeeId);
+    Optional<ReportReferences> findByReportsIdAndEmployeeId(Long reportsId, Long employeeId);
 
-    void deleteByReports_IdAndEmployeeId(Long reportsId, Long employeeId);
+    void deleteByReportsIdAndEmployeeId(Long reportsId, Long employeeId);
 }

@@ -13,6 +13,7 @@ public class ReportDetailResDto {
     private String title;
     private String content;
     private List<AttachmentResDto> attachments;
+    private List<ReferenceJsonResDto> references;
     private WriterInfoDto writer;
     private String createdAt;
     private ReportStatus reportStatus;
@@ -44,7 +45,13 @@ public class ReportDetailResDto {
         private Long employeeId;
         private String name;
         private ApprovalStatus approvalStatus;
-        private Integer order;
+        private int context;
         private String approvedAt;
+    }
+
+
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+    public static class ReferenceJsonResDto {
+        private Long employeeId;
     }
 }

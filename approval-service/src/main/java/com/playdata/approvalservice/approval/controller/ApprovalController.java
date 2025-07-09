@@ -12,9 +12,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
@@ -50,15 +52,15 @@ public class ApprovalController {
     /**
      * 보고서 생성 (DRAFT)
      */
-    @PostMapping("/create")
+    @PostMapping(value = "/create", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<CommonResDto> createReport(
             @RequestBody @Valid ReportCreateReqDto req,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ) {
 
         Long writerId = getCurrentUserId(userInfo);
-
-        ReportCreateResDto res = approvalService.createReport(req, writerId);
+        ReportCreateResDto res = approvalService.createReport(req, writerId, files);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "보고서 생성", res));
     }

@@ -1,5 +1,7 @@
 package com.playdata.approvalservice.common.dto;
 import lombok.*;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Date;
 
@@ -15,7 +17,7 @@ public class EmployeeResDto {
     private String address;
     private Long departmentId;
     private Date birthday;
-    private LocalDateTime hireDate;
+    private LocalDate hireDate;
     private LocalDateTime retireDate;
     private String status;
     private String role;

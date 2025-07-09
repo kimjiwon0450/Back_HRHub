@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(name = "hr-service", path="/hr-service")
+@FeignClient(name = "hr-service", path = "hr-service")
 public interface EmployeeFeignClient {
     /**
      * 직원 단건 조회

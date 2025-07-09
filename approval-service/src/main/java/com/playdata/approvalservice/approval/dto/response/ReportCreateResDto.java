@@ -5,6 +5,7 @@ import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
