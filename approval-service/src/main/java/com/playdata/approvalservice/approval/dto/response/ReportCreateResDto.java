@@ -1,6 +1,5 @@
 package com.playdata.approvalservice.approval.dto.response;
 
-import com.playdata.approvalservice.approval.dto.request.ReferenceJsonReqDto;
 import com.playdata.approvalservice.approval.entity.ApprovalStatus;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
@@ -28,4 +27,5 @@ public class ReportCreateResDto {
     private Long approvalId;
     private int reminderCount;
     private LocalDateTime remindedAt;
+
 }

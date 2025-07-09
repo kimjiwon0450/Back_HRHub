@@ -48,6 +48,11 @@ public class ApprovalService {
      */
     @Transactional
     public ReportCreateResDto createReport(ReportCreateReqDto req, Long writerId) {
+        log.debug("▶ createReport 호출: writerId={}, req={}", writerId, req);
+        // attachments / references 상세도 찍어서 null/빈 리스트 여부 확인
+        log.debug(" - attachments = {}", req.getAttachments());
+        log.debug(" - references = {}", req.getReferences());
+
         Reports report = Reports.fromDto(req, writerId);
 
         Map<String,Object> detailMap = new HashMap<>();
@@ -59,8 +64,11 @@ public class ApprovalService {
         }
         if (!detailMap.isEmpty()) {
             try {
+                String detailJson = objectMapper.writeValueAsString(detailMap);
+                log.debug(" → 직렬화된 detail JSON: {}", detailJson);
                 report.setDetail(objectMapper.writeValueAsString(detailMap));
             } catch (JsonProcessingException e) {
+                log.error("detail JSON 생성 실패", e);
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패", e);
             }
         }
@@ -189,6 +197,9 @@ public class ApprovalService {
         if (!writer && !approver) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
         }
+
+
+
 
         String writerName = employeeFeignClient.getById(r.getWriterId())
                 .getBody().getName();

@@ -50,7 +50,7 @@ public class ReportDetailResDto {
     }
 
 
-    @Getter @Setter @AllArgsConstructor @Builder
+    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
     public static class ReferenceJsonResDto {
         private Long employeeId;
     }
