@@ -8,6 +8,6 @@ import lombok.*;
 @NoArgsConstructor @AllArgsConstructor @Builder
 public class ReferenceJsonReqDto {
 
-    @NotNull(message = "참조자 ID는 필수입니다.")
     private Long employeeId;
+
 }

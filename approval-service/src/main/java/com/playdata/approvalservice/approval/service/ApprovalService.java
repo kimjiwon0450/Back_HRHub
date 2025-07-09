@@ -9,6 +9,7 @@ import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.entity.*;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
+import com.playdata.approvalservice.common.config.AwsS3Config;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,8 +19,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,6 +41,7 @@ public class ApprovalService {
     private final ApprovalRepository approvalRepository;
     private final ReferenceRepository referenceRepository;
     private final EmployeeFeignClient employeeFeignClient;
+    private final AwsS3Config awsS3Config;
 
     private final ObjectMapper objectMapper;
 
@@ -47,459 +51,489 @@ public class ApprovalService {
      * 보고서 생성 (초안 저장)
      */
     @Transactional
-    public ReportCreateResDto createReport(ReportCreateReqDto req, Long writerId) {
+    public ReportCreateResDto createReport(
+            ReportCreateReqDto req,
+            Long writerId,
+            List<MultipartFile> files
+    ) {
+
         Reports report = Reports.fromDto(req, writerId);
 
-        Map<String,Object> detailMap = new HashMap<>();
-        if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
-            detailMap.put("attachments", req.getAttachments());
-        }
-        if (req.getReferences() != null && !req.getReferences().isEmpty()) {
-            detailMap.put("references", req.getReferences());
-        }
-        if (!detailMap.isEmpty()) {
-            try {
-                report.setDetail(objectMapper.writeValueAsString(detailMap));
-            } catch (JsonProcessingException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패", e);
+        List<AttachmentJsonReqDto> attachments = new ArrayList<>();
+
+        if (files != null) {
+            for (MultipartFile file : files) {
+                try {
+                    String key = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                    byte[] data = file.getBytes();
+                    String url = awsS3Config.uploadToS3Bucket(data, key);
+                    attachments.add(new AttachmentJsonReqDto(
+                            file.getOriginalFilename(),
+                            url
+                    ));
+                } catch (IOException e) {
+                    log.error("S3 업로드 실패: {}", file.getOriginalFilename(), e);
+                    throw new ResponseStatusException(
+                            HttpStatus.INTERNAL_SERVER_ERROR,
+                            "파일 업로드에 실패했습니다: " + file.getOriginalFilename(), e);
+
+                }
             }
         }
 
-        Reports saved = reportsRepository.save(report);
-
-        ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
-        Long firstApprovalId = firstLine != null ? firstLine.getId() : null;
-        ApprovalStatus firstStatus = firstLine != null ? firstLine.getApprovalStatus() : null;
-
-        return ReportCreateResDto.builder()
-                .id(saved.getId())
-                .writerId(saved.getWriterId())
-                .reportStatus(saved.getReportStatus())
-                .title(saved.getTitle())
-                .content(saved.getContent())
-                .approvalStatus(firstStatus)
-                .createAt(saved.getCreatedAt()) // 만든 시각
-                .submittedAt(saved.getSubmittedAt()) // 승인 시각, 날짜
-                .returnAt(saved.getReturnAt()) // 반려된 날짜
-                .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
-                .approvalId(firstApprovalId) // 하나의 전자결재 고유 ID
-                .reminderCount(saved.getReminderCount()) // 리마인드 카운터
-                .remindedAt(saved.getRemindedAt()) // 리마인드 시각
-                .build();
-    }
-
-    /**
-     * 보고서 수정 (Draft 상태)
-     */
-    @Transactional
-    public ReportUpdateResDto updateReport(Long reportId, ReportUpdateReqDto req, Long writerId) {
-        Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
-
-        if (!report.getWriterId().equals(writerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
-        }
-        // 제목
-        report.updateFromDto(req);
-
-        // detail 에 attachments, references 담기
-        Map<String,Object> detailMap = new HashMap<>();
-        if (req.getAttachments() != null) {
-            detailMap.put("attachments", req.getAttachments());
-        }
-        if (req.getReferences() != null) {
-            detailMap.put("references", req.getReferences());
-        }
-        if (!detailMap.isEmpty()) {
-            try {
-                report.setDetail(objectMapper.writeValueAsString(detailMap));
-            } catch (JsonProcessingException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패", e);
+            Map<String, Object> detailMap = new HashMap<>();
+            if (!attachments.isEmpty()) {
+                detailMap.put("attachments", attachments);
             }
+            if (req.getReferences() != null && !req.getReferences().isEmpty()) {
+                detailMap.put("references", req.getReferences());
+            }
+            if (!detailMap.isEmpty()) {
+                try {
+                    String detailJson = objectMapper.writeValueAsString(detailMap);
+                    log.debug(" → 직렬화된 detail JSON: {}", detailJson);
+                    report.setDetail(objectMapper.writeValueAsString(detailMap));
+                } catch (JsonProcessingException e) {
+                    log.error("detail JSON 생성 실패", e);
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패", e);
+                }
+            }
+
+            Reports saved = reportsRepository.save(report);
+
+            ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
+            Long firstApprovalId = firstLine != null ? firstLine.getId() : null;
+            ApprovalStatus firstStatus = firstLine != null ? firstLine.getApprovalStatus() : null;
+
+            return ReportCreateResDto.builder()
+                    .id(saved.getId())
+                    .writerId(saved.getWriterId())
+                    .reportStatus(saved.getReportStatus())
+                    .title(saved.getTitle())
+                    .content(saved.getContent())
+                    .approvalStatus(firstStatus)
+                    .createAt(saved.getCreatedAt()) // 만든 시각
+                    .submittedAt(saved.getSubmittedAt()) // 승인 시각, 날짜
+                    .returnAt(saved.getReturnAt()) // 반려된 날짜
+                    .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
+                    .approvalId(firstApprovalId) // 하나의 전자결재 고유 ID
+                    .reminderCount(saved.getReminderCount()) // 리마인드 카운터
+                    .remindedAt(saved.getRemindedAt()) // 리마인드 시각
+                    .build();
         }
 
+        /**
+         * 보고서 수정 (Draft 상태)
+         */
+        @Transactional
+        public ReportUpdateResDto updateReport (Long reportId, ReportUpdateReqDto req, Long writerId){
+            Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
 
-        Reports updated = reportsRepository.save(report);
-        return ReportUpdateResDto.builder()
-                .id(updated.getId())
-                .title(updated.getTitle())
-                .reportStatus(updated.getReportStatus())
-                .build();
-    }
+            if (!report.getWriterId().equals(writerId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
+            }
+            // 제목
+            report.updateFromDto(req);
 
-    /**
-     * 보고서 목록 조회
-     */
-    public ReportListResDto getReports(String role, ReportStatus status, String keyword,
-                                       int page, int size, Long writerId) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<Reports> pr;
-        if ("writer".equalsIgnoreCase(role)) {
-            pr = (status != null)
-                    ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
-                    : reportsRepository.findByWriterId(writerId, pageable);
-        } else if ("approver".equalsIgnoreCase(role)) {
-            pr = reportsRepository.findByApproverId(writerId, pageable);
-        } else {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "role은 writer 또는 approver만 가능합니다.");
+            // detail 에 attachments, references 담기
+            Map<String, Object> detailMap = new HashMap<>();
+            if (req.getAttachments() != null) {
+                detailMap.put("attachments", req.getAttachments());
+            }
+            if (req.getReferences() != null) {
+                detailMap.put("references", req.getReferences());
+            }
+            if (!detailMap.isEmpty()) {
+                try {
+                    report.setDetail(objectMapper.writeValueAsString(detailMap));
+                } catch (JsonProcessingException e) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패", e);
+                }
+            }
+
+
+            Reports updated = reportsRepository.save(report);
+            return ReportUpdateResDto.builder()
+                    .id(updated.getId())
+                    .title(updated.getTitle())
+                    .reportStatus(updated.getReportStatus())
+                    .build();
         }
-        List<ReportListResDto.ReportSimpleDto> simples = pr.getContent().stream()
-                .filter(r -> keyword == null || r.getTitle().contains(keyword)
-                        || r.getContent().contains(keyword))
-                .map(r -> {
-                    String writerName = employeeFeignClient.getById(r.getWriterId())
-                            .getBody().getName();
-                    String approverName = r.getCurrentApproverId() != null
-                            ? employeeFeignClient.getById(r.getCurrentApproverId())
-                            .getBody().getName()
-                            : null;
-                    return ReportListResDto.ReportSimpleDto.builder()
-                            .id(r.getId())
-                            .title(r.getTitle())
+
+        /**
+         * 보고서 목록 조회
+         */
+        public ReportListResDto getReports (String role, ReportStatus status, String keyword,
+        int page, int size, Long writerId){
+            Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+            Page<Reports> pr;
+            if ("writer".equalsIgnoreCase(role)) {
+                pr = (status != null)
+                        ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
+                        : reportsRepository.findByWriterId(writerId, pageable);
+            } else if ("approver".equalsIgnoreCase(role)) {
+                pr = reportsRepository.findByApproverId(writerId, pageable);
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "role은 writer 또는 approver만 가능합니다.");
+            }
+            List<ReportListResDto.ReportSimpleDto> simples = pr.getContent().stream()
+                    .filter(r -> keyword == null || r.getTitle().contains(keyword)
+                            || r.getContent().contains(keyword))
+                    .map(r -> {
+                        String writerName = employeeFeignClient.getById(r.getWriterId())
+                                .getBody().getName();
+                        String approverName = r.getCurrentApproverId() != null
+                                ? employeeFeignClient.getById(r.getCurrentApproverId())
+                                .getBody().getName()
+                                : null;
+                        return ReportListResDto.ReportSimpleDto.builder()
+                                .id(r.getId())
+                                .title(r.getTitle())
+                                .name(writerName)
+                                .createdAt(r.getCreatedAt().format(fmt))
+                                .reportStatus(r.getReportStatus())
+                                .currentApprover(approverName)
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+            return ReportListResDto.builder()
+                    .reports(simples)
+                    .totalPages(pr.getTotalPages())
+                    .totalElements(pr.getTotalElements())
+                    .size(pr.getSize())
+                    .number(pr.getNumber())
+                    .build();
+        }
+
+        /**
+         * 보고서 상세 조회
+         */
+        public ReportDetailResDto getReportDetail (Long reportId, Long writerId){
+
+            Reports r = reportsRepository.findById(reportId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+
+            boolean writer = r.getWriterId().equals(writerId);
+            boolean approver = r.getApprovalLines().stream()
+                    .anyMatch(l -> l.getEmployeeId().equals(writerId));
+            if (!writer && !approver) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+            }
+
+
+            String writerName = employeeFeignClient.getById(r.getWriterId())
+                    .getBody().getName();
+
+            List<ReportDetailResDto.AttachmentResDto> atts = Collections.emptyList();
+            List<ReportDetailResDto.ReferenceJsonResDto> refs = Collections.emptyList();
+
+            if (r.getDetail() != null && !r.getDetail().isBlank()) {
+                try {
+                    JsonNode root = objectMapper.readTree(r.getDetail());
+
+                    atts = Optional.of(root.path("attachments"))
+                            .filter(JsonNode::isArray)
+                            .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<AttachmentJsonReqDto>>() {
+                            }))
+                            .orElse(Collections.emptyList())
+                            .stream()
+                            .map(a -> new ReportDetailResDto.AttachmentResDto(a.getFileName(), a.getUrl()))
+                            .collect(Collectors.toList());
+
+                    refs = Optional.of(root.path("references"))
+                            .filter(JsonNode::isArray)
+                            .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<ReferenceJsonReqDto>>() {
+                            }))
+                            .orElse(Collections.emptyList())
+                            .stream()
+                            .map(rj -> new ReportDetailResDto.ReferenceJsonResDto(rj.getEmployeeId()))
+                            .collect(Collectors.toList());
+
+                } catch (JsonProcessingException e) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 파싱 실패", e);
+                }
+            }
+
+            List<ReportDetailResDto.ApprovalLineResDto> lines = r.getApprovalLines().stream()
+                    .map(l -> {
+                        String name = employeeFeignClient.getById(l.getEmployeeId())
+                                .getBody().getName();
+                        return ReportDetailResDto.ApprovalLineResDto.builder()
+                                .employeeId(l.getEmployeeId())
+                                .name(name)
+                                .approvalStatus(l.getApprovalStatus())
+                                .context(l.getApprovalContext())
+                                .approvedAt(l.getApprovalDateTime() != null
+                                        ? l.getApprovalDateTime().format(fmt) : null)
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+
+            String currentApprover = r.getCurrentApproverId() != null
+                    ? employeeFeignClient.getById(r.getCurrentApproverId()).getBody().getName()
+                    : null;
+
+
+            return ReportDetailResDto.builder()
+                    .id(r.getId())
+                    .title(r.getTitle())
+                    .content(r.getContent())
+                    .attachments(atts)
+                    .references(refs)
+                    .writer(ReportDetailResDto.WriterInfoDto.builder()
+                            .id(r.getWriterId())
                             .name(writerName)
-                            .createdAt(r.getCreatedAt().format(fmt))
-                            .reportStatus(r.getReportStatus())
-                            .currentApprover(approverName)
-                            .build();
-                })
-                .collect(Collectors.toList());
-        return ReportListResDto.builder()
-                .reports(simples)
-                .totalPages(pr.getTotalPages())
-                .totalElements(pr.getTotalElements())
-                .size(pr.getSize())
-                .number(pr.getNumber())
-                .build();
-    }
-
-    /**
-     * 보고서 상세 조회
-     */
-    public ReportDetailResDto getReportDetail(Long reportId, Long writerId) {
-
-        Reports r = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-
-        boolean writer = r.getWriterId().equals(writerId);
-        boolean approver = r.getApprovalLines().stream()
-                .anyMatch(l -> l.getEmployeeId().equals(writerId));
-        if (!writer && !approver) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+                            .build())
+                    .createdAt(r.getCreatedAt().format(fmt))
+                    .reportStatus(r.getReportStatus())
+                    .approvalLine(lines)
+                    .currentApprover(currentApprover)
+                    .dueDate(null)
+                    .build();
         }
 
-        String writerName = employeeFeignClient.getById(r.getWriterId())
-                .getBody().getName();
+        /**
+         * 결재 처리 (Approve/Rejected)
+         */
+        @Transactional
+        public ApprovalProcessResDto processApproval (Long reportId, Long writerId, ApprovalProcessReqDto req){
 
-        List<ReportDetailResDto.AttachmentResDto> atts = Collections.emptyList();
-        List<ReportDetailResDto.ReferenceJsonResDto> refs = Collections.emptyList();
 
-        if (r.getDetail() != null && !r.getDetail().isBlank()) {
-            try {
-                JsonNode root = objectMapper.readTree(r.getDetail());
+            Reports submit = reportsRepository.findById(reportId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다"));
 
-                atts = Optional.of(root.path("attachments"))
-                        .filter(JsonNode::isArray)
-                        .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<AttachmentJsonReqDto>>(){}))
-                        .orElse(Collections.emptyList())
-                        .stream()
-                        .map(a -> new ReportDetailResDto.AttachmentResDto(a.getFileName(), a.getUrl()))
-                        .collect(Collectors.toList());
+            ApprovalLine currentline = approvalRepository
+                    .findByReportsIdAndEmployeeIdAndApprovalStatus(reportId, writerId, ApprovalStatus.PENDING)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.FORBIDDEN, "결재 권한이 없거나, 이미 처리된 결재입니다."));
 
-                refs = Optional.of(root.path("references"))
-                        .filter(JsonNode::isArray)
-                        .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<ReferenceJsonReqDto>>(){}))
-                        .orElse(Collections.emptyList())
-                        .stream()
-                        .map(rj -> new ReportDetailResDto.ReferenceJsonResDto(rj.getEmployeeId()))
-                        .collect(Collectors.toList());
 
-            } catch (JsonProcessingException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 파싱 실패", e);
+            // ② action에 따라 approve/rejected 호출 (approvalDateTime, approvalComment가 세팅됨)
+            if (req.getApprovalStatus() == ApprovalStatus.APPROVED) {
+                currentline.approve(req.getComment());
+            } else if (req.getApprovalStatus() == ApprovalStatus.REJECTED) {
+                currentline.rejected(req.getComment());
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "알 수 없는 action 입니다.");
             }
+
+            approvalRepository.save(currentline);
+
+            // 보고서 상태 이동
+            Reports report = currentline.getReports();
+            ApprovalStatus approvalLine = currentline.getApprovalStatus();
+
+            report.moveToNextOrComplete(currentline);
+            reportsRepository.save(report);
+
+            // 다음 결재자 이름 조회
+            String nextName = report.getCurrentApproverId() != null
+                    ? employeeFeignClient.getById(report.getCurrentApproverId())
+                    .getBody().getName()
+                    : null;
+
+            // DTO 반환
+            return ApprovalProcessResDto.builder()
+                    .reportId(reportId)
+                    .approvalStatus(approvalLine)
+                    .reportStatus(report.getReportStatus())
+                    .nextApprover(nextName)
+                    .build();
         }
 
-        List<ReportDetailResDto.ApprovalLineResDto> lines = r.getApprovalLines().stream()
-                .map(l -> {
-                    String name = employeeFeignClient.getById(l.getEmployeeId())
-                            .getBody().getName();
-                    return ReportDetailResDto.ApprovalLineResDto.builder()
-                            .employeeId(l.getEmployeeId())
-                            .name(name)
-                            .approvalStatus(l.getApprovalStatus())
-                            .context(l.getApprovalContext())
-                            .approvedAt(l.getApprovalDateTime() != null
-                                    ? l.getApprovalDateTime().format(fmt) : null)
-                            .build();
-                })
-                .collect(Collectors.toList());
+        /**
+         * 결재 이력/상세 확인
+         */
+        @Transactional(readOnly = true)
+        public List<ApprovalHistoryResDto> getApprovalHistory (Long reportId, Long writerId){
 
-        String currentApprover = r.getCurrentApproverId() != null
-                ? employeeFeignClient.getById(r.getCurrentApproverId()).getBody().getName()
-                : null;
+            Reports report = reportsRepository.findById(reportId).orElseThrow
+                    (() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
-
-        return ReportDetailResDto.builder()
-                .id(r.getId())
-                .title(r.getTitle())
-                .content(r.getContent())
-                .attachments(atts)
-                .references(refs)
-                .writer(ReportDetailResDto.WriterInfoDto.builder()
-                        .id(r.getWriterId())
-                        .name(writerName)
-                        .build())
-                .createdAt(r.getCreatedAt().format(fmt))
-                .reportStatus(r.getReportStatus())
-                .approvalLine(lines)
-                .currentApprover(currentApprover)
-                .dueDate(null)
-                .build();
-    }
-
-    /**
-     * 결재 처리 (Approve/Rejected)
-     */
-    @Transactional
-    public ApprovalProcessResDto processApproval(Long reportId, Long writerId, ApprovalProcessReqDto req) {
-
-
-        Reports submit = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다"));
-
-        ApprovalLine currentline = approvalRepository
-                .findByReportsIdAndEmployeeIdAndApprovalStatus(reportId, writerId, ApprovalStatus.PENDING)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN, "결재 권한이 없거나, 이미 처리된 결재입니다."));
-
-
-
-        // ② action에 따라 approve/rejected 호출 (approvalDateTime, approvalComment가 세팅됨)
-        if (req.getApprovalStatus() == ApprovalStatus.APPROVED) {
-            currentline.approve(req.getComment());
-        } else if (req.getApprovalStatus() == ApprovalStatus.REJECTED) {
-            currentline.rejected(req.getComment());
-        } else {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "알 수 없는 action 입니다.");
-        }
-
-        approvalRepository.save(currentline);
-
-        // 보고서 상태 이동
-        Reports report = currentline.getReports();
-        ApprovalStatus approvalLine = currentline.getApprovalStatus();
-
-        report.moveToNextOrComplete(currentline);
-        reportsRepository.save(report);
-
-        // 다음 결재자 이름 조회
-        String nextName = report.getCurrentApproverId() != null
-                ? employeeFeignClient.getById(report.getCurrentApproverId())
-                .getBody().getName()
-                : null;
-
-        // DTO 반환
-        return ApprovalProcessResDto.builder()
-                .reportId(reportId)
-                .approvalStatus(approvalLine)
-                .reportStatus(report.getReportStatus())
-                .nextApprover(nextName)
-                .build();
-    }
-
-    /**
-     * 결재 이력/상세 확인
-     */
-    @Transactional(readOnly = true)
-    public List<ApprovalHistoryResDto> getApprovalHistory(Long reportId, Long writerId) {
-
-        Reports report = reportsRepository.findById(reportId).orElseThrow
-                (() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-
-        boolean isWriter = report.getWriterId().equals(writerId);
-        boolean isApprover = report.getApprovalLines().stream()
-                .anyMatch(l -> l.getEmployeeId().equals(writerId));
-        if (!isWriter && !isApprover) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
-        }
-
-
-        List<ApprovalLine> lines = approvalRepository
-                .findApprovalLinesByReportId(reportId);
-
-        if (lines.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        // 3) 사번에 대한 이름을 한 번에 조회 (Feign 배치 API 필요)
-        List<Long> employeeIds = lines.stream()
-                .map(ApprovalLine::getEmployeeId)
-                .distinct()
-                .collect(Collectors.toList());
-
-        Map<Long, String> nameMap =
-                employeeFeignClient.getEmployeeNamesByEmployeeIds(employeeIds);
-
-        // 4) DTO로 변환
-        return lines.stream()
-                .map(line -> ApprovalHistoryResDto.builder()
-                        .order(line.getApprovalContext())
-                        .employeeId(line.getEmployeeId())
-                        .employeeName(nameMap.get(line.getEmployeeId()))
-                        .approvalStatus(line.getApprovalStatus())
-                        .comment(line.getApprovalComment())
-                        .approvalDateTime(line.getApprovalDateTime())
-                        .build()
-                )
-                .collect(Collectors.toList());
-    }
-
-
-    /**
-     * 보고서 회수 처리
-     */
-    @Transactional
-    public ReportRecallResDto recallReport(Long reportId, Long writerId) {
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-
-        System.out.println("요청된 보고서 ID: " + reportId);
-        System.out.println("토큰에서 추출한 작성자 ID (userInfo): " + writerId);
-        System.out.println("보고서 엔티티의 작성자 ID: " + report.getWriterId());
-        System.out.println("보고서 현재 상태: " + report.getReportStatus());
-        // --- 로그 추가 끝 ---
-
-        if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
-        }
-        report.recall();
-        Reports updated = reportsRepository.save(report);
-        return ReportRecallResDto.builder()
-                .id(updated.getId())
-                .reportStatus(updated.getReportStatus())
-                .build();
-    }
-
-
-    /**
-     * 보고서 재상신
-     */
-    @Transactional
-    public ResubmitResDto resubmit(Long originalReportId, Long writerId, ResubmitReqDto req) {
-
-        // 1. 원본 보고서를 찾고, 권한을 확인합니다. (반려 상태의 보고서만 재상신 가능)
-        Reports originalReport = reportsRepository.findById(originalReportId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
-
-        if (!originalReport.getWriterId().equals(writerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
-        }
-        if (originalReport.getReportStatus() != ReportStatus.REJECTED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려된 보고서만 재상신할 수 있습니다.");
-        }
-
-
-
-        // 2) 새로운 라인 리스트와 제목·본문을 넘기도록 변경
-        Reports newReport = originalReport.resubmit(
-                req.getNewTitle(),
-                req.getNewContent(),
-                req.getApprovalLine(),
-                req.getAttachments()
-        );
-
-        // 2) attachments/references 덮어쓰기
-        Map<String,Object> detailMap = new HashMap<>();
-        if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
-            detailMap.put("attachments", req.getAttachments());
-        }
-        if (req.getReferences() != null && !req.getReferences().isEmpty()) {
-            detailMap.put("references", req.getReferences());
-        }
-        if (!detailMap.isEmpty()) {
-            try {
-                newReport.setDetail(objectMapper.writeValueAsString(detailMap));
-            } catch (JsonProcessingException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 직렬화 실패", e);
+            boolean isWriter = report.getWriterId().equals(writerId);
+            boolean isApprover = report.getApprovalLines().stream()
+                    .anyMatch(l -> l.getEmployeeId().equals(writerId));
+            if (!isWriter && !isApprover) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
             }
+
+
+            List<ApprovalLine> lines = approvalRepository
+                    .findApprovalLinesByReportId(reportId);
+
+            if (lines.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            // 3) 사번에 대한 이름을 한 번에 조회 (Feign 배치 API 필요)
+            List<Long> employeeIds = lines.stream()
+                    .map(ApprovalLine::getEmployeeId)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            Map<Long, String> nameMap =
+                    employeeFeignClient.getEmployeeNamesByEmployeeIds(employeeIds);
+
+            // 4) DTO로 변환
+            return lines.stream()
+                    .map(line -> ApprovalHistoryResDto.builder()
+                            .order(line.getApprovalContext())
+                            .employeeId(line.getEmployeeId())
+                            .employeeName(nameMap.get(line.getEmployeeId()))
+                            .approvalStatus(line.getApprovalStatus())
+                            .comment(line.getApprovalComment())
+                            .approvalDateTime(line.getApprovalDateTime())
+                            .build()
+                    )
+                    .collect(Collectors.toList());
         }
 
 
-        // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
-        Reports savedNewReport = reportsRepository.save(newReport);
+        /**
+         * 보고서 회수 처리
+         */
+        @Transactional
+        public ReportRecallResDto recallReport (Long reportId, Long writerId){
+            Reports report = reportsRepository.findById(reportId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
-        // 4. 원본 보고서의 상태를 변경하여 더 이상 유효하지 않음을 표시합니다.
-        originalReport.markAsResubmitted();
-        reportsRepository.save(originalReport);
+            System.out.println("요청된 보고서 ID: " + reportId);
+            System.out.println("토큰에서 추출한 작성자 ID (userInfo): " + writerId);
+            System.out.println("보고서 엔티티의 작성자 ID: " + report.getWriterId());
+            System.out.println("보고서 현재 상태: " + report.getReportStatus());
+            // --- 로그 추가 끝 ---
 
-        // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
-        return ResubmitResDto.builder()
-                .reportId(savedNewReport.getId()) // 새로 생성된 ID
-                .reportStatus(savedNewReport.getReportStatus())
-                .resubmittedAt(savedNewReport.getSubmittedAt())
-                .build();
-    }
-
-    /**
-     * 리마인드 전송 처리
-     */
-    @Transactional
-    public ReportRemindResDto remindReport(Long reportId, Long writerId) {
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        if (!report.getCurrentApproverId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "리마인드 권한이 없습니다.");
-        }
-        report.remind();
-        Reports updated = reportsRepository.save(report);
-        return ReportRemindResDto.builder()
-                .reportId(updated.getId())
-                .remindedAt(updated.getRemindedAt())
-                .reminderCount(updated.getReminderCount())
-                .message("리마인더가 전송되었습니다.")
-                .build();
-    }
-
-
-
-    /**
-     * 참조자 추가 처리
-     */
-    @Transactional
-    public ReferenceResDto addReference(Long reportId, Long writerId, ReferenceReqDto req) {
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        ReportReferences ref = ReportReferences.fromReferenceReqDto(report, req);
-        ReportReferences saved = referenceRepository.save(ref);
-        return ReferenceResDto.fromReportReferences(saved);
-    }
-
-    /**
-     * 참조자 제거 처리
-     */
-    @Transactional
-    public ReportReferencesResDto deleteReferences(Long reportId, Long writerId, Long employeeId) {
-        // 1) 보고서 존재 및 권한 확인 (작성자만 삭제 가능)
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-        if (!report.getWriterId().equals(writerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 삭제 권한이 없습니다.");
+            if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
+            }
+            report.recall();
+            Reports updated = reportsRepository.save(report);
+            return ReportRecallResDto.builder()
+                    .id(updated.getId())
+                    .reportStatus(updated.getReportStatus())
+                    .build();
         }
 
-        // 2) 참조 삭제
-        referenceRepository.deleteByReportsIdAndEmployeeId(reportId, employeeId);
 
-        // 3) 응답 DTO 반환
-        return ReportReferencesResDto.builder()
-                .reportId(reportId)
-                .employeeId(employeeId)
-                .build();
-    }
+        /**
+         * 보고서 재상신
+         */
+        @Transactional
+        public ResubmitResDto resubmit (Long originalReportId, Long writerId, ResubmitReqDto req){
+
+            // 1. 원본 보고서를 찾고, 권한을 확인합니다. (반려 상태의 보고서만 재상신 가능)
+            Reports originalReport = reportsRepository.findById(originalReportId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
+
+            if (!originalReport.getWriterId().equals(writerId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
+            }
+            if (originalReport.getReportStatus() != ReportStatus.REJECTED) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려된 보고서만 재상신할 수 있습니다.");
+            }
+
+
+            // 2) 새로운 라인 리스트와 제목·본문을 넘기도록 변경
+            Reports newReport = originalReport.resubmit(
+                    req.getNewTitle(),
+                    req.getNewContent(),
+                    req.getApprovalLine(),
+                    req.getAttachments()
+            );
+
+            // 2) attachments/references 덮어쓰기
+            Map<String, Object> detailMap = new HashMap<>();
+            if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
+                detailMap.put("attachments", req.getAttachments());
+            }
+            if (req.getReferences() != null && !req.getReferences().isEmpty()) {
+                detailMap.put("references", req.getReferences());
+            }
+            if (!detailMap.isEmpty()) {
+                try {
+                    newReport.setDetail(objectMapper.writeValueAsString(detailMap));
+                } catch (JsonProcessingException e) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 직렬화 실패", e);
+                }
+            }
+
+
+            // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
+            Reports savedNewReport = reportsRepository.save(newReport);
+
+            // 4. 원본 보고서의 상태를 변경하여 더 이상 유효하지 않음을 표시합니다.
+            originalReport.markAsResubmitted();
+            reportsRepository.save(originalReport);
+
+            // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
+            return ResubmitResDto.builder()
+                    .reportId(savedNewReport.getId()) // 새로 생성된 ID
+                    .reportStatus(savedNewReport.getReportStatus())
+                    .resubmittedAt(savedNewReport.getSubmittedAt())
+                    .build();
+        }
+
+        /**
+         * 리마인드 전송 처리
+         */
+        @Transactional
+        public ReportRemindResDto remindReport (Long reportId, Long writerId){
+            Reports report = reportsRepository.findById(reportId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+            if (!report.getCurrentApproverId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "리마인드 권한이 없습니다.");
+            }
+            report.remind();
+            Reports updated = reportsRepository.save(report);
+            return ReportRemindResDto.builder()
+                    .reportId(updated.getId())
+                    .remindedAt(updated.getRemindedAt())
+                    .reminderCount(updated.getReminderCount())
+                    .message("리마인더가 전송되었습니다.")
+                    .build();
+        }
+
+
+        /**
+         * 참조자 추가 처리
+         */
+        @Transactional
+        public ReferenceResDto addReference (Long reportId, Long writerId, ReferenceReqDto req){
+            Reports report = reportsRepository.findById(reportId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+            ReportReferences ref = ReportReferences.fromReferenceReqDto(report, req);
+            ReportReferences saved = referenceRepository.save(ref);
+            return ReferenceResDto.fromReportReferences(saved);
+        }
+
+        /**
+         * 참조자 제거 처리
+         */
+        @Transactional
+        public ReportReferencesResDto deleteReferences (Long reportId, Long writerId, Long employeeId){
+            // 1) 보고서 존재 및 권한 확인 (작성자만 삭제 가능)
+            Reports report = reportsRepository.findById(reportId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+            if (!report.getWriterId().equals(writerId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 삭제 권한이 없습니다.");
+            }
+
+            // 2) 참조 삭제
+            referenceRepository.deleteByReportsIdAndEmployeeId(reportId, employeeId);
+
+            // 3) 응답 DTO 반환
+            return ReportReferencesResDto.builder()
+                    .reportId(reportId)
+                    .employeeId(employeeId)
+                    .build();
+        }
 }
