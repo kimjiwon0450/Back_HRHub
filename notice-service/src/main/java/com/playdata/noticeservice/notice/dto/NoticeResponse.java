@@ -21,8 +21,8 @@ public class NoticeResponse {
     private String name; // 작성자 이름
     private String departmentName;
     private Long departmentId;
-    private boolean isNotice;
-    private boolean hasAttachment;
+    private boolean notice;
+    private String attachmentUri;
     private boolean boardStatus;
     private LocalDate createdAt;
     private LocalDateTime updatedAt;
@@ -35,8 +35,8 @@ public class NoticeResponse {
                 .id(notice.getId())
                 .title(notice.getTitle())
                 .content(notice.getContent())
-                .isNotice(notice.isNotice())
-                .hasAttachment(notice.isHasAttachment())
+                .notice(notice.isNotice())
+                .attachmentUri(notice.getAttachmentUri())
                 .employeeId(notice.getEmployeeId())
                 .departmentId(notice.getDepartmentId())
                 .createdAt(notice.getCreatedAt())
@@ -53,8 +53,8 @@ public class NoticeResponse {
                 .employeeId(notice.getEmployeeId())
                 .name(name) // 여기에 주입
                 .departmentId(notice.getDepartmentId())
-                .isNotice(notice.isNotice())
-                .hasAttachment(notice.isHasAttachment())
+                .notice(notice.isNotice())
+                .attachmentUri(notice.getAttachmentUri())
                 .boardStatus(notice.isBoardStatus())
                 .createdAt(notice.getCreatedAt())
                 .updatedAt(notice.getUpdatedAt())
@@ -71,8 +71,8 @@ public class NoticeResponse {
                 .name(name) // 여기에 주입
                 .departmentId(notice.getDepartmentId())
                 .departmentName(departmentName)
-                .isNotice(notice.isNotice())
-                .hasAttachment(notice.isHasAttachment())
+                .notice(notice.isNotice())
+                .attachmentUri(notice.getAttachmentUri())
                 .boardStatus(notice.isBoardStatus())
                 .createdAt(notice.getCreatedAt())
                 .updatedAt(notice.getUpdatedAt())

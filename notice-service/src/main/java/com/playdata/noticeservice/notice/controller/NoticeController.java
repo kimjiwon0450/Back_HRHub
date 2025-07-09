@@ -1,5 +1,6 @@
 package com.playdata.noticeservice.notice.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.noticeservice.common.auth.CustomUserDetails;
 import com.playdata.noticeservice.common.auth.TokenUserInfo;
@@ -17,6 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -158,20 +160,30 @@ public class NoticeController {
     @PostMapping("/noticeboard/write")
     public ResponseEntity<Void> createNotice(
             @RequestBody @Valid NoticeCreateRequest request,
-            @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) throws IOException {
         Long employeeId = userInfo.getEmployeeId();
         HrUserResponse user = hrUserClient.getUserInfo(employeeId);
 
-        boolean hasAttachment = (files != null && !files.isEmpty());
-        request.setHasAttachment(hasAttachment);
+        // ✅ attachmentUri를 List<String>으로 변환
+        List<String> attachmentUri = Collections.emptyList();
+        if (request.getAttachmentUri() != null && !request.getAttachmentUri().isBlank()) {
+            attachmentUri = new ObjectMapper().readValue(request.getAttachmentUri(), new TypeReference<>() {});
+        }
 
-        List<String> fileUrls = hasAttachment ? s3Service.uploadFiles(files) : Collections.emptyList();
-
-        noticeService.createNotice(request, employeeId, user.getDepartmentId(), fileUrls);
+        // ✅ 실제 서비스 호출
+        noticeService.createNotice(request, employeeId, user.getDepartmentId(), attachmentUri);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+
+
+    @GetMapping("/noticeboard/upload-url")
+    public ResponseEntity<String> generateUploadUrl(@RequestParam String fileName) {
+        String uploadUrl = s3Service.generatePresignedUrl(fileName);
+        log.info("upload url 생성됨 : " + uploadUrl);
+        return ResponseEntity.ok(uploadUrl);
+    }
+
 
     // 글 수정 페이지
     @PutMapping(value = "/noticeboard/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -186,16 +198,8 @@ public class NoticeController {
         return ResponseEntity.ok().build();
     }
 
-    @PostMapping(value = "/noticeboard/{id}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Void> uploadFiles(
-            @PathVariable Long id,
-            @RequestParam("files") List<MultipartFile> files,
-            @AuthenticationPrincipal TokenUserInfo userInfo) {
 
-        Long employeeId = userInfo.getEmployeeId();
-        noticeService.uploadNoticeFiles(id, files, employeeId);
-        return ResponseEntity.ok().build();
-    }
+
 
 
     // 글 삭제
