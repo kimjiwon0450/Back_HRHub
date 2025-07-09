@@ -11,4 +11,5 @@ import lombok.*;
 public class EmployeePasswordDto {
     private String email;
     private String password;
+    private String verificationCode;
 }

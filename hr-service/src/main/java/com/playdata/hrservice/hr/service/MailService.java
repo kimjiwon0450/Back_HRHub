@@ -19,7 +19,8 @@ public class MailService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(toEmail);
         message.setSubject("HRHub 메일 인증 안내");
-        message.setText("인증 링크는 [ http://localhost:5173?email=" + toEmail + " ] 입니다." );
+        message.setText("인증 링크는 [ http://localhost:5173?email=" + toEmail + " ] 입니다.\n" +
+                "인증 번호는 [ " + verificationCode + " ] 입니다." );
 
         mailSender.send(message);
 
