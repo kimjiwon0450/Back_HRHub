@@ -1,5 +1,7 @@
 package com.playdata.noticeservice.notice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.notice.dto.NoticeCreateRequest;
 import com.playdata.noticeservice.notice.dto.NoticeUpdateRequest;
@@ -122,6 +124,15 @@ public class NoticeService {
         log.info(request.getContent());
         log.info(String.valueOf(request.isNotice()));
 
+        ObjectMapper mapper = new ObjectMapper();
+        String attachmentUriJson = "";
+        try {
+            // 첨부파일 리스트를 JSON 문자열로 변환
+            attachmentUriJson = mapper.writeValueAsString(attachmentUri);
+        } catch (JsonProcessingException e) {
+            log.error("첨부파일 JSON 변환 오류", e);
+        }
+
         Notice notice = Notice.builder()
                 .title(request.getTitle())
                 .content(request.getContent())
@@ -131,7 +142,7 @@ public class NoticeService {
                 .departmentId(departmentId)
                 .boardStatus(true)
                 .createdAt(LocalDate.now())
-                .attachmentUri(String.join(",", attachmentUri)) // 저장
+                .attachmentUri(attachmentUriJson) // ✅ JSON 배열 형태로 저장
                 .build();
 
         noticeRepository.save(notice);
@@ -150,7 +161,19 @@ public class NoticeService {
         notice.setTitle(request.getTitle());
         notice.setContent(request.getContent());
         notice.setNotice(request.isNotice());
-        notice.setAttachmentUri(String.join(",", attachmentUri));
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        try {
+            // ✅ null 처리
+            String attachmentUriJson = mapper.writeValueAsString(
+                    attachmentUri != null ? attachmentUri : List.of()
+            );
+            notice.setAttachmentUri(attachmentUriJson);
+        } catch (JsonProcessingException e) {
+            log.error("첨부파일 JSON 직렬화 실패", e);
+            throw new RuntimeException("첨부파일 저장 중 오류가 발생했습니다.");
+        }
         // updatedAt은 @PreUpdate로 자동 설정
     }
 

@@ -62,6 +62,7 @@ public class AwsS3Config {
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucketName) // 버킷 이름
                 .key(fileName) // 저장될 파일명
+                .acl("private")
                 .build();
 
         // 오브젝트를 버킷에 업로드
@@ -98,29 +99,7 @@ public class AwsS3Config {
     }
 
 
-    public String generatePresignedUrl(String fileName) {
-        // Presigner 객체 생성
-        S3Presigner presigner = S3Presigner.builder()
-                .region(Region.of(region))
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey))
-                )
-                .build();
 
-        PutObjectRequest objectRequest = PutObjectRequest.builder()
-                .bucket(bucketName)
-                .key(fileName)
-                .build();
-
-        PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
-                .putObjectRequest(objectRequest)
-                .signatureDuration(java.time.Duration.ofMinutes(5))
-                .build();
-
-        String url = presigner.presignPutObject(presignRequest).url().toString();
-        presigner.close();
-        return url;
-    }
 
 
 }
