@@ -29,7 +29,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                      Pageable pageable);
 
 
-    // ✅ 일반 게시글 필터링 및 페이징
+    // ✅ 게시글 필터 조회
     @Query("SELECT n FROM Notice n WHERE " +
             "n.notice = false AND " +
             "n.boardStatus = true AND " +
@@ -71,11 +71,11 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                        Long departmentId);
 
     // 전체 일반글 조회
-    @Query("SELECT n FROM Notice n WHERE n.notice = false AND n.boardStatus = true ORDER BY n.createdAt DESC")
+    @Query("SELECT n FROM Notice n WHERE n.notice = false AND n.boardStatus = true")
     Page<Notice> findAllPosts(Pageable pageable);
 
     // 전체 공지글 조회
-    @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true ORDER BY n.createdAt DESC")
+    @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true")
     List<Notice> findTopNotices(Pageable pageable);
 
 }

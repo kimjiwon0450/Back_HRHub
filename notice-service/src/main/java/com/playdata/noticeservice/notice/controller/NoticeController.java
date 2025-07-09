@@ -60,14 +60,17 @@ public class NoticeController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
         if (keyword != null && keyword.isBlank()) {
             keyword = null;
         }
 
         log.info("~~~게시글 조회 페이지 진입함~~~");
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
         boolean hasFilter = !((keyword == null || keyword.isBlank()) && fromDate == null && toDate == null);
 
@@ -76,14 +79,14 @@ public class NoticeController {
         Page<Notice> postList;
 
         if (hasFilter) {
-            log.info("~~~~~필터링된 게시글 : {}, {}, {}~~~~~", keyword, fromDate, toDate);
-            noticeList = noticeService.getFilteredNotices(keyword, fromDate, toDate);
+            noticeList = noticeService.getFilteredNotices(keyword, fromDate, toDate, sortBy, sortDir);
             postList = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageable);
         } else {
-            log.info("~~~~~필터링 안됨~~~~~");
-            noticeList = noticeService.getAllNotices(); // top 10 공지
-            postList = noticeService.getAllPosts(pageable); // 페이징 일반글
+            // ✅ 수정된 부분
+            noticeList = noticeService.getAllNotices(sortBy, sortDir); // 정렬 반영!
+            postList = noticeService.getAllPosts(pageable); // 이건 정렬 포함된 pageable로 전달되므로 OK
         }
+
 
         // 🔥 작성자 이름 포함하여 변환
         List<NoticeResponse> noticeDtos = noticeList.stream()
@@ -194,7 +197,7 @@ public class NoticeController {
 
         Long employeeId = userInfo.getEmployeeId();
         // 파일이 없기 때문에 null 전달 또는 별도 처리
-        noticeService.updateNotice(id, request, null, employeeId);
+        noticeService.updateNotice(id, request, employeeId);
         return ResponseEntity.ok().build();
     }
 
