@@ -40,7 +40,8 @@ public class SecurityConfig {
                             "/hr-service/employees/login",
                             "/hr-service/employees/password",
                             "/hr-service/departments", "/hr-service/departments/*",
-                            "/hr-service/feign/employees/*", "/hr-service/employees/email/*",
+                            "/feign/**",
+                            "/hr-service/feign/**",
                             "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });

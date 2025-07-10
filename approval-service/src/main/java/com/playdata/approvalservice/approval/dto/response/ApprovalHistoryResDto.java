@@ -14,7 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class ApprovalHistoryResDto {
-    private int order;
+    private int context;
     private Long employeeId;
     private String employeeName;
     private ApprovalStatus approvalStatus;

@@ -195,7 +195,6 @@ public class ApprovalController {
             @PathVariable Long reportId,
             @RequestBody(required = false) ResubmitReqDto req,
             @AuthenticationPrincipal TokenUserInfo userInfo
-            // [수정] 파라미터로 writerId 주입
     ) {
 
         Long writerId = getCurrentUserId(userInfo);

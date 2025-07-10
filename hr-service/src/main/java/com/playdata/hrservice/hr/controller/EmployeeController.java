@@ -103,23 +103,6 @@ public class EmployeeController {
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
     }
 
-    // 직원 상세조회 by id (Feign을 위함)
-    @GetMapping("/feign/employees/{id}")
-    public ResponseEntity<EmployeeResDto> getById(@PathVariable("id") Long id) {
-        return new ResponseEntity<>(employeeService.getEmployee(id), HttpStatus.OK);
-    }
-
-    // 직원 상세조회 by email (Feign을 위함)
-    @GetMapping("/employees/email/{email}")
-    public ResponseEntity<EmployeeResDto> getEmployeeByEmail(@PathVariable("email") String email) {
-        return new ResponseEntity<>(employeeService.getEmployeeByEmail(email), HttpStatus.OK);
-    }
-
-    @GetMapping("/employees/names")
-    Map<Long, String> getEmployeeNamesByEmployeeIds(@RequestParam("ids") List<Long> employeeIds) {
-        return employeeService.getEmployeeNamesByEmployeeIds(employeeIds);
-    }
-
     // 직원 이름 조회
     @GetMapping("/employees/{id}/name")
     public ResponseEntity<?> getEmployeeName(@PathVariable("id") Long id) {

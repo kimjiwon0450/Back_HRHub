@@ -1,6 +1,5 @@
 package com.playdata.approvalservice.approval.entity;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.ApprovalLineReqDto;
 import com.playdata.approvalservice.approval.dto.request.AttachmentJsonReqDto;
 import com.playdata.approvalservice.approval.dto.request.ReportCreateReqDto;
