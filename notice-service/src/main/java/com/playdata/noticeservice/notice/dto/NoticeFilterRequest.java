@@ -15,6 +15,6 @@ public class NoticeFilterRequest {
     private Long departmentId;     // 부서 ID
     private Boolean myPostsOnly;   // 내가 쓴 글만 보기
     private Integer page = 0;      // 기본 페이지 0
-    private Integer size = 10;     // 기본 사이즈 10
+    private Integer pageSize = 10;     // 기본 사이즈 10
 
 }
