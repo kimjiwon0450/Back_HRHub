@@ -1,6 +1,7 @@
 package com.playdata.hrservice.hr.controller;
 
 import com.playdata.hrservice.common.dto.CommonResDto;
+import com.playdata.hrservice.hr.dto.EmployeeResDto;
 import com.playdata.hrservice.hr.dto.EvaluationListResDto;
 import com.playdata.hrservice.hr.dto.EvaluationReqDto;
 import com.playdata.hrservice.hr.dto.EvaluationResDto;
@@ -64,5 +65,13 @@ public class EvaluationController {
         EvaluationResDto dto = evaluationService.getEvaluationByEvaluationId(evaluationId);
         log.info(dto.toString());
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", dto), HttpStatus.OK);
+    }
+
+    @GetMapping("/top/employee")
+    public ResponseEntity<?> getTopEmployee() {
+        List<EmployeeResDto> employeesOfTop3 = evaluationService.getEmployeesOfTop3();
+
+
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeesOfTop3), HttpStatus.OK);
     }
 }
