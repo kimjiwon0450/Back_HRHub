@@ -22,6 +22,7 @@ public class DepartmentController {
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTemplate<String, Object> redisTemplate;
 
+    // 부서 아이디로 부서 아이디, 이름 가져오기
     @GetMapping("/departments/{id}")
     public ResponseEntity<?> getDepartmentById(@PathVariable Long id) {
         CommonResDto resDto = new CommonResDto(

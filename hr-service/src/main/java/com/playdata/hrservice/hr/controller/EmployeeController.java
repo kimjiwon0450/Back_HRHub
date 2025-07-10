@@ -116,7 +116,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/employees/names")
-    Map<Long, String> getEmployeeNamesByEmployeeIds(@RequestParam("ids") List<Long> employeeIds) {
+    public Map<Long, String> getEmployeeNamesByEmployeeIds(@RequestParam("ids") List<Long> employeeIds) {
         return employeeService.getEmployeeNamesByEmployeeIds(employeeIds);
     }
 
@@ -171,10 +171,10 @@ public class EmployeeController {
     }
 
     // 인사 이동 이력
-    @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
+//    @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
     @GetMapping("/transfer-history/{employeeId}")
-    public ResponseEntity<?> getTransferHistory(@PathVariable("employeeId") Long employeeId) throws JsonProcessingException {
-        HrTransferHistoryResDto resDto = employeeService.getTransferHistory(employeeId);
+    public ResponseEntity<?> getTransferHistory(@PathVariable("employeeId") Long employeeId, @AuthenticationPrincipal TokenUserInfo tokenUserInfo) throws JsonProcessingException {
+        HrTransferHistoryResDto resDto = employeeService.getTransferHistory(employeeId, tokenUserInfo);
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "success", resDto), HttpStatus.OK);
     }
 

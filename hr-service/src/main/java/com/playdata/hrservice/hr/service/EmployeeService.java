@@ -269,7 +269,8 @@ public class EmployeeService {
         String json = hrTransferHistory.getTransferHistory();
         List<HrTransferHistoryDto> hrTransferHistoryDtos = new ObjectMapper()
                 .readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {});
-        if (!hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getDepartmentId().equals(departmentId) || !hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getPositionName().equals(positionName)) {
+        if (!hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getDepartmentId().equals(departmentId)
+                || !hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getPositionName().equals(positionName)) {
             hrTransferHistoryDtos.add(HrTransferHistoryDto.builder()
                     .sequenceId((long)hrTransferHistoryDtos.size())
                     .departmentId(departmentId)
@@ -311,7 +312,13 @@ public class EmployeeService {
         return map;
     }
 
-    public HrTransferHistoryResDto getTransferHistory(Long employeeId) throws JsonProcessingException {
+    public HrTransferHistoryResDto getTransferHistory(Long employeeId, TokenUserInfo tokenUserInfo) throws JsonProcessingException {
+        if(!tokenUserInfo.getEmployeeId().equals(employeeId)) {
+            if (!tokenUserInfo.getRole().equals(Role.ADMIN) && !tokenUserInfo.getRole().equals(Role.HR_MANAGER)) {
+                throw new RuntimeException("권한이 없습니다!");
+            }
+        }
+
         HrTransferHistory hrTransferHistory = hrTransferHistoryRepository.findByEmployee(findById(employeeId));
         if (hrTransferHistory == null) {
             throw new EntityNotFoundException("해당 직원의 인사이동 이력이 존재하지 않습니다.");

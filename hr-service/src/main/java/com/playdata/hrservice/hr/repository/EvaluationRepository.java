@@ -18,5 +18,7 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
     // 이번 달 평가 조회(1건만, 최신순)
     Optional<Evaluation> findTopByEvaluateeAndCreatedAtBetweenOrderByCreatedAtDesc(Employee evaluatee, LocalDateTime start, LocalDateTime end);
 
+    Optional<List<Evaluation>> findAllByCreatedAtBetweenOrderByTotalEvaluationDesc(LocalDateTime createdAtAfter, LocalDateTime createdAtBefore);
+
     Page<Evaluation> findAllByEvaluatee(Employee evaluatee, Pageable pageable);
 }
