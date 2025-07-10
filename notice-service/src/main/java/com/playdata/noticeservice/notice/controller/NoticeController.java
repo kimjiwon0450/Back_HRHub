@@ -183,11 +183,11 @@ public class NoticeController {
 
 
     @GetMapping("/noticeboard/upload-url")
-    public ResponseEntity<String> generateUploadUrl(@RequestParam String fileName) {
-        String uploadUrl = s3Service.generatePresignedUrl(fileName);
-        log.info("upload url 생성됨 : " + uploadUrl);
-        return ResponseEntity.ok(uploadUrl);
+    public ResponseEntity<String> generateUploadUrl(@RequestParam String fileName, @RequestParam String contentType) {
+        String url = s3Service.generatePresignedUrl(fileName, contentType);
+        return ResponseEntity.ok(url);
     }
+
 
 
     // 글 수정 페이지
