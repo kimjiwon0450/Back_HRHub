@@ -106,6 +106,8 @@ public class NoticeController {
         response.put("posts", postDtos);
         response.put("totalPages", postList.getTotalPages());
         response.put("currentPage", postList.getNumber());
+        log.info("response 결과 확인");
+        log.info(response.toString());
 
         return ResponseEntity.ok(response);
     }
