@@ -52,9 +52,9 @@ public class ApprovalController {
     /**
      * 보고서 생성 (DRAFT)
      */
-    @PostMapping(value = "/create", consumes = {MediaType.MULTIPART_FORM_DATA_VALUE})
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> createReport(
-            @RequestBody @Valid ReportCreateReqDto req,
+            @ModelAttribute @Valid ReportCreateReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ) {
