@@ -211,45 +211,69 @@ public class ApprovalService {
 
     /**
      * 보고서 상세 조회 (N+1 문제 해결을 위해 리팩토링)
+     * @param reportId 조회할 보고서의 ID
+     * @param writerId 현재 사용자의 직원 ID (권한 확인용)
+     * @return 보고서 상세 정보 DTO
      */
     public ReportDetailResDto getReportDetail(Long reportId, Long writerId) {
 
+        // 1. 보고서 엔티티를 조회합니다.
         Reports r = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
-        boolean writer = r.getWriterId().equals(writerId);
-        boolean approver = r.getApprovalLines().stream()
+        // 2. 조회 권한을 확인합니다. (작성자 또는 결재 라인에 포함된 사람만 조회 가능)
+        boolean isWriter = r.getWriterId().equals(writerId);
+        boolean isApprover = r.getApprovalLines().stream()
                 .anyMatch(l -> l.getEmployeeId().equals(writerId));
-        if (!writer && !approver) {
+        if (!isWriter && !isApprover) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
         }
 
-        // 1. 상세 조회에 필요한 모든 직원 ID를 수집합니다.
+        // 3. API 호출을 위한 모든 관련 직원 ID를 수집합니다.
         Set<Long> employeeIdsToFetch = new HashSet<>();
-        employeeIdsToFetch.add(r.getWriterId());
+        employeeIdsToFetch.add(r.getWriterId()); // 작성자 ID
         if (r.getCurrentApproverId() != null) {
-            employeeIdsToFetch.add(r.getCurrentApproverId());
+            employeeIdsToFetch.add(r.getCurrentApproverId()); // 현재 결재자 ID
         }
-        r.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId()));
-        // 참조자(references)의 ID도 필요한 경우 여기에 추가합니다.
+        r.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId())); // 결재 라인의 모든 직원 ID
 
-        // 2. 단 한 번의 API 호출로 모든 직원 이름을 가져옵니다.
+        // 4. 단 한 번의 Feign API 호출로 모든 직원 이름을 가져옵니다.
         Map<Long, String> employeeNamesMap = Collections.emptyMap();
         if (!employeeIdsToFetch.isEmpty()) {
             ResponseEntity<Map<Long, String>> response = employeeFeignClient.getEmployeeNamesByEmployeeIds(new ArrayList<>(employeeIdsToFetch));
             employeeNamesMap = Optional.ofNullable(response.getBody()).orElse(Collections.emptyMap());
         }
-        final Map<Long, String> finalEmployeeNamesMap = employeeNamesMap; // 람다에서 사용하기 위해 final로 선언
+        final Map<Long, String> finalEmployeeNamesMap = employeeNamesMap;
 
-        // ... (JSON 파싱 로직은 동일)
+        // 5. 첨부파일 및 참조 정보 파싱 (JSON)
         List<ReportDetailResDto.AttachmentResDto> atts = Collections.emptyList();
         List<ReportDetailResDto.ReferenceJsonResDto> refs = Collections.emptyList();
         if (r.getDetail() != null && !r.getDetail().isBlank()) {
-            // ... 기존 JSON 파싱 코드 ...
+            try {
+                JsonNode root = objectMapper.readTree(r.getDetail());
+                // 첨부파일 파싱
+                atts = Optional.of(root.path("attachments"))
+                        .filter(JsonNode::isArray)
+                        .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<AttachmentJsonReqDto>>() {}))
+                        .orElse(Collections.emptyList())
+                        .stream()
+                        .map(a -> new ReportDetailResDto.AttachmentResDto(a.getFileName(), a.getUrl()))
+                        .collect(Collectors.toList());
+                // 참조자 파싱
+                refs = Optional.of(root.path("references"))
+                        .filter(JsonNode::isArray)
+                        .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<ReferenceJsonReqDto>>() {}))
+                        .orElse(Collections.emptyList())
+                        .stream()
+                        .map(rj -> new ReportDetailResDto.ReferenceJsonResDto(rj.getEmployeeId()))
+                        .collect(Collectors.toList());
+            } catch (JsonProcessingException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 파싱 실패", e);
+            }
         }
 
-        // 3. 미리 가져온 이름 맵을 사용하여 결재 라인 DTO를 생성합니다.
+        // 6. 미리 가져온 이름 맵을 사용하여 결재 라인 DTO를 생성합니다.
         List<ReportDetailResDto.ApprovalLineResDto> lines = r.getApprovalLines().stream()
                 .map(l -> {
                     String name = finalEmployeeNamesMap.getOrDefault(l.getEmployeeId(), "알 수 없는 사용자");
@@ -263,11 +287,13 @@ public class ApprovalService {
                 })
                 .collect(Collectors.toList());
 
+        // 7. 작성자 및 현재 결재자 이름을 Map에서 가져옵니다.
         String writerName = finalEmployeeNamesMap.getOrDefault(r.getWriterId(), "알 수 없는 사용자");
         String currentApprover = r.getCurrentApproverId() != null
                 ? finalEmployeeNamesMap.getOrDefault(r.getCurrentApproverId(), "알 수 없는 사용자")
                 : null;
 
+        // 8. 최종 상세 정보 DTO를 빌드하여 반환합니다.
         return ReportDetailResDto.builder()
                 .id(r.getId())
                 .title(r.getTitle())
@@ -282,7 +308,7 @@ public class ApprovalService {
                 .reportStatus(r.getReportStatus())
                 .approvalLine(lines)
                 .currentApprover(currentApprover)
-                .dueDate(null)
+                .dueDate(null) // 필요 시 구현
                 .build();
     }
 
