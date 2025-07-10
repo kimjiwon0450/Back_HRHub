@@ -52,10 +52,17 @@ public class EmployeeController {
         return ResponseEntity.ok().build();
     }
 
-    // 비밀번호 최초 설정
+    // 비밀번호 설정
     @PatchMapping("/employees/password")
     public ResponseEntity<?> modifyPassword(@RequestBody EmployeePasswordDto dto) {
         employeeService.modifyPassword(dto);
+        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null),HttpStatus.OK);
+    }
+
+    // 이메일 인증 전송
+    @GetMapping("/employees/email/verification/{email}")
+    public ResponseEntity<?> sendVerificationEmail(@PathVariable String email) {
+        employeeService.sendVerificationEmail(email);
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null),HttpStatus.OK);
     }
 

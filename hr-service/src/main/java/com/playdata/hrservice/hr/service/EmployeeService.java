@@ -53,6 +53,10 @@ public class EmployeeService {
     private final DepartmentService departmentService;
 
 
+    public void sendVerificationEmail(String email) {
+        verificationService.sendVerificationEmail(email);
+    }
+
     @Transactional
     public void createUser(EmployeeReqDto dto) throws JsonProcessingException {
         // 1. 이메일 중복 확인 (신규 가입에만 해당)
@@ -81,7 +85,7 @@ public class EmployeeService {
         initTransferHistory(save, save.getDepartment().getId(), save.getPosition().name(), "");
         EmployeePassword employeePassword = EmployeePassword.builder()
                 .userId(save.getEmployeeId()).build();
-        verificationService.sendVerificationEmail(save.getEmail());
+        sendVerificationEmail(save.getEmail());
         employeePasswordRepository.save(employeePassword);
     }
 
@@ -333,6 +337,8 @@ public class EmployeeService {
                 .hrTransferHistories(hrTransferHistoryDtos)
                 .build();
     }
+
+
 }
 
 

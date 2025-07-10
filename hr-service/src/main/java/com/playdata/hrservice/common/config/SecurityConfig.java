@@ -41,6 +41,7 @@ public class SecurityConfig {
                             "/hr-service/employees/password",
                             "/hr-service/departments", "/hr-service/departments/*",
                             "/hr-service/feign/employees/*", "/hr-service/employees/email/*",
+                            "/hr-service/employees/email/verification/*",
                             "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });
