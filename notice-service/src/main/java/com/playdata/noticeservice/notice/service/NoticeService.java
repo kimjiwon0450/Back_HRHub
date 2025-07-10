@@ -16,6 +16,7 @@ import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.NoticeResponse;
 import java.io.IOException;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -33,10 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -50,9 +48,16 @@ public class NoticeService {
     private final DepartmentClient departmentClient;
     private final NoticeAttachmentRepository noticeAttachmentRepository;
 
-    // 모든 공지글 조회
+    // 기존 고정 정렬 버전
     public List<Notice> getAllNotices() {
         Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return noticeRepository.findTopNotices(pageable);
+    }
+
+    // 모든 공지글 조회
+    public List<Notice> getAllNotices(String sortBy, String sortDir) {
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, sortBy));
         return noticeRepository.findTopNotices(pageable);
     }
 
@@ -62,14 +67,32 @@ public class NoticeService {
     }
 
     // 필터링된 공지글 조회
-    public List<Notice> getFilteredNotices(String keyword, LocalDate from, LocalDate to) {
-        Pageable pageable = PageRequest.of(0, 10);
+    public List<Notice> getFilteredNotices(String keyword, LocalDate from, LocalDate to, String sortBy, String sortDir) {
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, sortBy));
+
+        if (from == null) {
+            from = LocalDate.of(2000, 1, 1); // 매우 과거
+        }
+        if (to == null) {
+            to = LocalDate.now().plusDays(1); // 오늘까지 포함
+
+        }
+
         return noticeRepository.findFilteredNotices(
                 keyword, from, to, pageable);
     }
 
     // 필터링된 일반글 조회
     public Page<Notice> getFilteredPosts(String keyword, LocalDate from, LocalDate to, Pageable pageable) {
+        if (from == null) {
+            from = LocalDate.of(2000, 1, 1); // 매우 과거
+        }
+        if (to == null) {
+            to = LocalDate.now().plusDays(1); // 오늘까지 포함
+
+        }
+
         return noticeRepository.findFilteredPosts(
                 keyword, from, to, pageable
         );
@@ -150,7 +173,7 @@ public class NoticeService {
 
     // 공지글/게시글 수정
     @Transactional
-    public void updateNotice(Long id, NoticeUpdateRequest request, List<String> attachmentUri, Long currentUserId) {
+    public void updateNotice(Long id, NoticeUpdateRequest request, Long currentUserId) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
 
@@ -165,10 +188,12 @@ public class NoticeService {
         ObjectMapper mapper = new ObjectMapper();
 
         try {
-            // ✅ null 처리
-            String attachmentUriJson = mapper.writeValueAsString(
-                    attachmentUri != null ? attachmentUri : List.of()
-            );
+            List<String> attachmentList = Collections.emptyList();
+            if (request.getAttachmentUri() != null && !request.getAttachmentUri().isBlank()) {
+                attachmentList = mapper.readValue(request.getAttachmentUri(), new TypeReference<List<String>>() {});
+            }
+
+            String attachmentUriJson = mapper.writeValueAsString(attachmentList); // ✅ 다시 JSON 문자열로
             notice.setAttachmentUri(attachmentUriJson);
         } catch (JsonProcessingException e) {
             log.error("첨부파일 JSON 직렬화 실패", e);
@@ -229,7 +254,7 @@ public class NoticeService {
 
     // 읽지 않은 공지글 알림
     public Map<String, List<NoticeResponse>> getUserAlerts(Long employeeId, Long departmentId) {
-        Pageable pageable = PageRequest.of(0, 10);
+        Pageable pageable = PageRequest.of(0, 20);
 
         // 읽지 않은 공지글을 한 번에 조회
         List<Notice> unreadNotices = noticeReadRepository
@@ -239,7 +264,7 @@ public class NoticeService {
         List<NoticeResponse> unreadNoticeResponses = unreadNotices.stream()
                 .map(notice -> {
                     HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, writer.getName());
+                    return NoticeResponse.fromEntity(notice, writer);
                 })
                 .toList();
 

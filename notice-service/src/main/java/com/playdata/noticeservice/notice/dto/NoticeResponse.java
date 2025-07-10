@@ -1,5 +1,6 @@
 package com.playdata.noticeservice.notice.dto;
 
+import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.entity.Notice;
 import lombok.*;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +21,7 @@ public class NoticeResponse {
     private Long employeeId;
     private String name; // 작성자 이름
     private String departmentName;
+    private String employStatus;
     private Long departmentId;
     private boolean notice;
     private String attachmentUri;
@@ -45,39 +47,25 @@ public class NoticeResponse {
                 .build();
     }
 
-    public static NoticeResponse fromEntity(Notice notice, String name) {
-        return NoticeResponse.builder()
-                .id(notice.getId())
-                .title(notice.getTitle())
-                .content(notice.getContent())
-                .employeeId(notice.getEmployeeId())
-                .name(name) // 여기에 주입
-                .departmentId(notice.getDepartmentId())
-                .notice(notice.isNotice())
-                .attachmentUri(notice.getAttachmentUri())
-                .boardStatus(notice.isBoardStatus())
-                .createdAt(notice.getCreatedAt())
-                .updatedAt(notice.getUpdatedAt())
-                .viewCount(notice.getViewCount())
-                .build();
-    }
 
-    public static NoticeResponse fromEntity(Notice notice, String name, String departmentName) {
-        return NoticeResponse.builder()
-                .id(notice.getId())
-                .title(notice.getTitle())
-                .content(notice.getContent())
-                .employeeId(notice.getEmployeeId())
-                .name(name) // 여기에 주입
-                .departmentId(notice.getDepartmentId())
-                .departmentName(departmentName)
-                .notice(notice.isNotice())
-                .attachmentUri(notice.getAttachmentUri())
-                .boardStatus(notice.isBoardStatus())
-                .createdAt(notice.getCreatedAt())
-                .updatedAt(notice.getUpdatedAt())
-                .viewCount(notice.getViewCount())
-                .build();
+    public static NoticeResponse fromEntity(Notice notice, HrUserResponse user) {
+        NoticeResponse dto = new NoticeResponse();
+        dto.id = notice.getId();
+        dto.title = notice.getTitle();
+        dto.content = notice.getContent();
+        dto.name = user.getName();
+        dto.departmentId = user.getDepartmentId();
+        dto.departmentName = user.getDepartmentName();
+        dto.employStatus = user.getEmployStatus(); // ✅ 직관적 매핑
+        dto.employeeId = notice.getEmployeeId();
+        dto.notice = notice.isNotice();
+        dto.attachmentUri = notice.getAttachmentUri();
+        dto.boardStatus = notice.isBoardStatus();
+        dto.createdAt = notice.getCreatedAt();
+        dto.updatedAt = notice.getUpdatedAt();
+        dto.viewCount = notice.getViewCount();
+
+        return dto;
     }
 
 }
