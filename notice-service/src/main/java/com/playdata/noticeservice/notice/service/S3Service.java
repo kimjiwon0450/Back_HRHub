@@ -3,6 +3,7 @@ package com.playdata.noticeservice.notice.service;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.playdata.noticeservice.common.config.AwsS3Config;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Service;
@@ -11,19 +12,21 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.time.Duration;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class S3Service {
     // S3 버킷을 제어하는 객체
     private S3Client s3Client;
@@ -90,8 +93,8 @@ public class S3Service {
         }
     }
 
-    public String generatePresignedUrl(String fileName) {
-        // Presigner 객체 생성
+    public String generatePresignedUrlForPut(String fileName, String contentType) {
+        log.info("contentType: {}", contentType);
         S3Presigner presigner = S3Presigner.builder()
                 .region(Region.of(region))
                 .credentialsProvider(
@@ -99,20 +102,53 @@ public class S3Service {
                 )
                 .build();
 
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("fileType", contentType);
+        metadata.put("contentType", contentType);
+
+
         PutObjectRequest objectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
                 .key(fileName)
-                .acl(ObjectCannedACL.PRIVATE) // ✅ 반드시 추가!
+                .contentType(contentType)  // ✅ 여기 추가
+                .metadata(metadata)
                 .build();
 
-        // presigned URL 발급
         PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
                 .putObjectRequest(objectRequest)
                 .signatureDuration(java.time.Duration.ofMinutes(5))
                 .build();
 
         String url = presigner.presignPutObject(presignRequest).url().toString();
-        presigner.close();
         return url;
     }
+
+    public String generatePresignedUrlForGet(String fileName, String contentType) {
+        log.info("contentType: {}", contentType);
+        S3Presigner presigner = S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(
+                        StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey))
+                )
+                .build();
+
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .responseContentDisposition("attachment; filename=\"" + fileName + "\"")
+                .build();
+
+        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                .signatureDuration(Duration.ofMinutes(5))
+                .getObjectRequest(getObjectRequest)
+                .build();
+
+        PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
+        presigner.close();
+
+        return presignedRequest.url().toString();
+
+    }
+
+
 }

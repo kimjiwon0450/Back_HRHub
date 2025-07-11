@@ -60,7 +60,7 @@ public class NoticeController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
@@ -70,7 +70,7 @@ public class NoticeController {
 
         log.info("~~~게시글 조회 페이지 진입함~~~");
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
 
         boolean hasFilter = !((keyword == null || keyword.isBlank()) && fromDate == null && toDate == null);
 
@@ -106,6 +106,8 @@ public class NoticeController {
         response.put("posts", postDtos);
         response.put("totalPages", postList.getTotalPages());
         response.put("currentPage", postList.getNumber());
+        log.info("response 결과 확인");
+        log.info(response.toString());
 
         return ResponseEntity.ok(response);
     }
@@ -132,10 +134,10 @@ public class NoticeController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "10") int pageSize,
             @AuthenticationPrincipal TokenUserInfo userInfo) {
 
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Pageable pageable = PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         List<Notice> notices = noticeService.getNoticesByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate);
         List<Notice> posts = noticeService.getPostsByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate, pageable);
 
@@ -181,10 +183,17 @@ public class NoticeController {
 
 
     @GetMapping("/noticeboard/upload-url")
-    public ResponseEntity<String> generateUploadUrl(@RequestParam String fileName) {
-        String uploadUrl = s3Service.generatePresignedUrl(fileName);
-        log.info("upload url 생성됨 : " + uploadUrl);
-        return ResponseEntity.ok(uploadUrl);
+    public ResponseEntity<String> generateUploadUrl(
+            @RequestParam String fileName,
+            @RequestParam String contentType) {
+        String url = s3Service.generatePresignedUrlForPut(fileName, contentType);
+        return ResponseEntity.ok(url);
+    }
+
+    @GetMapping("/noticeboard/download-url")
+    public ResponseEntity<String> generateDownloadUrl(@RequestParam String fileName) {
+        String url = s3Service.generatePresignedUrlForGet(fileName, "application/octet-stream");
+        return ResponseEntity.ok(url);
     }
 
 

@@ -56,7 +56,7 @@ public class NoticeResponse {
         dto.name = user.getName();
         dto.departmentId = user.getDepartmentId();
         dto.departmentName = user.getDepartmentName();
-        dto.employStatus = user.getEmployStatus(); // ✅ 직관적 매핑
+        dto.employStatus = user.getStatus(); // ✅ 직관적 매핑
         dto.employeeId = notice.getEmployeeId();
         dto.notice = notice.isNotice();
         dto.attachmentUri = notice.getAttachmentUri();
