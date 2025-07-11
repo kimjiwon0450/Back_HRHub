@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -83,5 +85,19 @@ public class TemplateService {
         return templateRepository.findById(templateId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "템플릿을 찾을 수 없습니다. id=" + templateId));
+    }
+
+    public List<TemplateResDto> getAllTemplates() {
+        List<ReportTemplate> templates = templateRepository.findAll();
+        return templates.stream().map(
+                reportTemplate -> {
+                    try {
+                        return TemplateResDto.from(reportTemplate, new ObjectMapper());
+                    } catch (JsonProcessingException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+        ).toList();
+
     }
 }

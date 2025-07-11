@@ -15,6 +15,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @Slf4j
@@ -46,6 +48,15 @@ public class TemplateController {
             @AuthenticationPrincipal TokenUserInfo userInfo // 조회는 모든 사용자가 가능하도록 권한 검사 제거
     ) {
         TemplateResDto res = templateService.getTemplate(templateId);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 템플릿 조회 완료", res));
+    }
+
+    /**
+     * 템플릿 전부 조회
+     */
+    @GetMapping("/list")
+    public ResponseEntity<CommonResDto> getAllTemplates() {
+        List<TemplateResDto> res = templateService.getAllTemplates();
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 템플릿 조회 완료", res));
     }
 
