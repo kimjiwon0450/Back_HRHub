@@ -14,6 +14,6 @@ public class ApprovalLineReqDto {
     private Long employeeId;
 
     @NotNull
-    private int order;
+    private int context;
 }
 

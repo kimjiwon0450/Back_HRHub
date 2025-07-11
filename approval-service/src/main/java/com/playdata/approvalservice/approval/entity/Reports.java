@@ -184,7 +184,7 @@ public class Reports extends BaseTimeEntity {
             ApprovalLine line = ApprovalLine.builder()
                     .reports(this)
                     .employeeId(dto.getEmployeeId())
-                    .approvalContext(dto.getOrder())
+                    .approvalContext(dto.getContext())
                     .approvalStatus(ApprovalStatus.PENDING)
                     .approvalDateTime(LocalDateTime.now())
                     .build();
