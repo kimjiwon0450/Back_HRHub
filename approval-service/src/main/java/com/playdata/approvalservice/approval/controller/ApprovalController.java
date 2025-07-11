@@ -66,6 +66,22 @@ public class ApprovalController {
     }
 
     /**
+     * 보고서 생성 (IN_PROGRESS)
+     */
+    @PostMapping(value = "/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CommonResDto> progressReport(
+            @ModelAttribute @Valid ReportCreateReqDto req,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
+    ){
+        Long writerId = getCurrentUserId(userInfo);
+        ReportCreateResDto res = approvalService.progressReport(req, writerId, files);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new CommonResDto(HttpStatus.CREATED, "보고서가 상신 되었습니다.", res));
+    }
+
+
+    /**
      * 보고서 수정 (Draft)
      */
     @PutMapping("/reports/{reportId}")

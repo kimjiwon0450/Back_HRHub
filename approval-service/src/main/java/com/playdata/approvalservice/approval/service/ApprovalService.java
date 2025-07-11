@@ -163,6 +163,83 @@ public class ApprovalService {
                     .build();
         }
 
+    /**
+     * 보고서 생성과 동시에 상신 (IN_PROGRESS)
+     * @param req
+     * @param writerId
+     * @param files
+     * @return
+     */
+    @Transactional
+        public ReportCreateResDto progressReport(
+                ReportCreateReqDto req,
+                Long writerId,
+                List<MultipartFile> files
+        ){
+        Reports report = Reports.fromDtoForInProgress(req, writerId);
+        List<AttachmentJsonReqDto> attachments = new ArrayList<>();
+
+        if (files != null) {
+            for (MultipartFile file : files) {
+                try {
+                    String key = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                    byte[] data = file.getBytes();
+                    String url = awsS3Config.uploadToS3Bucket(data, key);
+                    attachments.add(new AttachmentJsonReqDto(
+                            file.getOriginalFilename(),
+                            url
+                    ));
+                } catch (IOException e) {
+                    log.error("S3 업로드 실패: {}", file.getOriginalFilename(), e);
+                    throw new ResponseStatusException(
+                            HttpStatus.INTERNAL_SERVER_ERROR,
+                            "파일 업로드에 실패했습니다: " + file.getOriginalFilename(), e);
+
+                }
+            }
+        }
+
+        Map<String, Object> detailMap = new HashMap<>();
+        if (!attachments.isEmpty()) {
+            detailMap.put("attachments", attachments);
+        }
+        if (req.getReferences() != null && !req.getReferences().isEmpty()) {
+            detailMap.put("references", req.getReferences());
+        }
+        if (!detailMap.isEmpty()) {
+            try {
+                String detailJson = objectMapper.writeValueAsString(detailMap);
+                log.debug(" → 직렬화된 detail JSON: {}", detailJson);
+                report.setDetail(objectMapper.writeValueAsString(detailMap));
+            } catch (JsonProcessingException e) {
+                log.error("detail JSON 생성 실패", e);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패", e);
+            }
+        }
+
+        Reports saved = reportsRepository.save(report);
+
+        ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
+        Long firstApprovalId = firstLine != null ? firstLine.getId() : null;
+        ApprovalStatus firstStatus = firstLine != null ? firstLine.getApprovalStatus() : null;
+
+        return ReportCreateResDto.builder()
+                .id(saved.getId())
+                .writerId(saved.getWriterId())
+                .reportStatus(saved.getReportStatus())
+                .title(saved.getTitle())
+                .content(saved.getContent())
+                .approvalStatus(firstStatus)
+                .createAt(saved.getCreatedAt()) // 만든 시각
+                .submittedAt(saved.getSubmittedAt()) // 승인 시각, 날짜
+                .returnAt(saved.getReturnAt()) // 반려된 날짜
+                .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
+                .approvalId(firstApprovalId) // 하나의 전자결재 고유 ID
+                .reminderCount(saved.getReminderCount()) // 리마인드 카운터
+                .remindedAt(saved.getRemindedAt()) // 리마인드 시각
+                .build();
+        }
+
         /**
          * 보고서 목록 조회
          */
