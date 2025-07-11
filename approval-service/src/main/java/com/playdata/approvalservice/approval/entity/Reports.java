@@ -1,6 +1,5 @@
 package com.playdata.approvalservice.approval.entity;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.ApprovalLineReqDto;
 import com.playdata.approvalservice.approval.dto.request.AttachmentJsonReqDto;
 import com.playdata.approvalservice.approval.dto.request.ReportCreateReqDto;
@@ -175,22 +174,36 @@ public class Reports extends BaseTimeEntity {
             }
         }
     }
+    /**
+     * 연관관계 편의 메서드
+     * Reports의 approvalLines에 자식을 추가하고,
+     * ApprovalLine에는 부모(this)를 설정합니다.
+     */
+    public void addApprovalLine(ApprovalLine approvalLine) {
+        this.approvalLines.add(approvalLine);
+        approvalLine.setReports(this);
+    }
+
 
     /**
      * 결재 라인을 DTO 목록으로 교체
      */
     public void replaceApprovalLines(List<ApprovalLineReqDto> dtoList) {
+
         approvalLines.clear();
-        dtoList.forEach(dto -> {
-            ApprovalLine line = ApprovalLine.builder()
-                    .reports(this)
-                    .employeeId(dto.getEmployeeId())
-                    .approvalContext(dto.getOrder())
-                    .approvalStatus(ApprovalStatus.PENDING)
-                    .approvalDateTime(LocalDateTime.now())
-                    .build();
-            approvalLines.add(line);
-        });
+
+        if(dtoList != null) {
+            dtoList.forEach(dto -> {
+                ApprovalLine line = ApprovalLine.builder()
+                        .employeeId(dto.getEmployeeId())
+                        .approvalContext(dto.getApprovalContext())
+                        .approvalStatus(ApprovalStatus.PENDING)
+                        .approvalDateTime(LocalDateTime.now())
+                        .build();
+
+                this.addApprovalLine(line);
+            });
+        }
     }
 
     /**
@@ -278,5 +291,7 @@ public class Reports extends BaseTimeEntity {
         this.returnAt = LocalDateTime.now();
         this.currentApproverId = null;
     }
+
+
 }
 

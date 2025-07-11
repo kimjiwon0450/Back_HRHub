@@ -31,4 +31,8 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     Page<Reports> findByWriterIdAndKeyword(Long writerId, String kw, Pageable pageable);
 
     Optional<Reports> findByIdAndReportStatus(Long id, ReportStatus reportStatus);
+
+    // [수정] Pageable 파라미터를 가장 마지막으로 이동시킵니다.
+    Page<Reports> findByCurrentApproverIdAndReportStatus(Long currentApproverId, ReportStatus reportStatus, Pageable pageable);
+
 }

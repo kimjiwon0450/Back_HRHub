@@ -11,7 +11,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ApprovalHistoryReqDto {
-    private int order;
+    private int context;
     private Reports reportName;
     private ApprovalStatus approvalStatus;
     private String comment;
