@@ -115,9 +115,7 @@ public class ApprovalController {
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
-
         Long writerId = getCurrentUserId(userInfo);
-
         ReportDetailResDto res = approvalService.getReportDetail(reportId, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 상세 조회", res));
     }

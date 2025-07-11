@@ -319,7 +319,7 @@ public class ApprovalService {
                 : null;
 
         // 8. 최종 상세 정보 DTO를 빌드하여 반환합니다.
-        return ReportDetailResDto.builder()
+        ReportDetailResDto resultDto = ReportDetailResDto.builder()
                 .id(r.getId())
                 .title(r.getTitle())
                 .content(r.getContent())
@@ -335,6 +335,12 @@ public class ApprovalService {
                 .currentApprover(currentApprover)
                 .dueDate(null) // 필요 시 구현
                 .build();
+
+        if (!resultDto.getApprovalLine().isEmpty()) {
+            log.info("First approver in DTO: {}", resultDto.getApprovalLine().get(0).toString());
+        }
+
+        return resultDto;
     }
 
         /**
