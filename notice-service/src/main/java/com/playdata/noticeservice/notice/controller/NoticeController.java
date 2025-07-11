@@ -183,11 +183,18 @@ public class NoticeController {
 
 
     @GetMapping("/noticeboard/upload-url")
-    public ResponseEntity<String> generateUploadUrl(@RequestParam String fileName, @RequestParam String contentType) {
-        String url = s3Service.generatePresignedUrl(fileName, contentType);
+    public ResponseEntity<String> generateUploadUrl(
+            @RequestParam String fileName,
+            @RequestParam String contentType) {
+        String url = s3Service.generatePresignedUrlForPut(fileName, contentType);
         return ResponseEntity.ok(url);
     }
 
+    @GetMapping("/noticeboard/download-url")
+    public ResponseEntity<String> generateDownloadUrl(@RequestParam String fileName) {
+        String url = s3Service.generatePresignedUrlForGet(fileName, "application/octet-stream");
+        return ResponseEntity.ok(url);
+    }
 
 
     // 글 수정 페이지

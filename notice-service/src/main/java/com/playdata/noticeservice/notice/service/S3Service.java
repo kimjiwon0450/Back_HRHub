@@ -120,7 +120,6 @@ public class S3Service {
                 .build();
 
         String url = presigner.presignPutObject(presignRequest).url().toString();
-//        presigner.close();
         return url;
     }
 
