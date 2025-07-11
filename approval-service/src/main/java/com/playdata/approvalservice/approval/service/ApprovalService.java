@@ -167,7 +167,7 @@ public class ApprovalService {
          * 보고서 목록 조회
          */
         public ReportListResDto getReports (String role, ReportStatus status, String keyword,
-        int page, int size, Long writerId){
+                int page, int size, Long writerId){
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
             Page<Reports> pr;
             if ("writer".equalsIgnoreCase(role)) {
@@ -180,15 +180,33 @@ public class ApprovalService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "role은 writer 또는 approver만 가능합니다.");
             }
+            Set<Long> employeeIdsToFetch = new HashSet<>();
+            pr.getContent().forEach(report -> {
+                employeeIdsToFetch.add(report.getWriterId());
+                if(report.getCurrentApproverId() != null){
+                    employeeIdsToFetch.add(report.getCurrentApproverId());
+                }
+            });
+            Map<Long, String> employeeNamesMap = Collections.emptyMap();
+            if(!employeeIdsToFetch.isEmpty()){
+                try {
+                    ResponseEntity<Map<Long,String>> response = employeeFeignClient.getEmployeeNamesByEmployeeIds(new ArrayList<>(employeeIdsToFetch));
+                    employeeNamesMap = Optional.ofNullable(response.getBody()).orElse(Collections.emptyMap());
+                    log.info("Successfully fetched {} employee names.", employeeNamesMap.size());
+                } catch (Exception e) {
+                    log.error("Error fetching employee names from hr-service", e);
+                    employeeNamesMap = Collections.emptyMap();
+                }
+            }
+            final Map<Long, String> finalEmployeeNamesMap = employeeNamesMap;
+
             List<ReportListResDto.ReportSimpleDto> simples = pr.getContent().stream()
                     .filter(r -> keyword == null || r.getTitle().contains(keyword)
                             || r.getContent().contains(keyword))
                     .map(r -> {
-                        String writerName = employeeFeignClient.getById(r.getWriterId())
-                                .getBody().getName();
+                        String writerName = finalEmployeeNamesMap.getOrDefault(r.getWriterId(), "알 수 없는 사용자");
                         String approverName = r.getCurrentApproverId() != null
-                                ? employeeFeignClient.getById(r.getCurrentApproverId())
-                                .getBody().getName()
+                                ? finalEmployeeNamesMap.getOrDefault(r.getCurrentApproverId(), "알 수 없는 사용자")
                                 : null;
                         return ReportListResDto.ReportSimpleDto.builder()
                                 .id(r.getId())
@@ -200,6 +218,7 @@ public class ApprovalService {
                                 .build();
                     })
                     .collect(Collectors.toList());
+
             return ReportListResDto.builder()
                     .reports(simples)
                     .totalPages(pr.getTotalPages())
