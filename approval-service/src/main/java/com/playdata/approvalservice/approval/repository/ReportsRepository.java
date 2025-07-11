@@ -31,4 +31,9 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     Page<Reports> findByWriterIdAndKeyword(Long writerId, String kw, Pageable pageable);
 
     Optional<Reports> findByIdAndReportStatus(Long id, ReportStatus reportStatus);
+
+    Page<Reports> findByCurrentApproverIdAndReportStatus(Long currentApproverId, ReportStatus reportStatus);
+
+    Page<Reports> findByCurrentApproverIdAndReportStatus(Long currentApproverId, ReportStatus reportStatus, Pageable pageable);
+
 }

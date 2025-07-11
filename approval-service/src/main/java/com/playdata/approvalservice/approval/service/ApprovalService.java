@@ -170,12 +170,18 @@ public class ApprovalService {
                 int page, int size, Long writerId){
             Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
             Page<Reports> pr;
+
             if ("writer".equalsIgnoreCase(role)) {
                 pr = (status != null)
                         ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
                         : reportsRepository.findByWriterId(writerId, pageable);
             } else if ("approver".equalsIgnoreCase(role)) {
-                pr = reportsRepository.findByApproverId(writerId, pageable);
+                if(status == ReportStatus.IN_PROGRESS) {
+                    pr = reportsRepository.findByCurrentApproverIdAndReportStatus(writerId, ReportStatus.IN_PROGRESS, pageable);
+                }
+                else {
+                    pr = reportsRepository.findByApproverId(writerId, pageable);
+                }
             } else {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "role은 writer 또는 approver만 가능합니다.");
