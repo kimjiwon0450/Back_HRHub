@@ -78,4 +78,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true")
     List<Notice> findTopNotices(Pageable pageable);
 
+    // 공지글 전체 (정렬 포함)
+    @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true ORDER BY n.createdAt DESC")
+    List<Notice> findAllNoticesSorted();
 }
