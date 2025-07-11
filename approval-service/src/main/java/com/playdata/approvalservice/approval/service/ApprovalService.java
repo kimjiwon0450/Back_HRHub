@@ -259,10 +259,14 @@ public class ApprovalService {
                 else {
                     pr = reportsRepository.findByApproverId(writerId, pageable);
                 }
+            } else if ("reference".equalsIgnoreCase(role)) {
+                pr = reportsRepository.findByReferenceId(writerId, pageable);
+                
             } else {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "role은 writer 또는 approver만 가능합니다.");
             }
+
             Set<Long> employeeIdsToFetch = new HashSet<>();
             pr.getContent().forEach(report -> {
                 employeeIdsToFetch.add(report.getWriterId());
@@ -270,7 +274,9 @@ public class ApprovalService {
                     employeeIdsToFetch.add(report.getCurrentApproverId());
                 }
             });
+
             Map<Long, String> employeeNamesMap = Collections.emptyMap();
+
             if(!employeeIdsToFetch.isEmpty()){
                 try {
                     ResponseEntity<Map<Long,String>> response = employeeFeignClient.getEmployeeNamesByEmployeeIds(new ArrayList<>(employeeIdsToFetch));
