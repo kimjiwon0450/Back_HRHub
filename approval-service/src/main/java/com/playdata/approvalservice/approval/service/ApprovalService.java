@@ -113,7 +113,7 @@ public class ApprovalService {
                     .title(saved.getTitle())
                     .content(saved.getContent())
                     .approvalStatus(firstStatus)
-                    .createAt(saved.getCreatedAt()) // 만든 시각
+                    .reportCreateAt(saved.getReportCreatedAt()) // 만든 시각
                     .submittedAt(saved.getSubmittedAt()) // 승인 시각, 날짜
                     .returnAt(saved.getReturnAt()) // 반려된 날짜
                     .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
@@ -230,7 +230,7 @@ public class ApprovalService {
                 .title(saved.getTitle())
                 .content(saved.getContent())
                 .approvalStatus(firstStatus)
-                .createAt(saved.getCreatedAt()) // 만든 시각
+                .reportCreateAt(saved.getReportCreatedAt()) // 만든 시각
                 .submittedAt(saved.getSubmittedAt()) // 승인 시각, 날짜
                 .returnAt(saved.getReturnAt()) // 반려된 날짜
                 .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
@@ -245,7 +245,8 @@ public class ApprovalService {
          */
         public ReportListResDto getReports (String role, ReportStatus status, String keyword,
                 int page, int size, Long writerId){
-            Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+            Pageable pageable = PageRequest.of(page, size);
+
             Page<Reports> pr;
 
             if ("writer".equalsIgnoreCase(role)) {
@@ -260,11 +261,12 @@ public class ApprovalService {
                     pr = reportsRepository.findByApproverId(writerId, pageable);
                 }
             } else if ("reference".equalsIgnoreCase(role)) {
+                // 이제 이 메서드는 정렬 정보가 담긴 Pageable 객체를 받아
+                // JPA가 최종 SQL을 만들 때 ORDER BY 절을 자동으로 추가해줍니다.
                 pr = reportsRepository.findByReferenceEmployeeIdInDetailJson(writerId, pageable);
-                
             } else {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "role은 writer 또는 approver만 가능합니다.");
+                        "role은 writer, approver, 또는 reference만 가능합니다.");
             }
 
             Set<Long> employeeIdsToFetch = new HashSet<>();
@@ -301,7 +303,7 @@ public class ApprovalService {
                                 .id(r.getId())
                                 .title(r.getTitle())
                                 .name(writerName)
-                                .createdAt(r.getCreatedAt().format(fmt))
+                                .reportCreatedAt(r.getReportCreatedAt().format(fmt))
                                 .reportStatus(r.getReportStatus())
                                 .currentApprover(approverName)
                                 .build();
@@ -412,7 +414,7 @@ public class ApprovalService {
                         .id(r.getWriterId())
                         .name(writerName)
                         .build())
-                .createdAt(r.getCreatedAt().format(fmt))
+                .reportCreatedAt(r.getReportCreatedAt().format(fmt))
                 .reportStatus(r.getReportStatus())
                 .approvalLine(lines)
                 .currentApprover(currentApprover)

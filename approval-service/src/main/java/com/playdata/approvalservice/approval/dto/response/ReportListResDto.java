@@ -24,7 +24,7 @@ public class ReportListResDto {
         private Long id;
         private String title;
         private String name;
-        private String createdAt;
+        private String reportCreatedAt;
         private ReportStatus reportStatus;
         private String currentApprover;
     }

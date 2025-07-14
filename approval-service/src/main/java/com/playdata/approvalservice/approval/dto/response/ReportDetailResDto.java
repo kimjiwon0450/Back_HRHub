@@ -15,7 +15,7 @@ public class ReportDetailResDto {
     private List<AttachmentResDto> attachments;
     private List<ReferenceJsonResDto> references;
     private WriterInfoDto writer;
-    private String createdAt;
+    private String reportCreatedAt;
     private ReportStatus reportStatus;
     private List<ApprovalLineResDto> approvalLine;
     private String currentApprover;

@@ -37,9 +37,15 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     Page<Reports> findByCurrentApproverIdAndReportStatus(Long currentApproverId, ReportStatus reportStatus, Pageable pageable);
 
     @Query(
+            // value: 정렬(ORDER BY) 부분을 완전히 삭제합니다.
             value = "SELECT * FROM reports r " +
                     "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references')",
-            nativeQuery = true // 이 쿼리는 순수 SQL(네이티브 쿼리)
+
+            // countQuery: 여기는 원래 정렬이 없었으므로 그대로 둡니다.
+            countQuery = "SELECT count(*) FROM reports r " +
+                    "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references')",
+
+            nativeQuery = true
     )
     Page<Reports> findByReferenceEmployeeIdInDetailJson(@Param("employeeId") Long employeeId, Pageable pageable);
 }

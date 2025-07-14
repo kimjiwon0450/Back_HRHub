@@ -68,7 +68,7 @@ public class Reports extends BaseTimeEntity {
      * 제출 일시
      */
     @Column(name = "report_created_at")
-    private LocalDateTime createdAt;
+    private LocalDateTime reportCreatedAt;
 
     /**
      * 승인 일시
@@ -125,10 +125,6 @@ public class Reports extends BaseTimeEntity {
     @OrderBy("approvalContext ASC")
     private List<ApprovalLine> approvalLines = new ArrayList<>();
 
-    @Builder.Default
-    @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ReportReferences> references = new ArrayList<>();
-
     /**
      * 요청 DTO를 엔티티로 변환하는 팩토리 메서드
      */
@@ -138,7 +134,7 @@ public class Reports extends BaseTimeEntity {
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .reportStatus(ReportStatus.DRAFT)
-                .createdAt(LocalDateTime.now())
+                .reportCreatedAt(LocalDateTime.now())
                 .reminderCount(0)
                 .build();
 
@@ -168,7 +164,7 @@ public class Reports extends BaseTimeEntity {
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .reportStatus(ReportStatus.IN_PROGRESS) // ★ 상태를 IN_PROGRESS로 설정
-                .createdAt(LocalDateTime.now())
+                .reportCreatedAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now()) // ★ 제출일시도 바로 기록
                 .reminderCount(0)
                 .build();
@@ -291,7 +287,7 @@ public class Reports extends BaseTimeEntity {
                 .title(newTitle)
                 .content(newContent)
                 .reportStatus(ReportStatus.DRAFT)
-                .createdAt(LocalDateTime.now())
+                .reportCreatedAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now())
                 .previousReportId(this.id)
                 .reminderCount(0)
