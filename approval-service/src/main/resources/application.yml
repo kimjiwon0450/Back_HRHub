@@ -1,5 +1,5 @@
 spring:
   application:
-    name: approval-service
+    name: approval
   profiles:
     active: local

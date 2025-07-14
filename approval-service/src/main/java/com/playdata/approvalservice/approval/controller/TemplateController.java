@@ -21,7 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 @PreAuthorize("hasAnyRole('HR_MANAGER','ADMIN')")
-@RequestMapping("/approval-service/templates")
+@RequestMapping("/approval/templates")
 public class TemplateController {
 
     private final TemplateService templateService;

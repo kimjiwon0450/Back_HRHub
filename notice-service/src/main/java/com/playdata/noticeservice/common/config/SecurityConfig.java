@@ -33,7 +33,7 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> {
             auth
                     .requestMatchers(
-                            "/notice-service", "/actuator/**").permitAll()
+                            "/notice", "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });
 

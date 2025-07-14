@@ -1,5 +1,6 @@
 package com.playdata.noticeservice.notice.dto;
 
+import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.entity.Notice;
 import lombok.*;
@@ -64,8 +65,27 @@ public class NoticeResponse {
         dto.createdAt = notice.getCreatedAt();
         dto.updatedAt = notice.getUpdatedAt();
         dto.viewCount = notice.getViewCount();
-
         return dto;
     }
+
+    public static NoticeResponse fromEntity(Notice notice, HrUserResponse user, DepResponse dep) {
+        NoticeResponse dto = new NoticeResponse();
+        dto.id = notice.getId();
+        dto.title = notice.getTitle();
+        dto.content = notice.getContent();
+        dto.name = user.getName();
+        dto.departmentId = user.getDepartmentId();
+        dto.departmentName = dep.getName();
+        dto.employStatus = user.getStatus(); // ✅ 직관적 매핑
+        dto.employeeId = notice.getEmployeeId();
+        dto.notice = notice.isNotice();
+        dto.attachmentUri = notice.getAttachmentUri();
+        dto.boardStatus = notice.isBoardStatus();
+        dto.createdAt = notice.getCreatedAt();
+        dto.updatedAt = notice.getUpdatedAt();
+        dto.viewCount = notice.getViewCount();
+        return dto;
+    }
+
 
 }

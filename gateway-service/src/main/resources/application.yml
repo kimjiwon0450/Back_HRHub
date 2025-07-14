@@ -24,60 +24,28 @@ spring:
               - X-Requested-With
             allow-credentials: true
       routes:
-        - id: hr-service
-          uri: lb://HR-SERVICE
+        - id: hr
+          uri: lb://HR
           # k8s 클러스터 내에서 다른 서비스를 지목하기위한 DNS 명명 규칙.
           # <service-name>.<namespace>.svc.cluster.local:port
 #          uri: http://user-service.default.svc.cluster.local:8081
           predicates:
-            - Path=/hr-service/**
+            - Path=/hr/**
           filters:
             - AuthorizationHeaderFilter
 
-        - id: notice-service
-          uri: lb://NOTICE-SERVICE
+        - id: notice
+          uri: lb://NOTICE
           #          uri: http://user-service.default.svc.cluster.local:8081
           predicates:
-            - Path=/notice-service/**
+            - Path=/notice/**
           filters:
             - AuthorizationHeaderFilter
 
-        - id: attendance-service
-          uri: lb://ATTENDANCE-SERVICE
+        - id: approval
+          uri: lb://APPROVAL
           #          uri: http://user-service.default.svc.cluster.local:8081
           predicates:
-            - Path=/attendance-service/**
-          filters:
-            - AuthorizationHeaderFilter
-
-        - id: approval-service
-          uri: lb://APPROVAL-SERVICE
-          #          uri: http://user-service.default.svc.cluster.local:8081
-          predicates:
-            - Path=/approval-service/**
-          filters:
-            - AuthorizationHeaderFilter
-
-        - id: eval-service
-          uri: lb://EVAL-SERVICE
-          #          uri: http://user-service.default.svc.cluster.local:8081
-          predicates:
-            - Path=/eval-service/**
-          filters:
-            - AuthorizationHeaderFilter
-
-        - id: payroll-service
-          uri: lb://PAYROLL-SERVICE
-          #          uri: http://user-service.default.svc.cluster.local:8081
-          predicates:
-            - Path=/payroll-service/**
-          filters:
-            - AuthorizationHeaderFilter
-
-        - id: schedule-service
-          uri: lb://SCHEDULE-SERVICE
-          #          uri: http://user-service.default.svc.cluster.local:8081
-          predicates:
-            - Path=/schedule-service/**
+            - Path=/approval/**
           filters:
             - AuthorizationHeaderFilter

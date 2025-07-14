@@ -83,10 +83,7 @@ public class EmployeeService {
                         .build()
         );
         initTransferHistory(save, save.getDepartment().getId(), save.getPosition().name(), "");
-        EmployeePassword employeePassword = EmployeePassword.builder()
-                .userId(save.getEmployeeId()).build();
         sendVerificationEmail(save.getEmail());
-        employeePasswordRepository.save(employeePassword);
     }
 
     public void modifyPassword(EmployeePasswordDto dto) {
@@ -99,18 +96,14 @@ public class EmployeeService {
             throw new IllegalArgumentException("비밀번호는 최소 8자 이상이어야 합니다.");
         }
 
-        if (!verificationService.verifyCode(dto.getEmail(), dto.getVerificationCode())) {
-            throw new IllegalArgumentException("인증번호가 일치하지 않거나 만료되었습니다.");
-        }
-
-        EmployeePassword employeePassword = employeePasswordRepository.findById(employee.getEmployeeId()).orElseThrow(
-                () -> new EntityNotFoundException("There is no employee with id: " + employee.getEmployeeId())
-        );
+//        if (!verificationService.verifyCode(dto.getEmail(), dto.getVerificationCode())) {
+//            throw new IllegalArgumentException("인증번호가 일치하지 않거나 만료되었습니다.");
+//        }
 
         String finalEncodedPassword = encoder.encode(dto.getPassword()); // hashString
         byte[] hashBytes = finalEncodedPassword.getBytes(StandardCharsets.UTF_8); // hashBytes
-        employeePassword.setPasswordHash(hashBytes);
-        employeePasswordRepository.save(employeePassword);
+        employee.setPasswordHash(hashBytes);
+        employeeRepository.save(employee);
     }
 
     public Employee findByEmail(String email) {
@@ -137,15 +130,11 @@ public class EmployeeService {
         throw new IllegalArgumentException("퇴사자 입니다. 인사부에 문의하세요");
         }
 
-        EmployeePassword employeePassword = employeePasswordRepository.findById(employee.getEmployeeId()).orElseThrow(
-                () -> new EntityNotFoundException("There is no employee with id: " + employee.getEmployeeId())
-        );
-
-        if (employeePassword.getPasswordHash() == null) {
+        if (employee.getPasswordHash() == null) {
             throw new IllegalStateException("해당 계정은 아직 비밀번호가 설정되지 않았습니다.");
         }
 
-        if (!encoder.matches(dto.getPassword(), new String(employeePassword.getPasswordHash(), StandardCharsets.UTF_8))) {
+        if (!encoder.matches(dto.getPassword(), new String(employee.getPasswordHash(), StandardCharsets.UTF_8))) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
         return employee.toDto();

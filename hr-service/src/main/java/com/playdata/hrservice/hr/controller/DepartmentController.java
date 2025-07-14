@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/hr-service")
+@RequestMapping("/hr")
 @Slf4j
 @RequiredArgsConstructor
 public class DepartmentController {

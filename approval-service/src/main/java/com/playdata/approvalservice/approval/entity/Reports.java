@@ -1,9 +1,6 @@
 package com.playdata.approvalservice.approval.entity;
 
-import com.playdata.approvalservice.approval.dto.request.ApprovalLineReqDto;
-import com.playdata.approvalservice.approval.dto.request.AttachmentJsonReqDto;
-import com.playdata.approvalservice.approval.dto.request.ReportCreateReqDto;
-import com.playdata.approvalservice.approval.dto.request.ReportUpdateReqDto;
+import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -36,14 +33,14 @@ public class Reports extends BaseTimeEntity {
     /**
      * 기안 양식 (FK)
      */
-    @Column(name = "report_template", columnDefinition = "JSON")
-    private Long reportTemplate;
+    @Column(name = "report_template_id", columnDefinition = "JSON")
+    private Long reportTemplateId;
 
     /**
      * 템플릿 데이터
      */
     @Column(name = "report_template_data", columnDefinition = "JSON")
-    private Long reportTemplateData;
+    private String reportTemplateData;
 
     /**
      * 기안 제목
@@ -128,13 +125,14 @@ public class Reports extends BaseTimeEntity {
     /**
      * 요청 DTO를 엔티티로 변환하는 팩토리 메서드
      */
-    public static Reports fromDto(ReportCreateReqDto dto, Long userId) {
+    public static Reports fromDto(ReportSaveReqDto dto, Long userId) {
         Reports report = Reports.builder()
                 .writerId(userId)
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .reportStatus(ReportStatus.DRAFT)
                 .reportCreatedAt(LocalDateTime.now())
+                .reportTemplateData(dto.getReportTemplateData())
                 .reminderCount(0)
                 .build();
 
@@ -164,6 +162,7 @@ public class Reports extends BaseTimeEntity {
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .reportStatus(ReportStatus.IN_PROGRESS) // ★ 상태를 IN_PROGRESS로 설정
+                .reportTemplateData(dto.getReportTemplateData())
                 .reportCreatedAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now()) // ★ 제출일시도 바로 기록
                 .reminderCount(0)
@@ -282,7 +281,7 @@ public class Reports extends BaseTimeEntity {
         // 1. 새로운 Reports 객체 생성
         Reports newReport = Reports.builder()
                 .writerId(this.writerId)
-                .reportTemplate(this.reportTemplate)
+                .reportTemplateId(this.reportTemplateId)
                 .reportTemplateData(this.reportTemplateData)
                 .title(newTitle)
                 .content(newContent)

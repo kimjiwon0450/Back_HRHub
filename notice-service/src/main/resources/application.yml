@@ -1,5 +1,5 @@
 spring:
   application:
-    name: notice-service
+    name: notice
 #  profiles:
 #    active: local

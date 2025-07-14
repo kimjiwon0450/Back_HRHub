@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 
 
 @RestController
-@RequestMapping("/hr-service")
+@RequestMapping("/hr")
 @RequiredArgsConstructor
 @Slf4j
 public class EmployeeController {

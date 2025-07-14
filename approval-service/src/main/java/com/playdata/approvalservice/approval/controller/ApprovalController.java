@@ -25,7 +25,7 @@ import java.util.List;
  * 전자결재 API 컨트롤러
  */
 @RestController
-@RequestMapping("/approval-service")
+@RequestMapping("/approval")
 @RequiredArgsConstructor
 @Slf4j
 public class ApprovalController {
@@ -52,9 +52,9 @@ public class ApprovalController {
     /**
      * 보고서 생성 (DRAFT)
      */
-    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/save", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> createReport(
-            @ModelAttribute @Valid ReportCreateReqDto req,
+            @ModelAttribute @Valid ReportSaveReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ) {
@@ -62,7 +62,7 @@ public class ApprovalController {
         Long writerId = getCurrentUserId(userInfo);
         ReportCreateResDto res = approvalService.createReport(req, writerId, files);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new CommonResDto(HttpStatus.CREATED, "보고서 생성", res));
+                .body(new CommonResDto(HttpStatus.CREATED, "보고서 저장", res));
     }
 
     /**

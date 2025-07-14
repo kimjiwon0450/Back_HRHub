@@ -1,6 +1,8 @@
 package com.playdata.approvalservice.approval.dto.request;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.*;
@@ -13,14 +15,12 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ReportCreateReqDto {
+public class ReportSaveReqDto {
     @NotBlank
     private String title;
 
-    @NotBlank
     private String content;
 
-    @NotEmpty
     private List<ApprovalLineReqDto> approvalLine;
 
 //    private List<AttachmentJsonReqDto> attachments;
@@ -28,5 +28,9 @@ public class ReportCreateReqDto {
     private List<ReferenceJsonReqDto> references;
 
     private String reportTemplateData;
+
+//    public String getTemplateDataAsString() throws JsonProcessingException {
+//        return new ObjectMapper().writeValueAsString(reportTemplateData);
+//    }
 
 }

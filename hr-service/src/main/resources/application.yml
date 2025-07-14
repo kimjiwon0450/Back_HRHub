@@ -1,5 +1,5 @@
 spring:
   application:
-    name: hr-service
+    name: hr
   profiles:
     active: local
