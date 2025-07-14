@@ -49,6 +49,8 @@ public class SecurityConfig {
                             "/user-service/verify-code",
                             "/user-service/reset-password",
                             "/user-service/user/link-kakao",
+                            "/swagger-ui.html",  "/swagger-resources/**",
+                            "/swagger-ui/**","/v3/api-docs/**",
                             "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });
