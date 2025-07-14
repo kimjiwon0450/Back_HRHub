@@ -36,6 +36,10 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     // [수정] Pageable 파라미터를 가장 마지막으로 이동시킵니다.
     Page<Reports> findByCurrentApproverIdAndReportStatus(Long currentApproverId, ReportStatus reportStatus, Pageable pageable);
 
-    @Query("SELECT r FROM Reports r JOIN r.references ref WHERE ref.employeeId = :employeeId")
-    Page<Reports> findByReferenceId(@Param("employeeId") Long employeeId, Pageable pageable);
+    @Query(
+            value = "SELECT * FROM reports r " +
+                    "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references')",
+            nativeQuery = true // 이 쿼리는 순수 SQL(네이티브 쿼리)
+    )
+    Page<Reports> findByReferenceEmployeeIdInDetailJson(@Param("employeeId") Long employeeId, Pageable pageable);
 }

@@ -260,7 +260,7 @@ public class ApprovalService {
                     pr = reportsRepository.findByApproverId(writerId, pageable);
                 }
             } else if ("reference".equalsIgnoreCase(role)) {
-                pr = reportsRepository.findByReferenceId(writerId, pageable);
+                pr = reportsRepository.findByReferenceEmployeeIdInDetailJson(writerId, pageable);
                 
             } else {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
