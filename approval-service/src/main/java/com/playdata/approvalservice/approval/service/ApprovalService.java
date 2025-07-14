@@ -275,6 +275,7 @@ public class ApprovalService {
                 if(report.getCurrentApproverId() != null){
                     employeeIdsToFetch.add(report.getCurrentApproverId());
                 }
+                report.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId()));
             });
 
             Map<Long, String> employeeNamesMap = Collections.emptyMap();
@@ -289,6 +290,7 @@ public class ApprovalService {
                     employeeNamesMap = Collections.emptyMap();
                 }
             }
+
             final Map<Long, String> finalEmployeeNamesMap = employeeNamesMap;
 
             List<ReportListResDto.ReportSimpleDto> simples = pr.getContent().stream()
@@ -299,6 +301,15 @@ public class ApprovalService {
                         String approverName = r.getCurrentApproverId() != null
                                 ? finalEmployeeNamesMap.getOrDefault(r.getCurrentApproverId(), "알 수 없는 사용자")
                                 : null;
+                        // 각 보고서의 결재선 정보를 DTO 리스트로 만듭니다.
+                        List<ReportListResDto.ApprovalLineSimpleDto> approvalLineSimpleDtos = r.getApprovalLines().stream()
+                                .map(line -> ReportListResDto.ApprovalLineSimpleDto.builder()
+                                        .employeeId(line.getEmployeeId())
+                                        .employeeName(finalEmployeeNamesMap.getOrDefault(line.getEmployeeId(), "알 수 없는 사용자"))
+                                        .approvalStatus(line.getApprovalStatus())
+                                        .build())
+                                .collect(Collectors.toList());
+
                         return ReportListResDto.ReportSimpleDto.builder()
                                 .id(r.getId())
                                 .title(r.getTitle())
@@ -306,6 +317,7 @@ public class ApprovalService {
                                 .reportCreatedAt(r.getReportCreatedAt().format(fmt))
                                 .reportStatus(r.getReportStatus())
                                 .currentApprover(approverName)
+                                .approvalLine(approvalLineSimpleDtos)
                                 .build();
                     })
                     .collect(Collectors.toList());
@@ -361,6 +373,7 @@ public class ApprovalService {
 
         // 3. API 호출을 위한 모든 관련 직원 ID를 수집합니다.
         Set<Long> employeeIdsToFetch = new HashSet<>();
+
         employeeIdsToFetch.add(report.getWriterId()); // 작성자 ID
         if (report.getCurrentApproverId() != null) {
             employeeIdsToFetch.add(report.getCurrentApproverId()); // 현재 결재자 ID
@@ -660,8 +673,10 @@ public class ApprovalService {
             if (!report.getCurrentApproverId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "리마인드 권한이 없습니다.");
             }
+
             report.remind();
             Reports updated = reportsRepository.save(report);
+
             return ReportRemindResDto.builder()
                     .reportId(updated.getId())
                     .remindedAt(updated.getRemindedAt())
