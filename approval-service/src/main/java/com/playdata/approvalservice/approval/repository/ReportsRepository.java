@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface ReportsRepository extends JpaRepository<Reports, Long> {
 
@@ -35,4 +36,6 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     // [수정] Pageable 파라미터를 가장 마지막으로 이동시킵니다.
     Page<Reports> findByCurrentApproverIdAndReportStatus(Long currentApproverId, ReportStatus reportStatus, Pageable pageable);
 
+    @Query("SELECT r FROM Reports r JOIN r.references ref WHERE ref.employeeId = :employeeId")
+    Page<Reports> findByReferenceId(@Param("employeeId") Long employeeId, Pageable pageable);
 }

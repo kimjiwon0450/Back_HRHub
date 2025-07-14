@@ -52,9 +52,9 @@ public class ApprovalController {
     /**
      * 보고서 생성 (DRAFT)
      */
-    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/save", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> createReport(
-            @ModelAttribute @Valid ReportCreateReqDto req,
+            @ModelAttribute @Valid ReportSaveReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ) {
@@ -62,8 +62,24 @@ public class ApprovalController {
         Long writerId = getCurrentUserId(userInfo);
         ReportCreateResDto res = approvalService.createReport(req, writerId, files);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new CommonResDto(HttpStatus.CREATED, "보고서 생성", res));
+                .body(new CommonResDto(HttpStatus.CREATED, "보고서 저장", res));
     }
+
+    /**
+     * 보고서 생성 (IN_PROGRESS)
+     */
+    @PostMapping(value = "/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CommonResDto> progressReport(
+            @ModelAttribute @Valid ReportCreateReqDto req,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
+    ){
+        Long writerId = getCurrentUserId(userInfo);
+        ReportCreateResDto res = approvalService.progressReport(req, writerId, files);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new CommonResDto(HttpStatus.CREATED, "보고서가 상신 되었습니다.", res));
+    }
+
 
     /**
      * 보고서 수정 (Draft)
