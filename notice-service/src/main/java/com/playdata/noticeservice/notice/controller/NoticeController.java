@@ -61,7 +61,7 @@ public class NoticeController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(defaultValue = "5") int pageSize,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
@@ -70,6 +70,7 @@ public class NoticeController {
         }
 
         log.info("~~~게시글 조회 페이지 진입함~~~");
+        log.info("sortBy: {}, desc: {}", sortBy, sortDir);
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
 
@@ -81,13 +82,12 @@ public class NoticeController {
 
         if (hasFilter) {
             List<Notice> filteredTop = noticeService.getFilteredNotices(keyword, fromDate, toDate, sortBy, sortDir);
-            topNotices = filteredTop.stream().limit(10).toList();
-
+            topNotices = filteredTop.stream().limit(5).toList();
             // 나머지 공지글 + 일반글 필터링한 결과를 수동 페이징 처리
-            posts = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageable);
+            posts = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
         } else {
-            topNotices = noticeService.getAllNotices(sortBy, sortDir).stream().limit(10).toList();
-            posts = noticeService.getMergedPostsAfterTop10(pageable);
+            topNotices = noticeService.getAllNotices(sortBy, sortDir).stream().limit(5).toList();
+            posts = noticeService.getMergedPostsAfterTop5(pageSize, sortBy, sortDir);
         }
 
 
@@ -140,7 +140,7 @@ public class NoticeController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(defaultValue = "5") int pageSize,
             @AuthenticationPrincipal TokenUserInfo userInfo) {
 
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -182,7 +182,7 @@ public class NoticeController {
         }
 
         // ✅ 실제 서비스 호출
-        noticeService.createNotice(request, employeeId, user.getDepartmentId(), attachmentUri);
+        noticeService.createNotice(request, employeeId, attachmentUri);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 

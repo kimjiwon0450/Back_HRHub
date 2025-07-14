@@ -19,6 +19,7 @@ import java.io.IOException;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.validation.constraints.Max;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.fileupload.FileUploadException;
@@ -46,60 +47,94 @@ public class NoticeService {
     private final DepartmentClient departmentClient;
     private final NoticeAttachmentRepository noticeAttachmentRepository;
 
-    // 기존 고정 정렬 버전
-    public List<Notice> getAllNotices() {
-        Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return noticeRepository.findTopNotices(pageable);
-    }
-
-    // 공지글 10개 이후의 공지글만 가져오기
-    public List<Notice> getOverflowNoticesAfterTop10() {
-        List<Notice> allNotices = noticeRepository.findAllNoticesSorted();
-        return allNotices.stream().skip(10).collect(Collectors.toList());
-    }
-
-
-    // 모든 공지글 조회
-    public List<Notice> getAllNotices(String sortBy, String sortDir) {
+    // ✅ 상단 공지글 5개 조회 (정렬 기준 반영)
+    public List<Notice> getTopNotices(String sortBy, String sortDir) {
+        log.info("case1");
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, sortBy));
-        return noticeRepository.findTopNotices(pageable);
+        Pageable pageable = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt"));
+        List<Notice> topNotices = noticeRepository.findTopNotices(pageable);
+        topNotices.sort((getDynamicComparator(sortBy, direction)));
+
+        log.info("정렬 이후의 topt5: {}", topNotices);
+        return topNotices;
     }
 
-    // 모든 일반글 조회
-    public Page<Notice> getAllPosts(Pageable pageable) {
-        return noticeRepository.findAllPosts(pageable);
+
+    // ✅ 모든 공지글 조회 (필터 X)
+    public List<Notice> getAllNotices(String sortBy, String sortDir) {
+        log.info("case2");
+        return getTopNotices(sortBy, sortDir); // 단순히 상위 5개만 가져오는 방식으로 통일
     }
 
-    // 공지글 10개 이후 + 일반 게시글 전체를 합친 리스트 반환
-    public Page<Notice> getMergedPostsAfterTop10(Pageable pageable) {
-        List<Notice> overflowNotices = noticeRepository.findAllNoticesSorted()
-                .stream()
-                .skip(10)
+
+    // 공지글 5개 이후 + 일반 게시글 전체를 합친 리스트 반환
+    public Page<Notice> getMergedPostsAfterTop5(int pageSize, String sortBy, String sortDir) {
+        log.info("case3");
+
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Sort sort = Sort.by(direction, sortBy);
+
+        // 상단 고정용 상위 5개 공지글 (createdAt 고정)
+        List<Notice> top5Notices = noticeRepository.findTopNotices(PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt")));
+        Set<Long> top5Ids = top5Notices.stream().map(Notice::getId).collect(Collectors.toSet());
+
+        // 나머지 공지글 (정렬 기준 반영)
+        List<Notice> sortedNotices = noticeRepository.findTopNotices(PageRequest.of(0, 1000, sort)); // 충분히 크게
+        List<Notice> overflowNotices = sortedNotices.stream()
+                .filter(n -> !top5Ids.contains(n.getId()))
                 .collect(Collectors.toList());
 
-        List<Notice> generalPosts = noticeRepository.findAllPosts(PageRequest.of(0, Integer.MAX_VALUE)).getContent(); // 전체 일반글
+        // 일반 게시글
+        Pageable pageable = PageRequest.of(0, pageSize, sort);
+        List<Notice> generalPosts = noticeRepository.findAllPosts(pageable).getContent();
 
+        // 병합 + 정렬
         List<Notice> merged = new ArrayList<>();
         merged.addAll(overflowNotices);
         merged.addAll(generalPosts);
 
-        // 정렬 (createdAt 기준 내림차순)
-        merged.sort(Comparator.comparing(Notice::getCreatedAt).reversed());
+        merged.sort(getDynamicComparator(sortBy, direction));
 
-        // 수동 페이징 처리
+        // 수동 페이징
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), merged.size());
 
-        List<Notice> pageContent = merged.subList(start, end);
-        return new PageImpl<>(pageContent, pageable, merged.size());
+        return new PageImpl<>(merged.subList(start, end), pageable, merged.size());
     }
 
 
-    // 필터링된 공지글 조회
+
+    private Comparator<Notice> getDynamicComparator(String sortBy, Sort.Direction direction) {
+        Comparator<Notice> comparator;
+
+        switch (sortBy) {
+            case "title":
+                comparator = Comparator.comparing(Notice::getTitle, Comparator.nullsLast(String::compareToIgnoreCase));
+                break;
+            case "createdAt":
+                comparator = Comparator.comparing(Notice::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+                break;
+            case "updatedAt":
+                comparator = Comparator.comparing(Notice::getUpdatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+                break;
+            case "viewCount":
+                comparator = Comparator.comparingInt(Notice::getViewCount);
+                break;
+            default:
+                // 기본은 createdAt
+                comparator = Comparator.comparing(Notice::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+        }
+
+        return direction == Sort.Direction.DESC ? comparator.reversed() : comparator;
+    }
+
+
+
+    // ✅ 필터링된 공지글 조회 (최대 30개)
     public List<Notice> getFilteredNotices(String keyword, LocalDate from, LocalDate to, String sortBy, String sortDir) {
+        log.info("case4");
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(0, 10, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(0, 30, Sort.by(direction, sortBy));
 
         if (from == null) {
             from = LocalDate.of(2000, 1, 1); // 매우 과거
@@ -113,8 +148,12 @@ public class NoticeService {
                 keyword, from, to, pageable);
     }
 
-    // 필터링된 일반글 조회
-    public Page<Notice> getFilteredPosts(String keyword, LocalDate from, LocalDate to, Pageable pageable) {
+    // ✅ 필터링된 일반글 조회
+    public Page<Notice> getFilteredPosts(String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
+        log.info("case5");
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
+
         if (from == null) {
             from = LocalDate.of(2000, 1, 1); // 매우 과거
         }
@@ -137,7 +176,7 @@ public class NoticeService {
     public List<Notice> getNoticesByDepartment(Long departmentId, String keyword,
                                                        LocalDate fromDate, LocalDate toDate) {
 
-        Pageable pageable = PageRequest.of(0, 10);
+        Pageable pageable = PageRequest.of(0, 5);
 
         // 날짜 기본값 처리
         if (fromDate == null) {
@@ -171,7 +210,7 @@ public class NoticeService {
     }
 
     // 공지글/게시글 작성
-    public void createNotice(NoticeCreateRequest request, Long employeeId, Long departmentId, List<String> attachmentUri) {
+    public void createNotice(NoticeCreateRequest request, Long employeeId, List<String> attachmentUri) {
         log.info("!!!글 작성!!!");
         log.info(request.getTitle());
         log.info(request.getContent());
@@ -192,7 +231,7 @@ public class NoticeService {
                 .notice(request.isNotice())
                 .attachmentUri(request.getAttachmentUri())
                 .employeeId(employeeId)
-                .departmentId(departmentId)
+                .departmentId(request.getDepartmentId())
                 .boardStatus(true)
                 .createdAt(LocalDate.now())
                 .attachmentUri(attachmentUriJson) // ✅ JSON 배열 형태로 저장

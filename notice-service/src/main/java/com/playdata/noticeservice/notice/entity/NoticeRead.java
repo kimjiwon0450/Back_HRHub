@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "tbl_notice_read")
+@Table(name = "tbl_board_read")
 public class NoticeRead {
 
     @Id
