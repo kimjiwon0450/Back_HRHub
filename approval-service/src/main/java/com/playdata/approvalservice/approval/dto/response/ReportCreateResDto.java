@@ -20,7 +20,7 @@ public class ReportCreateResDto {
     private String title;
     private String content;
     private ApprovalStatus approvalStatus;
-    private LocalDateTime createAt;
+    private LocalDateTime reportCreateAt;
     private LocalDateTime submittedAt;
     private LocalDateTime returnAt;
     private LocalDateTime completedAt;

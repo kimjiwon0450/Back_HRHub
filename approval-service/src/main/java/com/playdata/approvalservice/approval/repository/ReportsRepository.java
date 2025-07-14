@@ -21,21 +21,26 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     /**
      * 결재자(ApprovalLine)로 조회
      */
-    @Query("select r from Reports r join r.approvalLines l where l.employeeId = :approverId")
-    Page<Reports> findByApproverId(Long approverId, Pageable pageable);
-
-    /**
-     * 작성자 + 키워드 검색 (제목 or 본문)
-     */
-    @Query("select r from Reports r where r.writerId = :writerId and " +
-            "(r.title like %:kw% or r.content like %:kw%)")
-    Page<Reports> findByWriterIdAndKeyword(Long writerId, String kw, Pageable pageable);
+    @Query("SELECT r FROM Reports r JOIN r.approvalLines l " +
+            "WHERE l.employeeId = :approverId " +
+            "AND r.reportStatus IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')")
+    Page<Reports> findByApproverIdAndExcludeDraftRecalled(@Param("approverId") Long approverId, Pageable pageable);
 
     Optional<Reports> findByIdAndReportStatus(Long id, ReportStatus reportStatus);
 
     // [수정] Pageable 파라미터를 가장 마지막으로 이동시킵니다.
     Page<Reports> findByCurrentApproverIdAndReportStatus(Long currentApproverId, ReportStatus reportStatus, Pageable pageable);
 
-    @Query("SELECT r FROM Reports r JOIN r.references ref WHERE ref.employeeId = :employeeId")
-    Page<Reports> findByReferenceId(@Param("employeeId") Long employeeId, Pageable pageable);
+    // 3. [수정] 참조자 기준 조회 - DRAFT, RECALLED 상태 제외
+    // 네이티브 쿼리에 WHERE 조건을 추가합니다.
+    @Query(
+            value = "SELECT * FROM reports r " +
+                    "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references') " +
+                    "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')", // ★★★ 상태 필터링 추가 ★★★
+            countQuery = "SELECT count(*) FROM reports r " +
+                    "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references') " +
+                    "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')",
+            nativeQuery = true
+    )
+    Page<Reports> findByReferenceEmployeeIdInDetailJsonAndExcludeDraftRecalled(@Param("employeeId") Long employeeId, Pageable pageable);
 }
