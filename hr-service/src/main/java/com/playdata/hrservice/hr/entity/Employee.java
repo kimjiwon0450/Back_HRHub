@@ -29,6 +29,9 @@ public class Employee extends BaseTimeEntity {
     private String name;
     @Column(nullable = false)
     private String email;
+    @Lob
+    @Setter
+    private byte[] passwordHash;
     private String phone;
     private String address;
     private Date birthday;
