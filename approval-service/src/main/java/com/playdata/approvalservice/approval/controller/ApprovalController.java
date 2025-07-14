@@ -25,7 +25,7 @@ import java.util.List;
  * 전자결재 API 컨트롤러
  */
 @RestController
-@RequestMapping("/approval-service")
+@RequestMapping("/approval")
 @RequiredArgsConstructor
 @Slf4j
 public class ApprovalController {

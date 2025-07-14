@@ -41,7 +41,7 @@ import java.util.stream.Stream;
 
 
 @RestController
-@RequestMapping("/notice-service")
+@RequestMapping("/notice")
 @RequiredArgsConstructor
 @Slf4j
 public class NoticeController {

@@ -27,21 +27,21 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
     private String secretKey;
 
     private final List<String> allowedPaths = List.of(
-            "/hr-service/employees",
-            "/hr-service/employees/login",
-            "/hr-service/employees/password",
-//            "/hr-service/employees/*",
-            "/hr-service/employees/email/verification/*",
-            "/hr-service/departments", "/hr-service/departments/*",
+            "/hr/employees",
+            "/hr/employees/login",
+            "/hr/employees/password",
+//            "/hr/employees/*",
+            "/hr/employees/email/verification/*",
+            "/hr/departments", "/hr/departments/*",
             "/badges/**",
-            "/icons/**", "/notice-service",
-            "/hr-service/employees/password",
-            "/hr-service/departments",
-            "/hr-service/departments/*",
-            "/notice-service",
-//            "/notice-service/noticeboard", "/notice-service/noticeboard/*",
-//            "/notice-service/noticeboard/write", "/notice-service/noticeboard/department/**",
-            "/notice-service/reviews/user/*", "/hr-service/user/*",
+            "/icons/**", "/notice",
+            "/hr/employees/password",
+            "/hr/departments",
+            "/hr/departments/*",
+            "/notice",
+//            "/notice/noticeboard", "/notice/noticeboard/*",
+//            "/notice/noticeboard/write", "/notice/noticeboard/department/**",
+            "/notice/reviews/user/*", "/hr/user/*",
             "/actuator/**"
     );
 
