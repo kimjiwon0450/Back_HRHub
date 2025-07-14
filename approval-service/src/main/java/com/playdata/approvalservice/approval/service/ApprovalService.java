@@ -328,25 +328,44 @@ public class ApprovalService {
     public ReportDetailResDto getReportDetail(Long reportId, Long writerId) {
 
         // 1. 보고서 엔티티를 조회합니다.
-        Reports r = reportsRepository.findById(reportId)
+        Reports report = reportsRepository.findById(reportId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
         // 2. 조회 권한을 확인합니다. (작성자 또는 결재 라인에 포함된 사람만 조회 가능)
-        boolean isWriter = r.getWriterId().equals(writerId);
-        boolean isApprover = r.getApprovalLines().stream()
+        boolean isWriter = report.getWriterId().equals(writerId);
+        boolean isApprover = report.getApprovalLines().stream()
                 .anyMatch(l -> l.getEmployeeId().equals(writerId));
-        if (!isWriter && !isApprover) {
+
+        boolean isReference = false;
+        if (report.getDetail() != null && !report.getDetail().isBlank()) {
+            try {
+                JsonNode root = objectMapper.readTree(report.getDetail());
+                JsonNode referencesNode = root.path("references");
+                if (referencesNode.isArray()) {
+                    for (JsonNode refNode : referencesNode) {
+                        if (refNode.path("employeeId").asLong() == writerId) {
+                            isReference = true;
+                            break;
+                        }
+                    }
+                }
+            } catch (JsonProcessingException e) {
+                log.error("getApprovalHistory 권한 체크 중 detail JSON 파싱 실패, reportId: {}", reportId, e);
+            }
+        }
+
+        if (!isWriter && !isApprover && !isReference) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
         }
 
         // 3. API 호출을 위한 모든 관련 직원 ID를 수집합니다.
         Set<Long> employeeIdsToFetch = new HashSet<>();
-        employeeIdsToFetch.add(r.getWriterId()); // 작성자 ID
-        if (r.getCurrentApproverId() != null) {
-            employeeIdsToFetch.add(r.getCurrentApproverId()); // 현재 결재자 ID
+        employeeIdsToFetch.add(report.getWriterId()); // 작성자 ID
+        if (report.getCurrentApproverId() != null) {
+            employeeIdsToFetch.add(report.getCurrentApproverId()); // 현재 결재자 ID
         }
-        r.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId())); // 결재 라인의 모든 직원 ID
+        report.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId())); // 결재 라인의 모든 직원 ID
 
         // 4. 단 한 번의 Feign API 호출로 모든 직원 이름을 가져옵니다.
         Map<Long, String> employeeNamesMap = Collections.emptyMap();
@@ -359,9 +378,9 @@ public class ApprovalService {
         // 5. 첨부파일 및 참조 정보 파싱 (JSON)
         List<ReportDetailResDto.AttachmentResDto> atts = Collections.emptyList();
         List<ReportDetailResDto.ReferenceJsonResDto> refs = Collections.emptyList();
-        if (r.getDetail() != null && !r.getDetail().isBlank()) {
+        if (report.getDetail() != null && !report.getDetail().isBlank()) {
             try {
-                JsonNode root = objectMapper.readTree(r.getDetail());
+                JsonNode root = objectMapper.readTree(report.getDetail());
                 // 첨부파일 파싱
                 atts = Optional.of(root.path("attachments"))
                         .filter(JsonNode::isArray)
@@ -384,7 +403,7 @@ public class ApprovalService {
         }
 
         // 6. 미리 가져온 이름 맵을 사용하여 결재 라인 DTO를 생성합니다.
-        List<ReportDetailResDto.ApprovalLineResDto> lines = r.getApprovalLines().stream()
+        List<ReportDetailResDto.ApprovalLineResDto> lines = report.getApprovalLines().stream()
                 .map(l -> {
                     String name = finalEmployeeNamesMap.getOrDefault(l.getEmployeeId(), "알 수 없는 사용자");
                     return ReportDetailResDto.ApprovalLineResDto.builder()
@@ -398,24 +417,24 @@ public class ApprovalService {
                 .collect(Collectors.toList());
 
         // 7. 작성자 및 현재 결재자 이름을 Map에서 가져옵니다.
-        String writerName = finalEmployeeNamesMap.getOrDefault(r.getWriterId(), "알 수 없는 사용자");
-        String currentApprover = r.getCurrentApproverId() != null
-                ? finalEmployeeNamesMap.getOrDefault(r.getCurrentApproverId(), "알 수 없는 사용자")
+        String writerName = finalEmployeeNamesMap.getOrDefault(report.getWriterId(), "알 수 없는 사용자");
+        String currentApprover = report.getCurrentApproverId() != null
+                ? finalEmployeeNamesMap.getOrDefault(report.getCurrentApproverId(), "알 수 없는 사용자")
                 : null;
 
         // 8. 최종 상세 정보 DTO를 빌드하여 반환합니다.
         ReportDetailResDto resultDto = ReportDetailResDto.builder()
-                .id(r.getId())
-                .title(r.getTitle())
-                .content(r.getContent())
+                .id(report.getId())
+                .title(report.getTitle())
+                .content(report.getContent())
                 .attachments(atts)
                 .references(refs)
                 .writer(ReportDetailResDto.WriterInfoDto.builder()
-                        .id(r.getWriterId())
+                        .id(report.getWriterId())
                         .name(writerName)
                         .build())
-                .reportCreatedAt(r.getReportCreatedAt().format(fmt))
-                .reportStatus(r.getReportStatus())
+                .reportCreatedAt(report.getReportCreatedAt().format(fmt))
+                .reportStatus(report.getReportStatus())
                 .approvalLine(lines)
                 .currentApprover(currentApprover)
                 .dueDate(null) // 필요 시 구현
@@ -490,10 +509,28 @@ public class ApprovalService {
             boolean isWriter = report.getWriterId().equals(writerId);
             boolean isApprover = report.getApprovalLines().stream()
                     .anyMatch(l -> l.getEmployeeId().equals(writerId));
-            if (!isWriter && !isApprover) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+
+            boolean isReference = false;
+            if (report.getDetail() != null && !report.getDetail().isBlank()) {
+                try {
+                    JsonNode root = objectMapper.readTree(report.getDetail());
+                    JsonNode referencesNode = root.path("references");
+                    if (referencesNode.isArray()) {
+                        for (JsonNode refNode : referencesNode) {
+                            if (refNode.path("employeeId").asLong() == writerId) {
+                                isReference = true;
+                                break;
+                            }
+                        }
+                    }
+                } catch (JsonProcessingException e) {
+                    log.error("getApprovalHistory 권한 체크 중 detail JSON 파싱 실패, reportId: {}", reportId, e);
+                }
             }
 
+            if (!isWriter && !isApprover && !isReference) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+            }
 
             List<ApprovalLine> lines = approvalRepository
                     .findApprovalLinesByReportId(reportId);
