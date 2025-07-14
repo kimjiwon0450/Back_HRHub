@@ -52,7 +52,7 @@ public class TemplateCategoryController {
     /**
      * 새 카테고리 생성 (관리자 권한)
      */
-    @PostMapping
+    @PostMapping("/create")
     @PreAuthorize("hasAnyRole('HR_MANAGER','ADMIN')")
     public ResponseEntity<CommonResDto> createCategory(
             @RequestBody @Valid CategoryCreateReqDto req,
