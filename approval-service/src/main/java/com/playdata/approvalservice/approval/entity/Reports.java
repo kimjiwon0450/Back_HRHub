@@ -40,7 +40,7 @@ public class Reports extends BaseTimeEntity {
      * 템플릿 데이터
      */
     @Column(name = "report_template_data", columnDefinition = "JSON")
-    private Long reportTemplateData;
+    private String reportTemplateData;
 
     /**
      * 기안 제목
@@ -135,6 +135,7 @@ public class Reports extends BaseTimeEntity {
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .reportStatus(ReportStatus.DRAFT)
+                .reportTemplateData(dto.getReportTemplateData())
                 .createdAt(LocalDateTime.now())
                 .reminderCount(0)
                 .build();
@@ -166,6 +167,7 @@ public class Reports extends BaseTimeEntity {
                 .title(dto.getTitle())
                 .content(dto.getContent())
                 .reportStatus(ReportStatus.IN_PROGRESS) // ★ 상태를 IN_PROGRESS로 설정
+                .reportTemplateData(dto.getReportTemplateData())
                 .createdAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now()) // ★ 제출일시도 바로 기록
                 .reminderCount(0)

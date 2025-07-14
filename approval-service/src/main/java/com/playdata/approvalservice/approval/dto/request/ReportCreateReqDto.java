@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.dto.request;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.*;
@@ -25,5 +26,7 @@ public class ReportCreateReqDto {
 //    private List<AttachmentJsonReqDto> attachments;
 
     private List<ReferenceJsonReqDto> references;
+
+    private String reportTemplateData;
 
 }
