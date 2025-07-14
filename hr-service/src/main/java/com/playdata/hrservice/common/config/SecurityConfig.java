@@ -39,8 +39,11 @@ public class SecurityConfig {
                             "/hr/employees/login",
                             "/hr/employees/password",
                             "/hr/departments", "/hr/departments/*",
+                            "/hr/verify",
+                            "/swagger-ui.html",  "/swagger-resources/**",
+                            "/swagger-ui/**","/v3/api-docs/**",
                             "/feign/**",
-                            "/hr/feign/**",
+                            "/hr-service/feign/**",
                             "/actuator/**").permitAll()
                     .anyRequest().authenticated();
         });
