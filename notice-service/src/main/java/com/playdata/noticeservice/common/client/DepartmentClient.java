@@ -25,7 +25,7 @@ public class DepartmentClient {
     public DepResponse getDepInfo(Long departmentId) {
         // gateway 주소를 통해 요청 (Eureka 통해 포워딩됨)
         String gatewayUrl = env.getProperty("gateway.url", "http://localhost:8000"); // application.properties에서 관리 가능
-        String url = gatewayUrl + "/hr-service/departments/" + departmentId;
+        String url = gatewayUrl + "/hr/departments/" + departmentId;
         System.out.println("요청 url = " + url);
         System.out.println("부서 번호 : " + departmentId);
 

@@ -31,7 +31,7 @@ public class HrUserClient {
     public HrUserResponse getUserInfo(Long userId) {
         // gateway 주소를 통해 요청 (Eureka 통해 포워딩됨)
         String gatewayUrl = env.getProperty("gateway.url", "http://localhost:8000"); // application.properties에서 관리 가능
-        String url = gatewayUrl + "/hr-service/employees/" + userId;
+        String url = gatewayUrl + "/hr/employees/" + userId;
 
         // 🔐 현재 요청에서 Authorization 헤더 가져오기
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();

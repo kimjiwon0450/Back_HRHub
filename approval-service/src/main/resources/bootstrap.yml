@@ -1,7 +1,7 @@
 
 spring:
   application:
-    name: approval-service
+    name: approval
   cloud:
     config:
       uri: http://localhost:8888
