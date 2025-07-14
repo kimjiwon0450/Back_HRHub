@@ -37,6 +37,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
@@ -75,37 +76,42 @@ public class NoticeController {
         boolean hasFilter = !((keyword == null || keyword.isBlank()) && fromDate == null && toDate == null);
 
 
-        List<Notice> noticeList;
-        Page<Notice> postList;
+        List<Notice> topNotices;
+        Page<Notice> posts;
 
         if (hasFilter) {
-            noticeList = noticeService.getFilteredNotices(keyword, fromDate, toDate, sortBy, sortDir);
-            postList = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageable);
+            List<Notice> filteredTop = noticeService.getFilteredNotices(keyword, fromDate, toDate, sortBy, sortDir);
+            topNotices = filteredTop.stream().limit(10).toList();
+
+            // 나머지 공지글 + 일반글 필터링한 결과를 수동 페이징 처리
+            posts = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageable);
         } else {
-            // ✅ 수정된 부분
-            noticeList = noticeService.getAllNotices(sortBy, sortDir); // 정렬 반영!
-            postList = noticeService.getAllPosts(pageable); // 이건 정렬 포함된 pageable로 전달되므로 OK
+            topNotices = noticeService.getAllNotices(sortBy, sortDir).stream().limit(10).toList();
+            posts = noticeService.getMergedPostsAfterTop10(pageable);
         }
 
 
-        // 🔥 작성자 이름 포함하여 변환
-        List<NoticeResponse> noticeDtos = noticeList.stream()
-                .map(notice -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, user);
-                }).toList();
+        // ✅ 유저 정보 포함하여 DTO 변환
+        List<NoticeResponse> noticeDtos = topNotices.stream()
+                .map(n -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+                    return NoticeResponse.fromEntity(n, user);
+                })
+                .toList();
 
-        List<NoticeResponse> postDtos = postList.getContent().stream()
-                .map(notice -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, user);
-                }).toList();
+        List<NoticeResponse> postDtos = posts.stream()
+                .map(n -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+                    return NoticeResponse.fromEntity(n, user);
+                })
+                .toList();
+
 
         Map<String, Object> response = new HashMap<>();
         response.put("notices", noticeDtos);
         response.put("posts", postDtos);
-        response.put("totalPages", postList.getTotalPages());
-        response.put("currentPage", postList.getNumber());
+        response.put("totalPages", posts.getTotalPages());
+        response.put("currentPage", posts.getNumber());
         log.info("response 결과 확인");
         log.info(response.toString());
 
@@ -157,8 +163,7 @@ public class NoticeController {
         Notice notice = noticeService.findPostById(id);
         HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
         DepResponse dep = departmentClient.getDepInfo(notice.getDepartmentId());
-        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user));
-
+        return ResponseEntity.ok(NoticeResponse.fromEntity(notice, user, dep));
     }
 
     // 글 작성 페이지

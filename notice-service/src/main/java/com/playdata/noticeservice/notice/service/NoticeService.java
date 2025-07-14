@@ -22,10 +22,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.fileupload.FileUploadException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +32,7 @@ import java.io.File;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -54,6 +52,13 @@ public class NoticeService {
         return noticeRepository.findTopNotices(pageable);
     }
 
+    // 공지글 10개 이후의 공지글만 가져오기
+    public List<Notice> getOverflowNoticesAfterTop10() {
+        List<Notice> allNotices = noticeRepository.findAllNoticesSorted();
+        return allNotices.stream().skip(10).collect(Collectors.toList());
+    }
+
+
     // 모든 공지글 조회
     public List<Notice> getAllNotices(String sortBy, String sortDir) {
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
@@ -65,6 +70,31 @@ public class NoticeService {
     public Page<Notice> getAllPosts(Pageable pageable) {
         return noticeRepository.findAllPosts(pageable);
     }
+
+    // 공지글 10개 이후 + 일반 게시글 전체를 합친 리스트 반환
+    public Page<Notice> getMergedPostsAfterTop10(Pageable pageable) {
+        List<Notice> overflowNotices = noticeRepository.findAllNoticesSorted()
+                .stream()
+                .skip(10)
+                .collect(Collectors.toList());
+
+        List<Notice> generalPosts = noticeRepository.findAllPosts(PageRequest.of(0, Integer.MAX_VALUE)).getContent(); // 전체 일반글
+
+        List<Notice> merged = new ArrayList<>();
+        merged.addAll(overflowNotices);
+        merged.addAll(generalPosts);
+
+        // 정렬 (createdAt 기준 내림차순)
+        merged.sort(Comparator.comparing(Notice::getCreatedAt).reversed());
+
+        // 수동 페이징 처리
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), merged.size());
+
+        List<Notice> pageContent = merged.subList(start, end);
+        return new PageImpl<>(pageContent, pageable, merged.size());
+    }
+
 
     // 필터링된 공지글 조회
     public List<Notice> getFilteredNotices(String keyword, LocalDate from, LocalDate to, String sortBy, String sortDir) {
