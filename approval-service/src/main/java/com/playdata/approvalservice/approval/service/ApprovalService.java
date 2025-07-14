@@ -53,7 +53,7 @@ public class ApprovalService {
      */
     @Transactional
     public ReportCreateResDto createReport(
-            ReportCreateReqDto req,
+            ReportSaveReqDto req,
             Long writerId,
             List<MultipartFile> files
     ) {
