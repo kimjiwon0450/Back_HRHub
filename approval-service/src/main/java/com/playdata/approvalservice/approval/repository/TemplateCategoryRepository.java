@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface TemplateCategoryRepository extends JpaRepository<TemplateCategory, Long> {
     Optional<TemplateCategory> findByCategoryName(String categoryName);
+
 }

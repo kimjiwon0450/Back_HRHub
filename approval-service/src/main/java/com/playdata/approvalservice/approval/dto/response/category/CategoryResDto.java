@@ -14,7 +14,7 @@ public class CategoryResDto {
     // Entity -> DTO 변환을 위한 정적 팩토리 메소드
     public static CategoryResDto from(TemplateCategory category) {
         return CategoryResDto.builder()
-                .id(category.getId())
+                .id(category.getCategoryId())
                 .categoryName(category.getCategoryName())
                 .description(category.getDescription())
                 .build();

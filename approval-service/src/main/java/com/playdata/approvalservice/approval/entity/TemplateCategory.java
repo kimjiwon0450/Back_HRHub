@@ -10,7 +10,7 @@ public class TemplateCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long CategoryId;
 
     @Setter
     @Column(nullable = false, unique = true)

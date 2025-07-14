@@ -48,7 +48,7 @@ public class TemplateCategoryService {
                 .build();
 
         TemplateCategory savedCategory = categoryRepository.save(newCategory);
-        log.info("New category created: id={}, name={}", savedCategory.getId(), savedCategory.getCategoryName());
+        log.info("New category created: id={}, name={}", savedCategory.getCategoryId(), savedCategory.getCategoryName());
         return CategoryResDto.from(savedCategory);
     }
 
@@ -70,7 +70,7 @@ public class TemplateCategoryService {
         }
 
 
-        log.info("Category updated: id={}, name={}", category.getId(), category.getCategoryName());
+        log.info("Category updated: id={}, name={}", category.getCategoryId(), category.getCategoryName());
         return CategoryResDto.from(category);
     }
 

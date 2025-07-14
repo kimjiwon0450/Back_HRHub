@@ -37,7 +37,7 @@ public class TemplateService {
     @Transactional
     public TemplateResDto createTemplate(TemplateCreateReqDto req) {
 
-        TemplateCategory category = categoryRepository.findByCategoryId(req.getCategoryId())
+        TemplateCategory category = categoryRepository.findById(req.getCategoryId())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "카테고리를 찾을 수 없습니다. id=" + req.getCategoryId()));
         try {
@@ -47,7 +47,7 @@ public class TemplateService {
             // 2. Builder를 사용하여 직접 엔티티 생성
             ReportTemplate newTemplate = ReportTemplate.builder()
                     .template(jsonTemplate)
-                    .category(category)
+                    .categoryId(category)
                     .build();
 
             // 3. 엔티티 저장
