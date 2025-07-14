@@ -8,6 +8,7 @@ import com.playdata.approvalservice.common.auth.TokenUserInfo;
 import com.playdata.approvalservice.common.dto.CommonResDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,18 +18,18 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/approval/category")
 @RequiredArgsConstructor
+@Slf4j
+@RequestMapping("/approval/category")
 public class TemplateCategoryController {
 
     private final TemplateCategoryService categoryService;
 
     /**
      * 모든 카테고리 목록 조회
-     * (템플릿을 사용하는 모든 사용자가 조회할 수 있어야 하므로, 일반적으로 Role 제한을 두지 않거나 더 넓게 설정)
      */
     @GetMapping
-    @PreAuthorize("isAuthenticated()") // 로그인한 모든 사용자가 조회 가능하도록 설정
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CommonResDto> getAllCategories() {
         List<CategoryResDto> categories = categoryService.getAllCategories();
         return ResponseEntity.ok(
@@ -72,40 +73,6 @@ public class TemplateCategoryController {
             @RequestBody @Valid CategoryUpdateReqDto req,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) {
-        CategoryResDto updatedCategory = categoryService.updateCategory(categoryId, req);
-        return ResponseEntity.ok(
-                new CommonResDto(HttpStatus.OK, "카테고리 정보가 수정되었습니다.", updatedCategory)
-        );
-    }
-
-// TemplateCategoryController.java
-
-// ... (생략) ...
-    /**
-     * 새 카테고리 생성 (관리자 권한)
-     */
-    @PostMapping
-    @PreAuthorize("hasAnyRole('HR_MANAGER','ADMIN')")
-    public ResponseEntity<CommonResDto> createCategory(
-            @RequestBody @Valid CategoryCreateReqDto req,
-            @AuthenticationPrincipal TokenUserInfo userInfo
-    ) {
-        CategoryResDto createdCategory = categoryService.createCategory(req);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new CommonResDto(HttpStatus.CREATED, "새로운 카테고리가 생성되었습니다.", createdCategory));
-    }
-
-    /**
-     * 카테고리 수정 (관리자 권한)
-     */
-    @PutMapping("/{categoryId}")
-    @PreAuthorize("hasAnyRole('HR_MANAGER','ADMIN')")
-    public ResponseEntity<CommonResDto> updateCategory(
-            @PathVariable Long categoryId,
-            @RequestBody @Valid CategoryUpdateReqDto req,
-            @AuthenticationPrincipal TokenUserInfo userInfo
-    ) {
-
         CategoryResDto updatedCategory = categoryService.updateCategory(categoryId, req);
         return ResponseEntity.ok(
                 new CommonResDto(HttpStatus.OK, "카테고리 정보가 수정되었습니다.", updatedCategory)

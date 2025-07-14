@@ -1,10 +1,7 @@
 package com.playdata.approvalservice.approval.entity;
 
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Getter
@@ -15,14 +12,16 @@ public class TemplateCategory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Setter
     @Column(nullable = false, unique = true)
-    private String name;
+    private String categoryName;
 
+    @Setter
     private String description;
 
     @Builder
-    public TemplateCategory(String name, String description) {
-        this.name = name;
+    public TemplateCategory(String categoryName, String description) {
+        this.categoryName = categoryName;
         this.description = description;
     }
 }
