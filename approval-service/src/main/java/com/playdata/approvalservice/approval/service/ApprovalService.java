@@ -258,12 +258,12 @@ public class ApprovalService {
                     pr = reportsRepository.findByCurrentApproverIdAndReportStatus(writerId, ReportStatus.IN_PROGRESS, pageable);
                 }
                 else {
-                    pr = reportsRepository.findByApproverId(writerId, pageable);
+                    pr = reportsRepository.findByApproverIdAndExcludeDraftRecalled(writerId, pageable);
                 }
             } else if ("reference".equalsIgnoreCase(role)) {
                 // 이제 이 메서드는 정렬 정보가 담긴 Pageable 객체를 받아
                 // JPA가 최종 SQL을 만들 때 ORDER BY 절을 자동으로 추가해줍니다.
-                pr = reportsRepository.findByReferenceEmployeeIdInDetailJson(writerId, pageable);
+                pr = reportsRepository.findByReferenceEmployeeIdInDetailJsonAndExcludeDraftRecalled(writerId, pageable);
             } else {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "role은 writer, approver, 또는 reference만 가능합니다.");
