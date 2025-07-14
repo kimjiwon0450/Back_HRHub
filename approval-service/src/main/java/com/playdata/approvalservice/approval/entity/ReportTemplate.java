@@ -19,4 +19,15 @@ public class ReportTemplate {
 
     @Column(name = "template", nullable = false, columnDefinition = "JSON")
     private String template;
+
+    @ManyToOne(fetch = FetchType.LAZY) // 템플릿 조회 시 카테고리는 필요할 때만 가져오도록 지연 로딩
+    @JoinColumn(name = "category_id", nullable = false) // 외래 키 설정
+    private TemplateCategory category;
+
+    @Builder
+    public ReportTemplate(String template, TemplateCategory category) {
+        this.template = template;
+        this.category = category;
+    }
+
 }

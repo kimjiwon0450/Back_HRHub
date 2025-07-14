@@ -40,4 +40,6 @@ public class ReportListResDto {
         private String employeeName;
         private ApprovalStatus approvalStatus;
     }
+
+
 }
