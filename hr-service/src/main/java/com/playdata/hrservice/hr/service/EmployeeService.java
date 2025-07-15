@@ -328,6 +328,16 @@ public class EmployeeService {
     }
 
 
+    // ✅ ID Set으로 여러 명 조회
+    public List<EmployeeResDto> findByIds(Set<Long> employeeIds) {
+        List<Employee> employees = employeeRepository.findAllById(employeeIds);
+        return employees.stream()
+                .map(EmployeeResDto::fromEntity)
+                .toList();
+    }
+
+
+
 }
 
 

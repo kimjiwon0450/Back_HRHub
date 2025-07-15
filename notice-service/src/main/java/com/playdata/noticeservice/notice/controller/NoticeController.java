@@ -37,6 +37,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -98,34 +99,46 @@ public class NoticeController {
             posts = noticeService.getMergedPostsAfterTop5(pageSize, sortBy, sortDir);
         }
 
+        Set<Long> employeeIds = Stream.concat(Stream.concat(topGeneralNotices.stream(), topNotices.stream()), posts.stream())
+                .map(Notice::getEmployeeId)
+                .collect(Collectors.toSet());
 
-        // ✅ 유저 정보 포함하여 DTO 변환
-        List<NoticeResponse> GnoticeDtos = topGeneralNotices.stream()
-                .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-                    return NoticeResponse.fromEntity(n, user);
-                })
-                .toList();
-
-        List<NoticeResponse> noticeDtos = topNotices.stream()
-                .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-                    return NoticeResponse.fromEntity(n, user);
-                })
-                .toList();
-
-        List<NoticeResponse> postDtos = posts.stream()
-                .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-                    return NoticeResponse.fromEntity(n, user);
-                })
-                .toList();
+        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(employeeIds).stream()
+                .collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
 
 
+//        // ✅ 유저 정보 포함하여 DTO 변환
+//        List<NoticeResponse> GnoticeDtos = topGeneralNotices.stream()
+//                .map(n -> {
+//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+//                    return NoticeResponse.fromEntity(n, user);
+//                })
+//                .toList();
+//
+//        List<NoticeResponse> noticeDtos = topNotices.stream()
+//                .map(n -> {
+//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+//                    return NoticeResponse.fromEntity(n, user);
+//                })
+//                .toList();
+//
+//        List<NoticeResponse> postDtos = posts.stream()
+//                .map(n -> {
+//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+//                    return NoticeResponse.fromEntity(n, user);
+//                })
+//                .toList();
+//
+//
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("generalNotices", GnoticeDtos);
+//        response.put("notices", noticeDtos);
+//        response.put("posts", postDtos);
         Map<String, Object> response = new HashMap<>();
-        response.put("generalNotices", GnoticeDtos);
-        response.put("notices", noticeDtos);
-        response.put("posts", postDtos);
+        response.put("generalNotices", topGeneralNotices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
+        response.put("notices", topNotices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
+        response.put("posts", posts.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
+
         response.put("totalPages", posts.getTotalPages());
         response.put("currentPage", posts.getNumber());
         log.info("response 결과 확인");
@@ -139,14 +152,22 @@ public class NoticeController {
     public ResponseEntity<List<NoticeResponse>> getMyPosts(@AuthenticationPrincipal TokenUserInfo userInfo) {
         List<Notice> notices = noticeService.getMyPosts(userInfo.getEmployeeId());
 
-        List<NoticeResponse> responseList = notices.stream()
-                .map(notice -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, user);
-                })
-                .toList();
+//        List<NoticeResponse> responseList = notices.stream()
+//                .map(notice -> {
+//                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+//                    return NoticeResponse.fromEntity(notice, user);
+//                })
+//                .toList();
+//
+//        return ResponseEntity.ok(responseList);
 
-        return ResponseEntity.ok(responseList);
+        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(
+                notices.stream().map(Notice::getEmployeeId).collect(Collectors.toSet())
+        ).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
+
+        return ResponseEntity.ok(
+                notices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList()
+        );
     }
 
     // 전체 공지 조회 (department_id = 0)
@@ -180,14 +201,23 @@ public class NoticeController {
         List<Notice> notices = noticeService.getNoticesByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate);
         List<Notice> posts = noticeService.getPostsByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate, pageable);
 
-        List<NoticeResponse> responseList = Stream.concat(notices.stream(), posts.stream())
-                .map(notice -> {
-                    HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, writer);
-                })
-                .toList();
+//        List<NoticeResponse> responseList = Stream.concat(notices.stream(), posts.stream())
+//                .map(notice -> {
+//                    HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
+//                    return NoticeResponse.fromEntity(notice, writer);
+//                })
+//                .toList();
+//
+//        return ResponseEntity.ok(responseList);
 
-        return ResponseEntity.ok(responseList);
+        List<Notice> combined = Stream.concat(notices.stream(), posts.stream()).toList();
+        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(
+                combined.stream().map(Notice::getEmployeeId).collect(Collectors.toSet())
+        ).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
+
+        return ResponseEntity.ok(
+                combined.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList()
+        );
     }
 
     // 글 상세 화면 조회
