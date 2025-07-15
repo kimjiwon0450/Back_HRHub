@@ -1,6 +1,7 @@
 package com.playdata.approvalservice.approval.controller;
 
 import com.playdata.approvalservice.approval.dto.request.*;
+import com.playdata.approvalservice.approval.dto.request.template.ReportFromTemplateReqDto;
 import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
@@ -248,5 +249,16 @@ public class ApprovalController {
 
         ReportReferencesResDto res = approvalService.deleteReferences(reportId, writerId, employeeId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "참조자 삭제 완료", res));
+    }
+
+    @PostMapping("/reports/category")
+    public ResponseEntity<CommonResDto> ReportCategory(
+            @RequestPart("req") @Valid ReportFromTemplateReqDto req,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal TokenUserInfo userInfo
+            ){
+        ReportCreateResDto resDto = approvalService.reportFromTemplate(req, userInfo.getEmail(), files);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new CommonResDto(HttpStatus.CREATED, "결재 문서가 성공적으로 상신되었습니다.", resDto));
     }
 }

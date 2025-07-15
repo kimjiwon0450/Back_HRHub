@@ -38,4 +38,6 @@ public interface EmployeeFeignClient {
     ResponseEntity<Map<Long, String>> getEmployeeNamesByEmployeeIds(
             @RequestParam("ids") List<Long> employeeIds
     );
+
+    ResponseEntity<Long> findIdByEmail(String writerEmail);
 }

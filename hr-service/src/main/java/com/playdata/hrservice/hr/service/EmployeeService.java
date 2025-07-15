@@ -327,6 +327,17 @@ public class EmployeeService {
                 .build();
     }
 
+    /**
+     * 이메일로 사용자를 찾아 ID를 반환하는 로직
+     * @param email
+     * @return
+     */
+    public Long findIdByEmail(String email) {
+        Employee employee = employeeRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 이메일의 사용자를 찾을 수 없습니다: " + email));
+        return employee.getEmployeeId();
+    }
+
 
 }
 

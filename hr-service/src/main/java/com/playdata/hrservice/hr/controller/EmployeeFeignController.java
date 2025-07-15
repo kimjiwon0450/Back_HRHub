@@ -49,4 +49,13 @@ public class EmployeeFeignController {
         Map<Long, String> employeeNames = employeeService.getEmployeeNamesByEmployeeIds(employeeIds);
         return ResponseEntity.ok(employeeNames);
     }
+
+    /**
+     * 이메일 주소로 직원의 ID(PK)를 조회하는 API
+     */
+    @GetMapping("/id")
+    public ResponseEntity<Long> findIdByEmail(@RequestParam("email") String email) {
+        Long employeeId = employeeService.findIdByEmail(email);
+        return ResponseEntity.ok(employeeId);
+    }
 }
