@@ -224,7 +224,7 @@ public class EmployeeService {
 
     // 직원 수정
     @Transactional
-    public void modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) throws JsonProcessingException {
+    public EmployeeResDto modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) throws JsonProcessingException {
         Employee employee = employeeRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found!")
         );
@@ -234,6 +234,7 @@ public class EmployeeService {
             insertTransferHistory(employee, dto.getDepartmentId(), dto.getPosition(), "");
         }
         employee.updateFromDto(dto);
+        return employee.toDto();
 
     }
 

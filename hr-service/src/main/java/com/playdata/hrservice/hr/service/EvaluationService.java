@@ -118,24 +118,23 @@ public class EvaluationService {
     }
 
     // 이달의 사원
-    public List<EmployeeResDto> getEmployeesOfTop3() {
+    public List<EmployeeResDto> getEmployeesOfTop3(YearMonth targetMonth) {
 
-        // 1. 이번 달 평가 데이터 조회 (최신 평가 기준)
-        YearMonth thisMonth = YearMonth.now();
-        LocalDateTime monthStart = thisMonth.atDay(1).atStartOfDay();
-        LocalDateTime monthEnd = thisMonth.atEndOfMonth().atTime(23, 59, 59);
+        // 1. 지난 달 평가 데이터 조회 (최신 평가 기준) -> 스케쥴러에서 변수로 month를 인자로 받음
+        LocalDateTime monthStart = targetMonth.atDay(1).atStartOfDay();
+        LocalDateTime monthEnd = targetMonth.atEndOfMonth().atTime(23, 59, 59);
 
         // 평가가 없을 수도 있으므로 Optional 처리
-        List<Evaluation> thisMonthEvaluations = evaluationRepository.findAllByCreatedAtBetweenOrderByTotalEvaluationDesc(monthStart, monthEnd)
+        List<Evaluation> targetMonthEvaluations = evaluationRepository.findAllByCreatedAtBetweenOrderByTotalEvaluationDesc(monthStart, monthEnd)
                 .orElse(List.of()); // 평가가 없으면 빈 리스트 반환 (IllegalArgumentException 대신)
 
-        if (thisMonthEvaluations.isEmpty()) {
-            log.info("이번 달 평가 데이터가 없습니다. 상위 3명 조회 불가.");
+        if (targetMonthEvaluations.isEmpty()) {
+            log.info("이번 달 평가 데이터가 없습니다. 상위 3명 조회 불가.", targetMonth);
             return List.of(); // 빈 리스트 반환
         }
 
         // 2. 상위 3명까지의 리스트와 3위 점수 확인
-        List<Evaluation> currentTopEvaluations = thisMonthEvaluations.stream().limit(3).toList();
+        List<Evaluation> currentTopEvaluations = targetMonthEvaluations.stream().limit(3).toList();
 
         // 3등까지 평가가 없는 경우 (예: 평가자가 1명이나 2명인 경우)
         if (currentTopEvaluations.size() < 3) {
@@ -145,47 +144,53 @@ public class EvaluationService {
                     .collect(Collectors.toList());
         }
 
-
+        // 3. 3위 동점자 후보 필터링 (3위 점수와 같은 평가자)
 
         // 3위의 점수
         double thirdPlaceScore = currentTopEvaluations.get(2).getTotalEvaluation();
 
-        // 3. 3위 동점자 후보 필터링 (3위 점수와 같거나 높은 평가자들)
-        // 1, 2위 + 3위 점수와 같고, 3위 아래에 있는 사람들까지 모두 포함
-        List<Evaluation> potentialThirdPlaceCandidates = thisMonthEvaluations.stream()
-                .filter(eval -> eval.getTotalEvaluation() >= thirdPlaceScore)
+        // 3위와 점수 같은 평가를 걸러내기.(공동 3위가 3명이라면??)
+        // 1등, 2등 아이디
+        Set<Long> top2Ids = currentTopEvaluations.stream().limit(2).map(e->e.getEvaluatee().getEmployeeId()).collect(Collectors.toSet());
+
+        // 3위 동점 후보 걸러내기
+        List<Evaluation>  thirdEvaluationsList = targetMonthEvaluations.stream()
+                .filter(eval -> Double.compare(eval.getTotalEvaluation(),thirdPlaceScore)==0)
                 .toList();
 
 
-        // ---------------------------------------지난 달-----------------------------------------------------
+        // ---------------------------------------동점자 지난달 평가 비교-----------------------------------------------------
 
         // 4. 지난 달 평가 데이터 조회 (동점자 처리를 위한 준비)
-        YearMonth prevMonth = thisMonth.minusMonths(1);
+        YearMonth prevMonth = targetMonth.minusMonths(1);
         LocalDateTime prevMonthStart = prevMonth.atDay(1).atStartOfDay();
         LocalDateTime prevMonthEnd = prevMonth.atEndOfMonth().atTime(23, 59, 59);
 
-        // Map<EmployeeId, Evaluation> 형태로 지난달 평가를 미리 가져옴 (성능 최적화)
+        // Map<EmployeeId, Evaluation> 형태.
         // 신입 직원 (지난달 평가 없음)은 기본적으로 0점으로 처리될 수 있도록 getOrDefault 사용
         Map<Long, Double> prevMonthScoresMap = new HashMap<>();
-        // potentialThirdPlaceCandidates에 있는 모든 직원에 대해 지난달 평가를 찾아 Map에 저장
-        for (Evaluation eval : potentialThirdPlaceCandidates) {
-            Employee employee = employeeService.findById(eval.getEvaluatee().getEmployeeId());// 평가자의 아이디를 넣어 Employee 로 받아옴.
-            double socre = evaluationRepository.findTopByEvaluateeAndCreatedAtBetweenOrderByCreatedAtDesc(employee, prevMonthStart, prevMonthEnd)
+
+        // thirdPlaceCandidates에 있는 모든 직원에 대해 지난달 평가를 찾아 Map에 저장
+        for (Evaluation thirdEval : thirdEvaluationsList) {
+            Employee employee = employeeService.findById(thirdEval.getEvaluatee().getEmployeeId());// 평가자의 아이디를 넣어 동점자 마다 Employee 인스턴스로 받아옴.
+            double score = evaluationRepository.findTopByEvaluateeAndCreatedAtBetweenOrderByCreatedAtDesc(employee, prevMonthStart, prevMonthEnd) // findTopby 인 이유는 평가가 수정된 기록도 있기때문에
                     .map(Evaluation::getTotalEvaluation)// 점수가 있으면 그값을 넣고
                     .orElse(0.0); // 이전 달 점수가 없으면 0.0점을 넣을거임.
-            prevMonthScoresMap.put(eval.getEvaluatee().getEmployeeId(), socre);
-
+            prevMonthScoresMap.put(employee.getEmployeeId(), score);
             }
 
 
-        // 5. Map<이번달 동점자 id, 지난달 평가점수> 가 들어왔으니 그걸로 1) 최고 점수 확인, 2) 같은 점수가 있는지 확인
-        // 1) 최고 점수 확인
+        // 5. Map<이번달 동점자 id, 지난달 평가점수> 가 들어온 형태
+        // 1) 최고 점수 확인, 2) 같은 점수가 있는지 확인
+
+        //1) 해당 Map 안에서 가장 높은 점 수 확인
         double bestPrevScore = prevMonthScoresMap.values().stream()
                 .max(Double::compare)
                 .orElse(0.0);
-        // 2) 같은 점수가 Map 안에 있는 지 확인해서 List에 담음
+
+        // 2) 같은 점수가 Map 안에 있는 지 확인해서 employeeId를 List에 담음
         List<Long> finalThirdIds = prevMonthScoresMap.entrySet().stream()
-                .filter(e -> Double.compare(e.getValue(), bestPrevScore) == 0) // 동점만
+                .filter(e -> Double.compare(e.getValue(), bestPrevScore)==0) //  동점자 필터, Double.compare(1, 2)는 두 수의 차이를 값으로 알려주는 거임
                 .map(Map.Entry::getKey)                                         // employeeId
                 .toList();
 
@@ -194,7 +199,18 @@ public class EvaluationService {
                 .map(id -> employeeService.findById(id).toDto())
                 .toList();
 
-        return thirdRankDtos;
+        // 최종
+        //  1,2 등과 3등(들) 을 합쳐서 반환 해줄 거임.
+        Set<Long> allIds = new LinkedHashSet<>();
+        currentTopEvaluations.stream().limit(2)
+                        .map(eval->eval.getEvaluatee().getEmployeeId())
+                                .forEach(allIds::add);
+        allIds.addAll(finalThirdIds);
+
+
+        return allIds.stream()
+                .map(id->employeeService.findById(id).toDto())
+                .toList();
     }
 }
 
