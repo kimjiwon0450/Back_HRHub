@@ -249,4 +249,15 @@ public class ApprovalController {
         ReportReferencesResDto res = approvalService.deleteReferences(reportId, writerId, employeeId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "참조자 삭제 완료", res));
     }
+
+    // notice-service에서 필요해서 추가합니당
+    @GetMapping("/reports/pending")
+    public ResponseEntity<CommonResDto> getPendingApprovals(
+            @AuthenticationPrincipal TokenUserInfo userInfo
+    ) {
+        Long approverId = getCurrentUserId(userInfo);
+        List<ApprovalTodoDto> res = approvalService.getPendingApprovals(approverId);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "결재 요청 목록", res));
+    }
+
 }

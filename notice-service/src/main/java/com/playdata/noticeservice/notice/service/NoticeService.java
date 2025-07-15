@@ -60,10 +60,17 @@ public class NoticeService {
     }
 
 
-    // ✅ 모든 공지글 조회 (필터 X)
+    // ✅ 모든 부서공지글 조회 (필터 X)
     public List<Notice> getAllNotices(String sortBy, String sortDir) {
         log.info("case2");
         return getTopNotices(sortBy, sortDir); // 단순히 상위 5개만 가져오는 방식으로 통일
+    }
+
+    // 전체 공지글 조회
+    public List<Notice> getGeneralNotices() {
+        Pageable pageable = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Long departmentId = 0L;
+        return noticeRepository.findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(departmentId,pageable);
     }
 
 
@@ -74,11 +81,26 @@ public class NoticeService {
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Sort sort = Sort.by(direction, sortBy);
 
-        // 상단 고정용 상위 5개 공지글 (createdAt 고정)
+        // 상단 고정용 상위 5개 전체공지글 (createdAt 고정)
+        List<Notice> top5GeneralNotices =
+                noticeRepository.findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(
+                        0L, PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt")));
+        Set<Long> top5GeneralIds = top5GeneralNotices.stream().map(Notice::getId).collect(Collectors.toSet());
+
+        // 나머지 전체공지글 (정렬 기준 반영)
+        List<Notice> sortedGeneralNotices =
+                noticeRepository.findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(
+                        0L,PageRequest.of(0, 1000, sort)); // 충분히 크게
+        List<Notice> overflowGenetalNotices = sortedGeneralNotices.stream()
+                .filter(n -> !top5GeneralIds.contains(n.getId()))
+                .collect(Collectors.toList());
+
+
+        // 상단 고정용 상위 5개 부서공지글 (createdAt 고정)
         List<Notice> top5Notices = noticeRepository.findTopNotices(PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt")));
         Set<Long> top5Ids = top5Notices.stream().map(Notice::getId).collect(Collectors.toSet());
 
-        // 나머지 공지글 (정렬 기준 반영)
+        // 나머지 부서공지글 (정렬 기준 반영)
         List<Notice> sortedNotices = noticeRepository.findTopNotices(PageRequest.of(0, 1000, sort)); // 충분히 크게
         List<Notice> overflowNotices = sortedNotices.stream()
                 .filter(n -> !top5Ids.contains(n.getId()))
@@ -90,6 +112,7 @@ public class NoticeService {
 
         // 병합 + 정렬
         List<Notice> merged = new ArrayList<>();
+        merged.addAll(overflowGenetalNotices);
         merged.addAll(overflowNotices);
         merged.addAll(generalPosts);
 
@@ -192,11 +215,7 @@ public class NoticeService {
         return noticeRepository.findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(employeeId);
     }
 
-    // 전체 공지글 조회
-    public List<Notice> getGeneralNotices() {
-        Long departmentId = 0L;
-        return noticeRepository.findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(departmentId);
-    }
+
 
     // 필터링된 전체 공지글 조회
     public List<Notice> getFilteredGeneralNotices(String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {

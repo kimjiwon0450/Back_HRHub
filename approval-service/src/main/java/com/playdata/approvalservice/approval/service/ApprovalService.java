@@ -706,4 +706,14 @@ public class ApprovalService {
                     .employeeId(employeeId)
                     .build();
         }
+
+        // notice-service에서 필요해서 추가합니당
+        public List<ApprovalTodoDto> getPendingApprovals(Long approverId) {
+            return approvalRepository.findAllByApproverIdAndStatus(approverId, ReportStatus.IN_PROGRESS)
+                    .stream()
+                    .map(ApprovalTodoDto::fromEntity)
+                    .collect(Collectors.toList());
+        }
+
+
 }

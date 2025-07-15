@@ -95,7 +95,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     List<Notice> findTopNotices(Pageable pageable);
 
     // departmentId가 0인 부서전체 공지 조회
-    List<Notice> findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(Long departmentId);
+    List<Notice> findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(Long departmentId, Pageable pageable);
 
     // 직접 DB 연산으로 조회수 증가
     @Modifying

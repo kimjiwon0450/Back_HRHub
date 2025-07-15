@@ -80,26 +80,22 @@ public class NoticeController {
 
         boolean hasFilter = !((keyword == null || keyword.isBlank()) && fromDate == null && toDate == null);
 
-
-
         List<Notice> topGeneralNotices;
         List<Notice> topNotices;
         Page<Notice> posts;
 
         if (hasFilter) {
-            // 부서 전체 공지글 5개
-            List<Notice> GeneralTop = noticeService.getFilteredGeneralNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
-            topGeneralNotices = GeneralTop.stream().limit(5).toList();
-
-            // 상위 공지글 5개
-            List<Notice> filteredTop = noticeService.getFilteredNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
-            topNotices = filteredTop.stream().limit(5).toList();
-
-            // 나머지 공지글 + 일반글 필터링한 결과를 수동 페이징 처리
+            topGeneralNotices = noticeService.getFilteredGeneralNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
+//            topGeneralNotices = GeneralTop.stream().limit(5).toList();
+            topNotices = noticeService.getFilteredNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
+//            topNotices = filteredTop.stream().limit(5).toList();
             posts = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
         } else {
+            // 부서 전체 공지글 5개
             topGeneralNotices = noticeService.getGeneralNotices().stream().limit(5).toList();
+            // 상위 공지글 5개
             topNotices = noticeService.getAllNotices(sortBy, sortDir).stream().limit(5).toList();
+            // 나머지 공지글 + 일반글 필터링한 결과를 수동 페이징 처리
             posts = noticeService.getMergedPostsAfterTop5(pageSize, sortBy, sortDir);
         }
 

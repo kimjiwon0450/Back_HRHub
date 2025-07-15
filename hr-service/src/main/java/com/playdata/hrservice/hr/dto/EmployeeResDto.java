@@ -41,7 +41,7 @@ public class EmployeeResDto {
         return EmployeeResDto.builder()
                 .employeeId(e.getEmployeeId())
                 .name(e.getName())
-                .departmentId(e.getDepartment().getId())
+//                .departmentId(e.)
                 .build();
     }
 }
