@@ -243,6 +243,7 @@ public class ApprovalService {
                 .build();
         }
 
+
     /**
      * 템플릿 기반 결재 문서 생성 및 상신
      */
@@ -252,29 +253,32 @@ public class ApprovalService {
             String writerEmail,
             List<MultipartFile> files
     ) {
-        // 1. 사용할 템플릿을 DB에서 조회합니다.
+        // ... (1~3번 로직은 동일) ...
+        // 1. 템플릿 조회
         ReportTemplate template = templateRepository.findById(req.getTemplateId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "템플릿을 찾을 수 없습니다."));
 
-        // 2. 템플릿 양식과 사용자 입력 값을 조합하여 최종 보고서 내용을 생성합니다.
+        // 2. 보고서 내용 생성
         String reportContent = generateContentFromTemplate(template.getTemplate(), req.getValues());
 
-        // 3. 기존의 '즉시 상신' 로직을 사용하기 위해 기존 DTO 형식으로 변환합니다.
+        // 3. 기존 DTO로 변환
         ReportCreateReqDto newProgressReq = new ReportCreateReqDto();
         newProgressReq.setTitle(req.getTitle());
-        newProgressReq.setContent(reportContent); // 템플릿으로 생성된 내용 주입
+        newProgressReq.setContent(reportContent);
         newProgressReq.setApprovalLine(req.getApprovalLine());
         newProgressReq.setReferences(req.getReferences());
 
-        // 4. writerEmail로 writerId를 조회합니다. (hr-service에 해당 기능이 필요합니다)
         Long writerId;
         try {
-            // Feign 클라이언트 응답이 ResponseEntity<Long> 이라고 가정
+            // (수정) 올바른 메소드 호출: `findIdByEmail`에 `writerEmail`을 파라미터로 전달
             ResponseEntity<Long> response = employeeFeignClient.findIdByEmail(writerEmail);
-            writerId = response.getBody();
-            if (writerId == null) {
+
+            // 응답 상태 코드 및 본문 null 체크
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자 정보를 찾을 수 없습니다: " + writerEmail);
             }
+            writerId = response.getBody();
+
         } catch (Exception e) {
             log.error("Failed to fetch writerId for email: {}", writerEmail, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 정보를 조회하는 중 오류가 발생했습니다.");

@@ -328,13 +328,14 @@ public class EmployeeService {
     }
 
     /**
-     * 이메일로 사용자를 찾아 ID를 반환하는 로직
-     * @param email
-     * @return
+     * 이메일로 직원을 찾아 직원의 ID를 반환합니다.
      */
     public Long findIdByEmail(String email) {
+        // EmployeeRepository에 findByEmail 메소드가 정의되어 있어야 함
         Employee employee = employeeRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 이메일의 사용자를 찾을 수 없습니다: " + email));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "해당 이메일의 사용자를 찾을 수 없습니다: " + email
+                ));
         return employee.getEmployeeId();
     }
 

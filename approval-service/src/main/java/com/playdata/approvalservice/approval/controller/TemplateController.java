@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
@@ -52,11 +53,15 @@ public class TemplateController {
     }
 
     /**
-     * 템플릿 전부 조회
+     * 템플릿 목록 조회 (카테고리 ID로 필터링 가능)
+     * @param categoryId 쿼리 파라미터 (필수 아님)
+     * @return 템플릿 목록 응답
      */
     @GetMapping("/list")
-    public ResponseEntity<CommonResDto> getAllTemplates() {
-        List<TemplateResDto> res = templateService.getAllTemplates();
+    public ResponseEntity<CommonResDto> getTemplates(
+            @RequestParam(name = "categoryId", required = false) Long categoryId
+    ) {
+        List<TemplateResDto> res = templateService.getTemplates(categoryId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 템플릿 조회 완료", res));
     }
 

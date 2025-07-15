@@ -4,19 +4,22 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
+@Table(name = "template_category")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TemplateCategory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long CategoryId;
+    @Column(name = "category_id")
+    private Long categoryId;
 
     @Setter
-    @Column(nullable = false, unique = true)
+    @Column(name = "category_name", nullable = false, unique = true)
     private String categoryName;
 
     @Setter
+    @Column(name = "category_description")
     private String description;
 
     @Builder
