@@ -212,66 +212,9 @@ public class EvaluationService {
                 .map(id->employeeService.findById(id).toDto())
                 .toList();
     }
+
 }
 
-
-    // -----------------------------------------------------------------------------------------------------------------------------------
-
-//    public List<EmployeeResDto> getEmployeesOfTop3() {
-//
-//        // 이번 달의 시작, 끝 계산
-//        YearMonth thisMonth = YearMonth.now();
-//        LocalDateTime monthStart = thisMonth.atDay(1).atStartOfDay();
-//        LocalDateTime monthEnd = thisMonth.atEndOfMonth().atTime(23, 59, 59);
-//        List<Evaluation> thisMonthEvaluations = evaluationRepository.findAllByCreatedAtBetweenOrderByTotalEvaluationDesc(monthStart, monthEnd)
-//                .orElseThrow(() -> new IllegalArgumentException("평가를 찾을 수 없습니다!"));
-//
-//        // 상위 3건만 잘라내기
-//        List<Evaluation> top3 = thisMonthEvaluations.stream().limit(3).toList();
-//
-//        // 3위 점수 기준으로 동점자가 있는지 확인
-//        if (top3.size() == 3) {
-//            int thirdScore = (int) top3.get(2).getTotalEvaluation();
-//
-//            // skip(3) : 4번째부터 필터링하여서 3등이랑 같은 점수가 있으면 equalList에 담아놓음(Type: Evaluation)
-//            List<Evaluation> equalList = thisMonthEvaluations.stream().skip(3).filter(ev -> ev.getTotalEvaluation() == thirdScore).toList();
-//
-//            if (!equalList.isEmpty()) {
-//                List<Long> candidateIds = new ArrayList<>();
-//
-//
-//                // 이전 달
-//                YearMonth prevMonth = thisMonth.minusMonths(1);
-//                LocalDateTime prevMonthStart = prevMonth.atDay(1).atStartOfDay();
-//                LocalDateTime prevMonthEnd = prevMonth.atEndOfMonth().atTime(23, 59, 59);
-//
-//                //이전 달 평가 가져오기
-//                List<Evaluation> preEvalList = (List<Evaluation>) equalList.stream().map(
-//                        e -> evaluationRepository.findTopByEvaluateeAndCreatedAtBetweenOrderByCreatedAtDesc(
-//                                e.getEvaluatee(), prevMonthStart, prevMonthEnd
-//                        ).orElseThrow(
-//                                () -> new IllegalArgumentException("조회되지 않습니다.") // 해당부분은 따로 처리해야할것. (신입들은 이전달이 없음)
-//                        )).toList();
-//
-//
-//                // 이전 달 평가 기록 비교
-//
-//
-//            }
-//        }
-//
-//    return null;
-//    }
-    // ---------------------------------------------------------------------------------------------------------------------
-//        List<EmployeeResDto> resDto = new ArrayList<>();
-//
-//        for (Evaluation e : evaluations) {
-//            resDto.add(
-//                    employeeService.findById(e.getEvaluatee().getEmployeeId()).toDto()
-//                     );
-//        }
-//
-//        return resDto;
 
 
 

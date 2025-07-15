@@ -1,6 +1,7 @@
 package com.playdata.hrservice.hr.service;
 
 import com.playdata.hrservice.hr.dto.EmployeeResDto;
+import com.playdata.hrservice.hr.dto.MsgDto;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.service.JavaServiceLoadable;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -34,5 +35,13 @@ public class PickTop3CacheService {
         return top3;
 
     }
+
+    public MsgDto submitGreeting(Long employeeId, MsgDto dto){
+        YearMonth ym = YearMonth.now().minusMonths(1);
+        String key = "eom:%s:%s:greeting".formatted(ym, employeeId);
+        redisTemplate.opsForValue().set(key, dto, TTL);
+        return dto;
+    }
+
 
 }
