@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -130,39 +131,59 @@ public class NoticeService {
 
 
     // ✅ 필터링된 공지글 조회 (최대 100개)
-    public List<Notice> getFilteredNotices(String keyword, LocalDateTime from, LocalDateTime to, int pageSize, String sortBy, String sortDir) {
+    public List<Notice> getFilteredNotices(String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
         log.info("case4");
+
+        // LocalDate → LocalDateTime으로 변환 (자정 기준)
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
 
+        // 날짜 기본값 처리
         if (from == null) {
-            from = LocalDateTime.of(2000, 1, 1,0,0); // 매우 과거
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = from.atStartOfDay();
         }
-        if (to == null) {
-            to = LocalDateTime.now().plusDays(1); // 오늘까지 포함
 
+        if (to == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = to.atTime(23, 59, 59);
         }
 
         return noticeRepository.findFilteredNotices(
-                keyword, from, to, pageable);
+                keyword, fromDateTime, toDateTime, pageable);
     }
 
     // ✅ 필터링된 일반글 조회
-    public Page<Notice> getFilteredPosts(String keyword, LocalDateTime from, LocalDateTime to, int pageSize, String sortBy, String sortDir) {
+    public Page<Notice> getFilteredPosts(String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
         log.info("case5");
+
+        // LocalDate → LocalDateTime으로 변환 (자정 기준)
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
 
+        // 날짜 기본값 처리
         if (from == null) {
-            from = LocalDateTime.of(2000, 1, 1, 0, 0); // 매우 과거
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = from.atStartOfDay();
         }
-        if (to == null) {
-            to = LocalDateTime.now().plusDays(1); // 오늘까지 포함
 
+        if (to == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = to.atTime(23, 59, 59);
         }
 
         return noticeRepository.findFilteredPosts(
-                keyword, from, to, pageable
+                keyword, fromDateTime, toDateTime, pageable
         );
     }
 
@@ -178,55 +199,85 @@ public class NoticeService {
     }
 
     // 필터링된 전체 공지글 조회
-    public List<Notice> getFilteredGeneralNotices(String keyword, LocalDateTime from, LocalDateTime to, int pageSize, String sortBy, String sortDir) {
+    public List<Notice> getFilteredGeneralNotices(String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
         log.info("case7");
+
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
 
-        if (from == null) {
-            from = LocalDateTime.of(2000, 1, 1,0,0); // 매우 과거
-        }
-        if (to == null) {
-            to = LocalDateTime.now().plusDays(1); // 오늘까지 포함
+        // LocalDate → LocalDateTime으로 변환 (자정 기준)
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
 
+        // 날짜 기본값 처리
+        if (from == null) {
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = from.atStartOfDay();
         }
+
+        if (to == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = to.atTime(23, 59, 59);
+        }
+
         Long departmentId = 0L;
 
         return noticeRepository.findFilteredGeneralNotices(
-                keyword, from, to, departmentId, pageable);
+                keyword, fromDateTime, toDateTime, departmentId, pageable);
     }
 
 
     // 내 부서의 공지글 조회
     public List<Notice> getNoticesByDepartment(Long departmentId, String keyword,
-                                               LocalDateTime fromDate, LocalDateTime toDate) {
+                                               LocalDate fromDate, LocalDate toDate) {
 
         Pageable pageable = PageRequest.of(0, 5);
 
+        // LocalDate → LocalDateTime으로 변환 (자정 기준)
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
         // 날짜 기본값 처리
         if (fromDate == null) {
-            fromDate = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
-        }
-        if (toDate == null) {
-            toDate = LocalDateTime.now().plusDays(1);  // 오늘 포함
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = fromDate.atStartOfDay();
         }
 
-        return noticeRepository.findMyDepartmentNotices(keyword, fromDate, toDate, departmentId, pageable);
+        if (toDate == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = toDate.atTime(23, 59, 59);
+        }
+
+        return noticeRepository.findMyDepartmentNotices(keyword, fromDateTime, toDateTime, departmentId, pageable);
     }
 
     // 내 부서의 게시글 조회
     public List<Notice> getPostsByDepartment(Long departmentId, String keyword,
-                                             LocalDateTime fromDate, LocalDateTime toDate,
+                                             LocalDate fromDate, LocalDate toDate,
                                                      Pageable pageable) {
+
+        // LocalDate → LocalDateTime으로 변환 (자정 기준)
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
         // 날짜 기본값 처리
         if (fromDate == null) {
-            fromDate = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
-        }
-        if (toDate == null) {
-            toDate = LocalDateTime.now().plusDays(1);  // 오늘 포함
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = fromDate.atStartOfDay();
         }
 
-        return noticeRepository.findMyDepartmentPosts(keyword, fromDate, toDate, departmentId);
+        if (toDate == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = toDate.atTime(23, 59, 59);
+        }
+
+        return noticeRepository.findMyDepartmentPosts(keyword, fromDateTime, toDateTime, departmentId);
     }
 
     // 상세 페이지 조회
