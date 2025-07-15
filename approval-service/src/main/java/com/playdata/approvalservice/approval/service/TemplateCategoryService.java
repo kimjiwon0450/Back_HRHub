@@ -44,7 +44,7 @@ public class TemplateCategoryService {
 
         TemplateCategory newCategory = TemplateCategory.builder()
                 .categoryName(req.getCategoryName())
-                .description(req.getDescription())
+                .categoryDescription(req.getCategoryDescription())
                 .build();
 
         TemplateCategory savedCategory = categoryRepository.save(newCategory);
@@ -66,7 +66,7 @@ public class TemplateCategoryService {
             category.setCategoryName(req.getCategoryName());
         }
         if (req.getDescription() != null) {
-            category.setDescription(req.getDescription());
+            category.setCategoryDescription(req.getDescription());
         }
 
 

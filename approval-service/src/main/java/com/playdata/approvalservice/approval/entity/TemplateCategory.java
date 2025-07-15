@@ -20,12 +20,12 @@ public class TemplateCategory {
 
     @Setter
     @Column(name = "category_description")
-    private String description;
+    private String categoryDescription;
 
     @Builder
-    public TemplateCategory(String categoryName, String description) {
+    public TemplateCategory(String categoryName, String categoryDescription) {
         this.categoryName = categoryName;
-        this.description = description;
+        this.categoryDescription = categoryDescription;
     }
 }
 
