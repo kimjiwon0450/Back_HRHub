@@ -80,11 +80,26 @@ public class TemplateService {
     @Transactional
     public TemplateResDto updateTemplate(Long templateId, TemplateUpdateReqDto req) {
         ReportTemplate template = findTemplateById(templateId);
+
         try {
+            if(req.getTemplate() != null) {
+                String updatedJson = objectMapper.writeValueAsString(req.getTemplate());
+                template.setTemplate(updatedJson);
+            }
+
+            if (req.getCategoryId() != null) {
+                // 새로 전달된 categoryId로 카테고리 엔티티를 DB에서 찾아옵니다.
+                TemplateCategory newCategory = categoryRepository.findById(req.getCategoryId())
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.NOT_FOUND, "변경하려는 카테고리를 찾을 수 없습니다. id=" + req.getCategoryId()));
+                template.setCategoryId(newCategory);
+                log.info("템플릿 ID {}의 카테고리를 {}로 변경했습니다.", templateId, req.getCategoryId());
+            }
             String updatedJson = objectMapper.writeValueAsString(req.getTemplate());
             template.setTemplate(updatedJson);
-            // templateRepository.save(template)는 Transactional 환경에서 생략 가능 (더티 체킹)
+
             return TemplateResDto.from(template, objectMapper);
+
         } catch (JsonProcessingException e) {
             log.error("템플릿 JSON 직렬화/파싱 실패 (수정): templateId={}", templateId, e);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 템플릿 JSON 형식입니다.", e);
