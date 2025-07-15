@@ -11,7 +11,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "tbl_notice_read")
+@Table(name = "tbl_board_read", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"notice_id", "employee_id"})
+})
 public class NoticeRead {
 
     @Id

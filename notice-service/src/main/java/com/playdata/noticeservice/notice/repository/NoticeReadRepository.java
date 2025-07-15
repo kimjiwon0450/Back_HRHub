@@ -24,7 +24,7 @@ public interface NoticeReadRepository extends JpaRepository<NoticeRead, Long> {
         SELECT n FROM Notice n
         WHERE n.notice = true
           AND n.boardStatus = true
-          AND n.departmentId = :departmentId
+          AND (n.departmentId = :departmentId OR n.departmentId = 0)
           AND n.id NOT IN (
               SELECT nr.noticeId FROM NoticeRead nr WHERE nr.employeeId = :employeeId
           )
@@ -41,16 +41,16 @@ public interface NoticeReadRepository extends JpaRepository<NoticeRead, Long> {
         SELECT COUNT(n) FROM Notice n
         WHERE n.notice = true
           AND n.boardStatus = true
-          AND n.departmentId = :departmentId
+          AND (n.departmentId = :departmentId1 OR n.departmentId = :departmentId2)
           AND n.id NOT IN (
               SELECT nr.noticeId FROM NoticeRead nr WHERE nr.employeeId = :employeeId
           )
     """)
     int countUnreadNoticesByDepartmentAndEmployeeId(
-            @Param("departmentId") Long departmentId,
+            @Param("departmentId1") Long departmentId1,
+            @Param("departmentId2") Long departmentId2,
             @Param("employeeId") Long employeeId
     );
-
     Optional<NoticeRead> findByNoticeIdAndEmployeeId(Long noticeId, Long employeeId);
 
 }

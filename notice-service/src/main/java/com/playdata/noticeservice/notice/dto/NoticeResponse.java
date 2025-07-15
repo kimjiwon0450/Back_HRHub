@@ -7,7 +7,7 @@ import lombok.*;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -27,7 +27,7 @@ public class NoticeResponse {
     private boolean notice;
     private String attachmentUri;
     private boolean boardStatus;
-    private LocalDate createdAt;
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private int viewCount;
 
@@ -55,8 +55,7 @@ public class NoticeResponse {
         dto.title = notice.getTitle();
         dto.content = notice.getContent();
         dto.name = user.getName();
-        dto.departmentId = user.getDepartmentId();
-        dto.departmentName = user.getDepartmentName();
+        dto.departmentId = notice.getDepartmentId();
         dto.employStatus = user.getStatus(); // ✅ 직관적 매핑
         dto.employeeId = notice.getEmployeeId();
         dto.notice = notice.isNotice();
@@ -74,7 +73,7 @@ public class NoticeResponse {
         dto.title = notice.getTitle();
         dto.content = notice.getContent();
         dto.name = user.getName();
-        dto.departmentId = user.getDepartmentId();
+        dto.departmentId = notice.getDepartmentId();
         dto.departmentName = dep.getName();
         dto.employStatus = user.getStatus(); // ✅ 직관적 매핑
         dto.employeeId = notice.getEmployeeId();

@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "tbl_notice_attachment")
+@Table(name = "tbl_board_attachment")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor

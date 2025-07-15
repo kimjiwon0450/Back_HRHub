@@ -6,7 +6,6 @@ import lombok.*;
 import org.bouncycastle.jcajce.provider.drbg.DRBG;
 
 import java.time.LocalDateTime;
-import java.time.LocalDate;
 
 
 @Getter
@@ -28,7 +27,7 @@ public class Notice {
     private Long employeeId;
     private Long departmentId;
     private boolean notice; // 공지 여부
-    private LocalDate createdAt;
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String attachmentUri;
     private boolean boardStatus;
@@ -38,7 +37,7 @@ public class Notice {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDate.now();
+        this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
