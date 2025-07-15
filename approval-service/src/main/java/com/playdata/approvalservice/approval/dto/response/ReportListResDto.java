@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.dto.response;
 
+import com.playdata.approvalservice.approval.entity.ApprovalStatus;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
@@ -27,5 +28,18 @@ public class ReportListResDto {
         private String reportCreatedAt;
         private ReportStatus reportStatus;
         private String currentApprover;
+
+        private List<ApprovalLineSimpleDto> approvalLine;
     }
+
+    @Getter @Setter @ToString
+    @NoArgsConstructor @AllArgsConstructor
+    @Builder
+    public static class ApprovalLineSimpleDto {
+        private Long employeeId;
+        private String employeeName;
+        private ApprovalStatus approvalStatus;
+    }
+
+
 }

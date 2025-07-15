@@ -5,16 +5,14 @@ import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.common.auth.TokenUserInfo;
 import com.playdata.hrservice.common.dto.CommonErrorDto;
 import com.playdata.hrservice.common.dto.CommonResDto;
-import com.playdata.hrservice.hr.dto.EmployeePasswordDto;
-import com.playdata.hrservice.hr.dto.EmployeeReqDto;
-import com.playdata.hrservice.hr.dto.EmployeeResDto;
-import com.playdata.hrservice.hr.dto.HrTransferHistoryResDto;
+import com.playdata.hrservice.hr.dto.*;
 import com.playdata.hrservice.hr.entity.Employee;
 import com.playdata.hrservice.hr.service.EmployeeService;
 import com.playdata.hrservice.hr.service.S3Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.web.PageableDefault;
@@ -55,21 +53,21 @@ public class EmployeeController {
 
     // 비밀번호 설정
     @PatchMapping("/employees/password")
-    public ResponseEntity<?> modifyPassword(@RequestBody EmployeePasswordDto dto) {
+    public ResponseEntity<CommonResDto> modifyPassword(@RequestBody EmployeePasswordDto dto) {
         employeeService.modifyPassword(dto);
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null),HttpStatus.OK);
     }
 
     // 이메일 인증 전송
     @GetMapping("/employees/email/verification/{email}")
-    public ResponseEntity<?> sendVerificationEmail(@PathVariable String email) {
+    public ResponseEntity<CommonResDto> sendVerificationEmail(@PathVariable String email) {
         employeeService.sendVerificationEmail(email);
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null),HttpStatus.OK);
     }
 
     // 로그인
     @PostMapping("/employees/login")
-    public ResponseEntity<?> login(@RequestBody EmployeeReqDto dto) {
+    public ResponseEntity<CommonResDto<Map<String, Object>>> login(@RequestBody EmployeeReqDto dto) {
         EmployeeResDto employeeDto = employeeService.login(dto);
 
         String token
@@ -88,18 +86,18 @@ public class EmployeeController {
         loginInfo.put("depId", employeeDto.getDepartmentId());
 
 
-        CommonResDto resDto
-                = new CommonResDto(HttpStatus.OK,
+        CommonResDto<Map<String,Object>> resDto
+                = new CommonResDto<>(HttpStatus.OK,
                 "Login Success", loginInfo);
         return new ResponseEntity<>(resDto, HttpStatus.OK);
     }
 
     // 간소화 된 직원 리스트
     @GetMapping("/employees")
-    public ResponseEntity<?> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable, @RequestParam(required = false) String field,
-                                              @RequestParam(required = false) String keyword, @RequestParam(required = false) String department) {
+    public ResponseEntity<CommonResDto<Page<EmployeeListResDto>>> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable, @RequestParam(required = false) String field,
+                                                                                   @RequestParam(required = false) String keyword, @RequestParam(required = false) String department) {
         return new ResponseEntity<>(
-                new CommonResDto(HttpStatus.OK,
+                new CommonResDto<>(HttpStatus.OK,
                     "Success",
                     employeeService.getEmployeeList(pageable, field, keyword, department))
                 , HttpStatus.OK);
@@ -107,35 +105,35 @@ public class EmployeeController {
 
     // 직원 상세조회
     @GetMapping("/employees/{id}")
-    public ResponseEntity<?> getEmployee(@PathVariable("id") Long id) {
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
+    public ResponseEntity<CommonResDto<EmployeeResDto>> getEmployee(@PathVariable("id") Long id) {
+        return new ResponseEntity<>(new CommonResDto<>(HttpStatus.OK, "Success", employeeService.getEmployee(id)), HttpStatus.OK);
     }
 
     // 직원 이름 조회
     @GetMapping("/employees/{id}/name")
-    public ResponseEntity<?> getEmployeeName(@PathVariable("id") Long id) {
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getEmployeeName(id)), HttpStatus.OK);
+    public ResponseEntity<CommonResDto<String>> getEmployeeName(@PathVariable("id") Long id) {
+        return new ResponseEntity<>(new CommonResDto<>(HttpStatus.OK, "Success", employeeService.getEmployeeName(id)), HttpStatus.OK);
     }
     // 직원 부서명 조회
     @GetMapping("/employees/{id}/name/department")
-    public ResponseEntity<?> getDepartmentNameOfEmployee(@PathVariable("id") Long id) {
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeeService.getDepartmentNameOfEmployee(id)), HttpStatus.OK);
+    public ResponseEntity<CommonResDto<String>> getDepartmentNameOfEmployee(@PathVariable("id") Long id) {
+        return new ResponseEntity<>(new CommonResDto<>(HttpStatus.OK, "Success", employeeService.getDepartmentNameOfEmployee(id)), HttpStatus.OK);
     }
 
 
     // 직원 정보수정
     @PatchMapping("/employees/{id}")
-    public ResponseEntity<?> modifyEmployeeInfo(@PathVariable("id") Long id, @RequestBody EmployeeReqDto dto, @AuthenticationPrincipal TokenUserInfo tokenUserInfo) throws JsonProcessingException {
+    public ResponseEntity<CommonResDto<EmployeeResDto>> modifyEmployeeInfo(@PathVariable("id") Long id, @RequestBody EmployeeReqDto dto, @AuthenticationPrincipal TokenUserInfo tokenUserInfo) throws JsonProcessingException {
         log.info("Modify employee : {}", dto);
         Role role = tokenUserInfo.getRole();
-        employeeService.modifyEmployeeInfo(id, dto, role);
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", null), HttpStatus.OK);
+        EmployeeResDto employeeResDto = employeeService.modifyEmployeeInfo(id, dto, role);
+        return new ResponseEntity<>(new CommonResDto<>(HttpStatus.OK, "Success", employeeResDto), HttpStatus.OK);
     }
 
     // 직원 퇴사 처리
     @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
     @PatchMapping("/employee/{id}/retire")
-    public ResponseEntity<?> retireEmployee(@PathVariable("id") Long id){
+    public ResponseEntity<CommonResDto> retireEmployee(@PathVariable("id") Long id){
 
         employeeService.deleteEmployee(id);
 
@@ -164,9 +162,9 @@ public class EmployeeController {
     // 인사 이동 이력
 //    @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
     @GetMapping("/transfer-history/{employeeId}")
-    public ResponseEntity<?> getTransferHistory(@PathVariable("employeeId") Long employeeId, @AuthenticationPrincipal TokenUserInfo tokenUserInfo) throws JsonProcessingException {
+    public ResponseEntity<CommonResDto<HrTransferHistoryResDto>> getTransferHistory(@PathVariable("employeeId") Long employeeId, @AuthenticationPrincipal TokenUserInfo tokenUserInfo) throws JsonProcessingException {
         HrTransferHistoryResDto resDto = employeeService.getTransferHistory(employeeId, tokenUserInfo);
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "success", resDto), HttpStatus.OK);
+        return new ResponseEntity<>(new CommonResDto<>(HttpStatus.OK, "success", resDto), HttpStatus.OK);
     }
 
     // 토큰 리프레시

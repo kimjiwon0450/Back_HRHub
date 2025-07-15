@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.YearMonth;
 import java.util.List;
 
 @RestController
@@ -69,7 +70,8 @@ public class EvaluationController {
 
     @GetMapping("/top/employee")
     public ResponseEntity<?> getTopEmployee() {
-        List<EmployeeResDto> employeesOfTop3 = evaluationService.getEmployeesOfTop3();
+        YearMonth thisMonth = YearMonth.now();
+        List<EmployeeResDto> employeesOfTop3 = evaluationService.getEmployeesOfTop3(thisMonth);
 
 
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeesOfTop3), HttpStatus.OK);

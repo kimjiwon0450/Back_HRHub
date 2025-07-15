@@ -24,7 +24,7 @@ public class DepartmentController {
 
     // 부서 아이디로 부서 아이디, 이름 가져오기
     @GetMapping("/departments/{id}")
-    public ResponseEntity<?> getDepartmentById(@PathVariable Long id) {
+    public ResponseEntity<CommonResDto> getDepartmentById(@PathVariable Long id) {
         CommonResDto resDto = new CommonResDto(
                 HttpStatus.OK, "Success", departmentService.getDepartment(id)
         );
@@ -32,7 +32,7 @@ public class DepartmentController {
     }
 
     @GetMapping("/departments")
-    public ResponseEntity<?> getAllDepartment() {
+    public ResponseEntity<CommonResDto> getAllDepartment() {
         CommonResDto resDto = new CommonResDto(
                 HttpStatus.OK, "Success", departmentService.getAllDepartments()
         );

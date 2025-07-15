@@ -5,11 +5,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.*;
+import com.playdata.approvalservice.approval.dto.request.template.ReportFromTemplateReqDto;
 import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.entity.*;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
 import com.playdata.approvalservice.common.config.AwsS3Config;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -42,6 +44,7 @@ public class ApprovalService {
     private final ApprovalRepository approvalRepository;
     private final ReferenceRepository referenceRepository;
     private final EmployeeFeignClient employeeFeignClient;
+    private final ReportTemplateRepository templateRepository;
     private final AwsS3Config awsS3Config;
 
     private final ObjectMapper objectMapper;
@@ -240,6 +243,81 @@ public class ApprovalService {
                 .build();
         }
 
+
+    /**
+     * 템플릿 기반 결재 문서 생성 및 상신
+     */
+    @Transactional
+    public ReportCreateResDto reportFromTemplate(
+            ReportFromTemplateReqDto req,
+            String writerEmail,
+            List<MultipartFile> files
+    ) {
+        // ... (1~3번 로직은 동일) ...
+        // 1. 템플릿 조회
+        ReportTemplate template = templateRepository.findById(req.getTemplateId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "템플릿을 찾을 수 없습니다."));
+
+        // 2. 보고서 내용 생성
+        String reportContent = generateContentFromTemplate(template.getTemplate(), req.getValues());
+
+        // 3. 기존 DTO로 변환
+        ReportCreateReqDto newProgressReq = new ReportCreateReqDto();
+        newProgressReq.setTitle(req.getTitle());
+        newProgressReq.setContent(reportContent);
+        newProgressReq.setApprovalLine(req.getApprovalLine());
+        newProgressReq.setReferences(req.getReferences());
+
+        Long writerId;
+        try {
+            // (수정) 올바른 메소드 호출: `findIdByEmail`에 `writerEmail`을 파라미터로 전달
+            ResponseEntity<Long> response = employeeFeignClient.findIdByEmail(writerEmail);
+
+            // 응답 상태 코드 및 본문 null 체크
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자 정보를 찾을 수 없습니다: " + writerEmail);
+            }
+            writerId = response.getBody();
+
+        } catch (Exception e) {
+            log.error("Failed to fetch writerId for email: {}", writerEmail, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 정보를 조회하는 중 오류가 발생했습니다.");
+        }
+
+        // 5. '즉시 상신' 메소드를 호출
+        return progressReport(newProgressReq, writerId, files);
+    }
+
+    /**
+     * 약속된 JSON 구조를 기반으로 보고서 내용을 생성합니다.
+     */
+    private String generateContentFromTemplate(String templateJson, Map<String, Object> values) {
+        try {
+            // 템플릿 전체 JSON을 파싱합니다.
+            JsonNode root = objectMapper.readTree(templateJson);
+            // "contentTemplate" 키에 해당하는 HTML 문자열을 가져옵니다.
+            String contentTemplate = root.path("contentTemplate").asText();
+
+            if (contentTemplate.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "템플릿 양식이 비어있습니다.");
+            }
+
+            String finalContent = contentTemplate;
+            if (values != null) {
+                // values 맵을 순회하며 {{key}} 형식의 플레이스홀더를 실제 값으로 치환합니다.
+                for (Map.Entry<String, Object> entry : values.entrySet()) {
+                    finalContent = finalContent.replace("{{" + entry.getKey() + "}}", String.valueOf(entry.getValue()));
+                }
+            }
+
+            return finalContent;
+
+        } catch (JsonProcessingException e) {
+            log.error("템플릿 contentTemplate 파싱 실패", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "템플릿 양식을 처리하는 중 오류가 발생했습니다.");
+        }
+    }
+
         /**
          * 보고서 목록 조회
          */
@@ -275,6 +353,7 @@ public class ApprovalService {
                 if(report.getCurrentApproverId() != null){
                     employeeIdsToFetch.add(report.getCurrentApproverId());
                 }
+                report.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId()));
             });
 
             Map<Long, String> employeeNamesMap = Collections.emptyMap();
@@ -289,6 +368,7 @@ public class ApprovalService {
                     employeeNamesMap = Collections.emptyMap();
                 }
             }
+
             final Map<Long, String> finalEmployeeNamesMap = employeeNamesMap;
 
             List<ReportListResDto.ReportSimpleDto> simples = pr.getContent().stream()
@@ -299,6 +379,15 @@ public class ApprovalService {
                         String approverName = r.getCurrentApproverId() != null
                                 ? finalEmployeeNamesMap.getOrDefault(r.getCurrentApproverId(), "알 수 없는 사용자")
                                 : null;
+                        // 각 보고서의 결재선 정보를 DTO 리스트로 만듭니다.
+                        List<ReportListResDto.ApprovalLineSimpleDto> approvalLineSimpleDtos = r.getApprovalLines().stream()
+                                .map(line -> ReportListResDto.ApprovalLineSimpleDto.builder()
+                                        .employeeId(line.getEmployeeId())
+                                        .employeeName(finalEmployeeNamesMap.getOrDefault(line.getEmployeeId(), "알 수 없는 사용자"))
+                                        .approvalStatus(line.getApprovalStatus())
+                                        .build())
+                                .collect(Collectors.toList());
+
                         return ReportListResDto.ReportSimpleDto.builder()
                                 .id(r.getId())
                                 .title(r.getTitle())
@@ -306,6 +395,7 @@ public class ApprovalService {
                                 .reportCreatedAt(r.getReportCreatedAt().format(fmt))
                                 .reportStatus(r.getReportStatus())
                                 .currentApprover(approverName)
+                                .approvalLine(approvalLineSimpleDtos)
                                 .build();
                     })
                     .collect(Collectors.toList());
@@ -361,6 +451,7 @@ public class ApprovalService {
 
         // 3. API 호출을 위한 모든 관련 직원 ID를 수집합니다.
         Set<Long> employeeIdsToFetch = new HashSet<>();
+
         employeeIdsToFetch.add(report.getWriterId()); // 작성자 ID
         if (report.getCurrentApproverId() != null) {
             employeeIdsToFetch.add(report.getCurrentApproverId()); // 현재 결재자 ID
@@ -660,8 +751,10 @@ public class ApprovalService {
             if (!report.getCurrentApproverId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "리마인드 권한이 없습니다.");
             }
+
             report.remind();
             Reports updated = reportsRepository.save(report);
+
             return ReportRemindResDto.builder()
                     .reportId(updated.getId())
                     .remindedAt(updated.getRemindedAt())
@@ -706,14 +799,5 @@ public class ApprovalService {
                     .employeeId(employeeId)
                     .build();
         }
-
-        // notice-service에서 필요해서 추가합니당
-        public List<ApprovalTodoDto> getPendingApprovals(Long approverId) {
-            return approvalRepository.findAllByApproverIdAndStatus(approverId, ReportStatus.IN_PROGRESS)
-                    .stream()
-                    .map(ApprovalTodoDto::fromEntity)
-                    .collect(Collectors.toList());
-        }
-
 
 }

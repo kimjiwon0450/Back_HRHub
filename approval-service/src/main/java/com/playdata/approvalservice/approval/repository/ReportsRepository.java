@@ -21,7 +21,7 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     /**
      * 결재자(ApprovalLine)로 조회
      */
-    @Query("SELECT r FROM Reports r JOIN r.approvalLines l " +
+    @Query("SELECT DISTINCT r FROM Reports r JOIN FETCH r.approvalLines l " +
             "WHERE l.employeeId = :approverId " +
             "AND r.reportStatus IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')")
     Page<Reports> findByApproverIdAndExcludeDraftRecalled(@Param("approverId") Long approverId, Pageable pageable);
@@ -36,7 +36,7 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     @Query(
             value = "SELECT * FROM reports r " +
                     "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references') " +
-                    "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')", // ★★★ 상태 필터링 추가 ★★★
+                    "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')",
             countQuery = "SELECT count(*) FROM reports r " +
                     "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references') " +
                     "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')",

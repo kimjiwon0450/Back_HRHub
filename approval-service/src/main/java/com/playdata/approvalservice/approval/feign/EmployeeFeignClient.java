@@ -38,4 +38,13 @@ public interface EmployeeFeignClient {
     ResponseEntity<Map<Long, String>> getEmployeeNamesByEmployeeIds(
             @RequestParam("ids") List<Long> employeeIds
     );
+
+    /**
+     * 이메일 주소로 직원의 ID(PK)를 조회합니다.
+     * hr-service의 GET /feign/employees/id?email=... API를 호출합니다.
+     * @param email 조회할 직원의 이메일
+     * @return 직원의 ID(Long)가 담긴 ResponseEntity
+     */
+    @GetMapping("/feign/employees/id")
+    ResponseEntity<Long> findIdByEmail(@RequestParam("email") String email);
 }

@@ -1,6 +1,7 @@
 package com.playdata.approvalservice.approval.controller;
 
 import com.playdata.approvalservice.approval.dto.request.*;
+import com.playdata.approvalservice.approval.dto.request.template.ReportFromTemplateReqDto;
 import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
@@ -250,14 +251,14 @@ public class ApprovalController {
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "참조자 삭제 완료", res));
     }
 
-    // notice-service에서 필요해서 추가합니당
-    @GetMapping("/reports/pending")
-    public ResponseEntity<CommonResDto> getPendingApprovals(
+    @PostMapping("/reports/category")
+    public ResponseEntity<CommonResDto> ReportCategory(
+            @RequestPart("req") @Valid ReportFromTemplateReqDto req,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo
-    ) {
-        Long approverId = getCurrentUserId(userInfo);
-        List<ApprovalTodoDto> res = approvalService.getPendingApprovals(approverId);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "결재 요청 목록", res));
+            ){
+        ReportCreateResDto resDto = approvalService.reportFromTemplate(req, userInfo.getEmail(), files);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new CommonResDto(HttpStatus.CREATED, "결재 문서가 성공적으로 상신되었습니다.", resDto));
     }
-
 }

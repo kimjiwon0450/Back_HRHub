@@ -11,19 +11,24 @@ import lombok.*;
 public class TemplateResDto {
     private Long templateId;
     private JsonNode template;
+    private Long categoryId;
+    private String categoryName;
+
 
     /**
      * 엔티티를 DTO로 변환하는 정적 팩토리 메소드
-     * @param entity ReportTemplate 엔티티
-     * @param objectMapper JSON 파싱을 위한 ObjectMapper
-     * @return TemplateResDto
-     * @throws JsonProcessingException 파싱 실패 시 예외
+     * @param reportTemplate
+     * @param objectMapper
+     * @return
+     * @throws JsonProcessingException
      */
-    public static TemplateResDto from(ReportTemplate entity, ObjectMapper objectMapper) throws JsonProcessingException {
-        JsonNode jsonTemplate = objectMapper.readTree(entity.getTemplate());
+    // from 정적 팩토리 메소드 수정
+    public static TemplateResDto from(ReportTemplate reportTemplate, ObjectMapper objectMapper) throws JsonProcessingException {
         return TemplateResDto.builder()
-                .templateId(entity.getTemplateId())
-                .template(jsonTemplate)
+                .templateId(reportTemplate.getTemplateId())
+                .template(objectMapper.readTree(reportTemplate.getTemplate()))
+                .categoryId(reportTemplate.getCategoryId().getCategoryId()) // 카테고리 정보 추가
+                .categoryName(reportTemplate.getCategoryId().getCategoryName()) // 카테고리 정보 추가
                 .build();
     }
 }

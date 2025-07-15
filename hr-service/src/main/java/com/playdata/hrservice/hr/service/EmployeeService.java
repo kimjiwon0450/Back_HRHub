@@ -224,7 +224,7 @@ public class EmployeeService {
 
     // 직원 수정
     @Transactional
-    public void modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) throws JsonProcessingException {
+    public EmployeeResDto modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) throws JsonProcessingException {
         Employee employee = employeeRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found!")
         );
@@ -234,6 +234,7 @@ public class EmployeeService {
             insertTransferHistory(employee, dto.getDepartmentId(), dto.getPosition(), "");
         }
         employee.updateFromDto(dto);
+        return employee.toDto();
 
     }
 
@@ -325,6 +326,18 @@ public class EmployeeService {
                 .employeeId(employeeId)
                 .hrTransferHistories(hrTransferHistoryDtos)
                 .build();
+    }
+
+    /**
+     * 이메일로 직원을 찾아 직원의 ID를 반환합니다.
+     */
+    public Long findIdByEmail(String email) {
+        // EmployeeRepository에 findByEmail 메소드가 정의되어 있어야 함
+        Employee employee = employeeRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "해당 이메일의 사용자를 찾을 수 없습니다: " + email
+                ));
+        return employee.getEmployeeId();
     }
 
 
