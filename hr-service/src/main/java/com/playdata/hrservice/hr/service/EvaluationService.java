@@ -156,16 +156,8 @@ public class EvaluationService {
         // 3위 동점 후보 걸러내기
         List<Evaluation>  thirdEvaluationsList = targetMonthEvaluations.stream()
                 .filter(eval -> Double.compare(eval.getTotalEvaluation(),thirdPlaceScore)==0)
-                .filter(eval -> !top2Ids.contains(eval.getEvaluatee().getEmployeeId()))
                 .toList();
-// 1위 ~ 3위까지 동점일때
-        if(thirdEvaluationsList.isEmpty()) {
-            thirdEvaluationsList =
-                    currentTopEvaluations.stream()
-                            .skip(2)
-                            .limit(1)
-                            .toList();
-        }
+
 
         // ---------------------------------------동점자 지난달 평가 비교-----------------------------------------------------
 
@@ -210,7 +202,9 @@ public class EvaluationService {
         // 최종
         //  1,2 등과 3등(들) 을 합쳐서 반환 해줄 거임.
         Set<Long> allIds = new LinkedHashSet<>();
-        allIds.addAll(top2Ids);
+        currentTopEvaluations.stream().limit(2)
+                        .map(eval->eval.getEvaluatee().getEmployeeId())
+                                .forEach(allIds::add);
         allIds.addAll(finalThirdIds);
 
 
