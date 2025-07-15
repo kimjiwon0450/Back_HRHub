@@ -17,7 +17,7 @@ public class PickTop3CacheService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final EvaluationService evaluationService;
 
-    private static final Duration TTL = Duration.ofDays(5);
+    private static final Duration TTL = Duration.ofDays(35);
 
     public List<EmployeeResDto> getCurrentTop3(){
         YearMonth ym = YearMonth.now().minusMonths(1);

@@ -73,7 +73,7 @@ public class EvaluationController {
 
     @GetMapping("/top/employee")
     public ResponseEntity<?> getTopEmployee() {
-        YearMonth thisMonth = YearMonth.now();
+        YearMonth thisMonth = YearMonth.now().minusMonths(1);
         List<EmployeeResDto> employeesOfTop3 = evaluationService.getEmployeesOfTop3(thisMonth);
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeesOfTop3), HttpStatus.OK);
     }
