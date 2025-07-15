@@ -1,12 +1,14 @@
 package com.playdata.hrservice.hr.controller;
 
+import com.playdata.hrservice.common.auth.TokenUserInfo;
 import com.playdata.hrservice.common.dto.CommonResDto;
-import com.playdata.hrservice.hr.dto.EmployeeResDto;
-import com.playdata.hrservice.hr.dto.EvaluationListResDto;
-import com.playdata.hrservice.hr.dto.EvaluationReqDto;
-import com.playdata.hrservice.hr.dto.EvaluationResDto;
+import com.playdata.hrservice.hr.dto.*;
+import com.playdata.hrservice.hr.entity.Employee;
 import com.playdata.hrservice.hr.entity.Evaluation;
+import com.playdata.hrservice.hr.service.EmployeeService;
 import com.playdata.hrservice.hr.service.EvaluationService;
+import com.playdata.hrservice.hr.service.PickTop3CacheService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -25,6 +27,7 @@ import java.util.List;
 @Slf4j
 public class EvaluationController {
     private final EvaluationService evaluationService;
+    private final PickTop3CacheService pickTop3CacheService;
 
     // 인사 평가
     @PreAuthorize("hasRole('ADMIN') or hasRole('HR_MANAGER')")
@@ -70,10 +73,23 @@ public class EvaluationController {
 
     @GetMapping("/top/employee")
     public ResponseEntity<?> getTopEmployee() {
-        YearMonth thisMonth = YearMonth.now();
+        YearMonth thisMonth = YearMonth.now().minusMonths(1);
         List<EmployeeResDto> employeesOfTop3 = evaluationService.getEmployeesOfTop3(thisMonth);
-
-
         return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", employeesOfTop3), HttpStatus.OK);
+    }
+    @GetMapping("/eom/top3")
+    public List<EmployeeResDto> currentTop3(){
+        return pickTop3CacheService.getCurrentTop3();
+    }
+
+    @PostMapping("/eom/{id}/top3")
+    public String greetingMessage(@PathVariable Long id,
+                                  @RequestBody @Valid MsgDto dto,
+                                  TokenUserInfo tokenUserInfo) {
+       if(tokenUserInfo.getEmployeeId().equals(id)) {
+           pickTop3CacheService.submitGreeting(id, dto);
+           return dto.getMessage();
+       }
+       else return null;
     }
 }
