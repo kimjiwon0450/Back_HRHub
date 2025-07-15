@@ -27,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 
@@ -198,5 +199,13 @@ public class EmployeeController {
         msg += "token.exp_time:" + env.getProperty("token.expiration_time") +"\n";
         return msg;
     }
+
+    // ✅ Bulk 조회 API 추가
+    @PostMapping("/employees/bulk")
+    public ResponseEntity<CommonResDto> getEmployeesByIds(@RequestBody Set<Long> employeeIds) {
+        List<EmployeeResDto> users = employeeService.findByIds(employeeIds);
+        return ResponseEntity.ok(CommonResDto.success(users));
+    }
+
 
 }

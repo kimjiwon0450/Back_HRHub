@@ -35,8 +35,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -58,8 +60,10 @@ public class NoticeController {
     @GetMapping("/noticeboard")
     public ResponseEntity<Map<String, Object>> getAllPosts(
             @RequestParam(defaultValue = "") String keyword,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime toDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -76,56 +80,65 @@ public class NoticeController {
 
         boolean hasFilter = !((keyword == null || keyword.isBlank()) && fromDate == null && toDate == null);
 
-
         List<Notice> topGeneralNotices;
         List<Notice> topNotices;
         Page<Notice> posts;
 
         if (hasFilter) {
-            // 부서 전체 공지글 5개
-            List<Notice> GeneralTop = noticeService.getFilteredGeneralNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
-            topGeneralNotices = GeneralTop.stream().limit(5).toList();
-
-            // 상위 공지글 5개
-            List<Notice> filteredTop = noticeService.getFilteredNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
-            topNotices = filteredTop.stream().limit(5).toList();
-
-            // 나머지 공지글 + 일반글 필터링한 결과를 수동 페이징 처리
+            topGeneralNotices = noticeService.getFilteredGeneralNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
+//            topGeneralNotices = GeneralTop.stream().limit(5).toList();
+            topNotices = noticeService.getFilteredNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
+//            topNotices = filteredTop.stream().limit(5).toList();
             posts = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
         } else {
+            // 부서 전체 공지글 5개
             topGeneralNotices = noticeService.getGeneralNotices().stream().limit(5).toList();
+            // 상위 공지글 5개
             topNotices = noticeService.getAllNotices(sortBy, sortDir).stream().limit(5).toList();
+            // 나머지 공지글 + 일반글 필터링한 결과를 수동 페이징 처리
             posts = noticeService.getMergedPostsAfterTop5(pageSize, sortBy, sortDir);
         }
 
+        Set<Long> employeeIds = Stream.concat(Stream.concat(topGeneralNotices.stream(), topNotices.stream()), posts.stream())
+                .map(Notice::getEmployeeId)
+                .collect(Collectors.toSet());
 
-        // ✅ 유저 정보 포함하여 DTO 변환
-        List<NoticeResponse> GnoticeDtos = topGeneralNotices.stream()
-                .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-                    return NoticeResponse.fromEntity(n, user);
-                })
-                .toList();
-
-        List<NoticeResponse> noticeDtos = topNotices.stream()
-                .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-                    return NoticeResponse.fromEntity(n, user);
-                })
-                .toList();
-
-        List<NoticeResponse> postDtos = posts.stream()
-                .map(n -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-                    return NoticeResponse.fromEntity(n, user);
-                })
-                .toList();
+        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(employeeIds).stream()
+                .collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
 
 
+//        // ✅ 유저 정보 포함하여 DTO 변환
+//        List<NoticeResponse> GnoticeDtos = topGeneralNotices.stream()
+//                .map(n -> {
+//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+//                    return NoticeResponse.fromEntity(n, user);
+//                })
+//                .toList();
+//
+//        List<NoticeResponse> noticeDtos = topNotices.stream()
+//                .map(n -> {
+//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+//                    return NoticeResponse.fromEntity(n, user);
+//                })
+//                .toList();
+//
+//        List<NoticeResponse> postDtos = posts.stream()
+//                .map(n -> {
+//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+//                    return NoticeResponse.fromEntity(n, user);
+//                })
+//                .toList();
+//
+//
+//        Map<String, Object> response = new HashMap<>();
+//        response.put("generalNotices", GnoticeDtos);
+//        response.put("notices", noticeDtos);
+//        response.put("posts", postDtos);
         Map<String, Object> response = new HashMap<>();
-        response.put("generalNotices", GnoticeDtos);
-        response.put("notices", noticeDtos);
-        response.put("posts", postDtos);
+        response.put("generalNotices", topGeneralNotices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
+        response.put("notices", topNotices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
+        response.put("posts", posts.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
+
         response.put("totalPages", posts.getTotalPages());
         response.put("currentPage", posts.getNumber());
         log.info("response 결과 확인");
@@ -139,14 +152,22 @@ public class NoticeController {
     public ResponseEntity<List<NoticeResponse>> getMyPosts(@AuthenticationPrincipal TokenUserInfo userInfo) {
         List<Notice> notices = noticeService.getMyPosts(userInfo.getEmployeeId());
 
-        List<NoticeResponse> responseList = notices.stream()
-                .map(notice -> {
-                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, user);
-                })
-                .toList();
+//        List<NoticeResponse> responseList = notices.stream()
+//                .map(notice -> {
+//                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+//                    return NoticeResponse.fromEntity(notice, user);
+//                })
+//                .toList();
+//
+//        return ResponseEntity.ok(responseList);
 
-        return ResponseEntity.ok(responseList);
+        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(
+                notices.stream().map(Notice::getEmployeeId).collect(Collectors.toSet())
+        ).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
+
+        return ResponseEntity.ok(
+                notices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList()
+        );
     }
 
     // 전체 공지 조회 (department_id = 0)
@@ -170,24 +191,34 @@ public class NoticeController {
     @GetMapping("/noticeboard/mydepartment")
     public ResponseEntity<List<NoticeResponse>> getDepartmentPosts(
             @RequestParam(defaultValue = "") String keyword,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime toDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int pageSize,
             @AuthenticationPrincipal TokenUserInfo userInfo) {
+
 
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         List<Notice> notices = noticeService.getNoticesByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate);
         List<Notice> posts = noticeService.getPostsByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate, pageable);
 
-        List<NoticeResponse> responseList = Stream.concat(notices.stream(), posts.stream())
-                .map(notice -> {
-                    HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, writer);
-                })
-                .toList();
+//        List<NoticeResponse> responseList = Stream.concat(notices.stream(), posts.stream())
+//                .map(notice -> {
+//                    HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
+//                    return NoticeResponse.fromEntity(notice, writer);
+//                })
+//                .toList();
+//
+//        return ResponseEntity.ok(responseList);
 
-        return ResponseEntity.ok(responseList);
+        List<Notice> combined = Stream.concat(notices.stream(), posts.stream()).toList();
+        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(
+                combined.stream().map(Notice::getEmployeeId).collect(Collectors.toSet())
+        ).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
+
+        return ResponseEntity.ok(
+                combined.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList()
+        );
     }
 
     // 글 상세 화면 조회

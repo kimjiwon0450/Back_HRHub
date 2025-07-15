@@ -19,4 +19,9 @@ public class CommonResDto<T> {
         this.statusMessage = statusMessage;
         this.result = result;
     }
+
+    public static CommonResDto success(Object result) {
+        return new CommonResDto(HttpStatus.OK, "Success", result);
+    }
+
 }
