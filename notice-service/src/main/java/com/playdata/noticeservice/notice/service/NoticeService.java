@@ -30,7 +30,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -130,17 +129,17 @@ public class NoticeService {
 
 
 
-    // ✅ 필터링된 공지글 조회 (최대 30개)
-    public List<Notice> getFilteredNotices(String keyword, LocalDate from, LocalDate to, String sortBy, String sortDir) {
+    // ✅ 필터링된 공지글 조회 (최대 100개)
+    public List<Notice> getFilteredNotices(String keyword, LocalDateTime from, LocalDateTime to, int pageSize, String sortBy, String sortDir) {
         log.info("case4");
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(0, 30, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
 
         if (from == null) {
-            from = LocalDate.of(2000, 1, 1); // 매우 과거
+            from = LocalDateTime.of(2000, 1, 1,0,0); // 매우 과거
         }
         if (to == null) {
-            to = LocalDate.now().plusDays(1); // 오늘까지 포함
+            to = LocalDateTime.now().plusDays(1); // 오늘까지 포함
 
         }
 
@@ -149,16 +148,16 @@ public class NoticeService {
     }
 
     // ✅ 필터링된 일반글 조회
-    public Page<Notice> getFilteredPosts(String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
+    public Page<Notice> getFilteredPosts(String keyword, LocalDateTime from, LocalDateTime to, int pageSize, String sortBy, String sortDir) {
         log.info("case5");
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
 
         if (from == null) {
-            from = LocalDate.of(2000, 1, 1); // 매우 과거
+            from = LocalDateTime.of(2000, 1, 1, 0, 0); // 매우 과거
         }
         if (to == null) {
-            to = LocalDate.now().plusDays(1); // 오늘까지 포함
+            to = LocalDateTime.now().plusDays(1); // 오늘까지 포함
 
         }
 
@@ -172,18 +171,44 @@ public class NoticeService {
         return noticeRepository.findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(employeeId);
     }
 
+    // 전체 공지글 조회
+    public List<Notice> getGeneralNotices() {
+        Long departmentId = 0L;
+        return noticeRepository.findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(departmentId);
+    }
+
+    // 필터링된 전체 공지글 조회
+    public List<Notice> getFilteredGeneralNotices(String keyword, LocalDateTime from, LocalDateTime to, int pageSize, String sortBy, String sortDir) {
+        log.info("case7");
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
+
+        if (from == null) {
+            from = LocalDateTime.of(2000, 1, 1,0,0); // 매우 과거
+        }
+        if (to == null) {
+            to = LocalDateTime.now().plusDays(1); // 오늘까지 포함
+
+        }
+        Long departmentId = 0L;
+
+        return noticeRepository.findFilteredGeneralNotices(
+                keyword, from, to, departmentId, pageable);
+    }
+
+
     // 내 부서의 공지글 조회
     public List<Notice> getNoticesByDepartment(Long departmentId, String keyword,
-                                                       LocalDate fromDate, LocalDate toDate) {
+                                               LocalDateTime fromDate, LocalDateTime toDate) {
 
         Pageable pageable = PageRequest.of(0, 5);
 
         // 날짜 기본값 처리
         if (fromDate == null) {
-            fromDate = LocalDate.of(2000, 1, 1);  // 아주 예전 날짜
+            fromDate = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
         }
         if (toDate == null) {
-            toDate = LocalDate.now().plusDays(1);  // 오늘 포함
+            toDate = LocalDateTime.now().plusDays(1);  // 오늘 포함
         }
 
         return noticeRepository.findMyDepartmentNotices(keyword, fromDate, toDate, departmentId, pageable);
@@ -191,14 +216,14 @@ public class NoticeService {
 
     // 내 부서의 게시글 조회
     public List<Notice> getPostsByDepartment(Long departmentId, String keyword,
-                                                     LocalDate fromDate, LocalDate toDate,
+                                             LocalDateTime fromDate, LocalDateTime toDate,
                                                      Pageable pageable) {
         // 날짜 기본값 처리
         if (fromDate == null) {
-            fromDate = LocalDate.of(2000, 1, 1);  // 아주 예전 날짜
+            fromDate = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
         }
         if (toDate == null) {
-            toDate = LocalDate.now().plusDays(1);  // 오늘 포함
+            toDate = LocalDateTime.now().plusDays(1);  // 오늘 포함
         }
 
         return noticeRepository.findMyDepartmentPosts(keyword, fromDate, toDate, departmentId);
@@ -233,7 +258,7 @@ public class NoticeService {
                 .employeeId(employeeId)
                 .departmentId(request.getDepartmentId())
                 .boardStatus(true)
-                .createdAt(LocalDate.now())
+                .createdAt(LocalDateTime.now())
                 .attachmentUri(attachmentUriJson) // ✅ JSON 배열 형태로 저장
                 .build();
 
@@ -308,22 +333,25 @@ public class NoticeService {
         noticeReadRepository.save(read);
 
         // 조회수 증가 및 저장
-        Notice notice = noticeRepository.findById(noticeId)
-                .orElseThrow(() -> new EntityNotFoundException("해당 게시글이 존재하지 않습니다."));
-        notice.setViewCount(notice.getViewCount() + 1);
-        noticeRepository.save(notice); // 💥 실제로 DB 반영
+//        Notice notice = noticeRepository.findById(noticeId)
+//                .orElseThrow(() -> new EntityNotFoundException("해당 게시글이 존재하지 않습니다."));
+//        notice.setViewCount(notice.getViewCount() + 1);
+//        noticeRepository.save(notice); // 💥 실제로 DB 반영
+
+        noticeRepository.incrementViewCount(noticeId);
     }
 
 
     // 읽지 않은 공지글 개수 조회
-    public int countUnreadNotices(Long employeeId, Long departmentId) {
-        return noticeReadRepository.countUnreadNoticesByDepartmentAndEmployeeId(departmentId, employeeId);
+    public int countUnreadNotices(Long employeeId, Long departmentId1) {
+        Long departmentId2 = 0L;
+        return noticeReadRepository.countUnreadNoticesByDepartmentAndEmployeeId(departmentId1, departmentId2, employeeId);
     }
 
 
     // 읽지 않은 공지글 알림
     public Map<String, List<NoticeResponse>> getUserAlerts(Long employeeId, Long departmentId) {
-        Pageable pageable = PageRequest.of(0, 20);
+        Pageable pageable = PageRequest.of(0, 30);
 
         // 읽지 않은 공지글을 한 번에 조회
         List<Notice> unreadNotices = noticeReadRepository

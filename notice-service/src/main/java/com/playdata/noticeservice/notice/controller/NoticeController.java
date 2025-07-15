@@ -35,7 +35,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -58,10 +58,10 @@ public class NoticeController {
     @GetMapping("/noticeboard")
     public ResponseEntity<Map<String, Object>> getAllPosts(
             @RequestParam(defaultValue = "") String keyword,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime toDate,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int pageSize,
+            @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
@@ -77,21 +77,36 @@ public class NoticeController {
         boolean hasFilter = !((keyword == null || keyword.isBlank()) && fromDate == null && toDate == null);
 
 
+        List<Notice> topGeneralNotices;
         List<Notice> topNotices;
         Page<Notice> posts;
 
         if (hasFilter) {
-            List<Notice> filteredTop = noticeService.getFilteredNotices(keyword, fromDate, toDate, sortBy, sortDir);
+            // 부서 전체 공지글 5개
+            List<Notice> GeneralTop = noticeService.getFilteredGeneralNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
+            topGeneralNotices = GeneralTop.stream().limit(5).toList();
+
+            // 상위 공지글 5개
+            List<Notice> filteredTop = noticeService.getFilteredNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
             topNotices = filteredTop.stream().limit(5).toList();
+
             // 나머지 공지글 + 일반글 필터링한 결과를 수동 페이징 처리
             posts = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
         } else {
+            topGeneralNotices = noticeService.getGeneralNotices().stream().limit(5).toList();
             topNotices = noticeService.getAllNotices(sortBy, sortDir).stream().limit(5).toList();
             posts = noticeService.getMergedPostsAfterTop5(pageSize, sortBy, sortDir);
         }
 
 
         // ✅ 유저 정보 포함하여 DTO 변환
+        List<NoticeResponse> GnoticeDtos = topGeneralNotices.stream()
+                .map(n -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
+                    return NoticeResponse.fromEntity(n, user);
+                })
+                .toList();
+
         List<NoticeResponse> noticeDtos = topNotices.stream()
                 .map(n -> {
                     HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
@@ -108,6 +123,7 @@ public class NoticeController {
 
 
         Map<String, Object> response = new HashMap<>();
+        response.put("generalNotices", GnoticeDtos);
         response.put("notices", noticeDtos);
         response.put("posts", postDtos);
         response.put("totalPages", posts.getTotalPages());
@@ -133,12 +149,29 @@ public class NoticeController {
         return ResponseEntity.ok(responseList);
     }
 
+    // 전체 공지 조회 (department_id = 0)
+    @GetMapping("/noticeboard/generalnotice")
+    public ResponseEntity<List<NoticeResponse>> getGeneralNotices(@AuthenticationPrincipal TokenUserInfo userInfo) {
+        List<Notice> notices = noticeService.getGeneralNotices();
+
+        List<NoticeResponse> responseList = notices.stream()
+                .map(notice -> {
+                    HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
+                    return NoticeResponse.fromEntity(notice, user);
+                })
+                .toList();
+
+        return ResponseEntity.ok(responseList);
+    }
+
+
+
     // 나의 부서글 조회
     @GetMapping("/noticeboard/mydepartment")
     public ResponseEntity<List<NoticeResponse>> getDepartmentPosts(
             @RequestParam(defaultValue = "") String keyword,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDateTime toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int pageSize,
             @AuthenticationPrincipal TokenUserInfo userInfo) {
