@@ -27,8 +27,8 @@ public class TemplateResDto {
         return TemplateResDto.builder()
                 .templateId(reportTemplate.getTemplateId())
                 .template(objectMapper.readTree(reportTemplate.getTemplate()))
-                .categoryId(reportTemplate.getCategory().getId()) // 카테고리 정보 추가
-                .categoryName(reportTemplate.getCategory().getName()) // 카테고리 정보 추가
+                .categoryId(reportTemplate.getCategoryId().getCategoryId()) // 카테고리 정보 추가
+                .categoryName(reportTemplate.getCategoryId().getCategoryName()) // 카테고리 정보 추가
                 .build();
     }
 }

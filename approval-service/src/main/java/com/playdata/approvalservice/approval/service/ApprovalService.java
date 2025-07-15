@@ -5,11 +5,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.*;
+import com.playdata.approvalservice.approval.dto.request.template.ReportFromTemplateReqDto;
 import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.entity.*;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
 import com.playdata.approvalservice.common.config.AwsS3Config;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -42,6 +44,7 @@ public class ApprovalService {
     private final ApprovalRepository approvalRepository;
     private final ReferenceRepository referenceRepository;
     private final EmployeeFeignClient employeeFeignClient;
+    private final ReportTemplateRepository templateRepository;
     private final AwsS3Config awsS3Config;
 
     private final ObjectMapper objectMapper;
@@ -239,6 +242,81 @@ public class ApprovalService {
                 .remindedAt(saved.getRemindedAt()) // 리마인드 시각
                 .build();
         }
+
+
+    /**
+     * 템플릿 기반 결재 문서 생성 및 상신
+     */
+    @Transactional
+    public ReportCreateResDto reportFromTemplate(
+            ReportFromTemplateReqDto req,
+            String writerEmail,
+            List<MultipartFile> files
+    ) {
+        // ... (1~3번 로직은 동일) ...
+        // 1. 템플릿 조회
+        ReportTemplate template = templateRepository.findById(req.getTemplateId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "템플릿을 찾을 수 없습니다."));
+
+        // 2. 보고서 내용 생성
+        String reportContent = generateContentFromTemplate(template.getTemplate(), req.getValues());
+
+        // 3. 기존 DTO로 변환
+        ReportCreateReqDto newProgressReq = new ReportCreateReqDto();
+        newProgressReq.setTitle(req.getTitle());
+        newProgressReq.setContent(reportContent);
+        newProgressReq.setApprovalLine(req.getApprovalLine());
+        newProgressReq.setReferences(req.getReferences());
+
+        Long writerId;
+        try {
+            // (수정) 올바른 메소드 호출: `findIdByEmail`에 `writerEmail`을 파라미터로 전달
+            ResponseEntity<Long> response = employeeFeignClient.findIdByEmail(writerEmail);
+
+            // 응답 상태 코드 및 본문 null 체크
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "사용자 정보를 찾을 수 없습니다: " + writerEmail);
+            }
+            writerId = response.getBody();
+
+        } catch (Exception e) {
+            log.error("Failed to fetch writerId for email: {}", writerEmail, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사용자 정보를 조회하는 중 오류가 발생했습니다.");
+        }
+
+        // 5. '즉시 상신' 메소드를 호출
+        return progressReport(newProgressReq, writerId, files);
+    }
+
+    /**
+     * 약속된 JSON 구조를 기반으로 보고서 내용을 생성합니다.
+     */
+    private String generateContentFromTemplate(String templateJson, Map<String, Object> values) {
+        try {
+            // 템플릿 전체 JSON을 파싱합니다.
+            JsonNode root = objectMapper.readTree(templateJson);
+            // "contentTemplate" 키에 해당하는 HTML 문자열을 가져옵니다.
+            String contentTemplate = root.path("contentTemplate").asText();
+
+            if (contentTemplate.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "템플릿 양식이 비어있습니다.");
+            }
+
+            String finalContent = contentTemplate;
+            if (values != null) {
+                // values 맵을 순회하며 {{key}} 형식의 플레이스홀더를 실제 값으로 치환합니다.
+                for (Map.Entry<String, Object> entry : values.entrySet()) {
+                    finalContent = finalContent.replace("{{" + entry.getKey() + "}}", String.valueOf(entry.getValue()));
+                }
+            }
+
+            return finalContent;
+
+        } catch (JsonProcessingException e) {
+            log.error("템플릿 contentTemplate 파싱 실패", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "템플릿 양식을 처리하는 중 오류가 발생했습니다.");
+        }
+    }
 
         /**
          * 보고서 목록 조회
@@ -721,4 +799,5 @@ public class ApprovalService {
                     .employeeId(employeeId)
                     .build();
         }
+
 }
