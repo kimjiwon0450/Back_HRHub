@@ -9,14 +9,14 @@ import lombok.Getter;
 public class CategoryResDto {
     private Long id;
     private String categoryName;
-    private String description;
+    private String categoryDescription;
 
     // Entity -> DTO 변환을 위한 정적 팩토리 메소드
     public static CategoryResDto from(TemplateCategory category) {
         return CategoryResDto.builder()
                 .id(category.getCategoryId())
                 .categoryName(category.getCategoryName())
-                .description(category.getDescription())
+                .categoryDescription(category.getCategoryDescription())
                 .build();
     }
 }

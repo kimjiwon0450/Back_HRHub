@@ -10,4 +10,8 @@ public class TemplateUpdateReqDto {
 
     @NotNull
     private JsonNode template;
+
+    private Long categoryId;
+
+
 }
