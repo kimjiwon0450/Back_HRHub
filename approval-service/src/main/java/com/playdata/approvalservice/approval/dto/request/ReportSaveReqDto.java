@@ -21,16 +21,12 @@ public class ReportSaveReqDto {
 
     private String content;
 
-    private List<ApprovalLineReqDto> approvalLine;
+    private Long templateId;
 
-//    private List<AttachmentJsonReqDto> attachments;
+    private List<ApprovalLineReqDto> approvalLine;
 
     private List<ReferenceJsonReqDto> references;
 
     private String reportTemplateData;
-
-//    public String getTemplateDataAsString() throws JsonProcessingException {
-//        return new ObjectMapper().writeValueAsString(reportTemplateData);
-//    }
 
 }

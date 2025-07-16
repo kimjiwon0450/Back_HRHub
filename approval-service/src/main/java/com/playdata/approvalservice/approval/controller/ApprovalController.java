@@ -56,7 +56,7 @@ public class ApprovalController {
      */
     @PostMapping(value = "/save", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> createReport(
-            @ModelAttribute @Valid ReportSaveReqDto req,
+            @RequestPart @Valid ReportSaveReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ) {
@@ -72,7 +72,7 @@ public class ApprovalController {
      */
     @PostMapping(value = "/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> progressReport(
-            @ModelAttribute @Valid ReportCreateReqDto req,
+            @RequestPart @Valid ReportCreateReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ){
