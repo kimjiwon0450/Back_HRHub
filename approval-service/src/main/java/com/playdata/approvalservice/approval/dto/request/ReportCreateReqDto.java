@@ -23,7 +23,7 @@ public class ReportCreateReqDto {
     @NotEmpty
     private List<ApprovalLineReqDto> approvalLine;
 
-//    private List<AttachmentJsonReqDto> attachments;
+    private Long templateId;
 
     private List<ReferenceJsonReqDto> references;
 

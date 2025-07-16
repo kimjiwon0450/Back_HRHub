@@ -21,7 +21,6 @@ import java.util.List;
 @RestController
 @RequiredArgsConstructor
 @Slf4j
-@PreAuthorize("hasAnyRole('HR_MANAGER','ADMIN')")
 @RequestMapping("/approval/templates")
 public class TemplateController {
 
@@ -30,6 +29,7 @@ public class TemplateController {
     /**
      * 템플릿 생성
      */
+    @PreAuthorize("hasAnyRole('HR_MANAGER','ADMIN')")
     @PostMapping("/create")
     public ResponseEntity<CommonResDto> templateCreate(
             @RequestBody @Valid TemplateCreateReqDto req,
@@ -68,6 +68,7 @@ public class TemplateController {
     /**
      * 템플릿 수정
      */
+    @PreAuthorize("hasAnyRole('HR_MANAGER','ADMIN')")
     @PutMapping("/{templateId}")
     public ResponseEntity<CommonResDto> templateUpdate(
             @PathVariable Long templateId,
@@ -81,6 +82,7 @@ public class TemplateController {
     /**
      * 템플릿 삭제
      */
+    @PreAuthorize("hasAnyRole('HR_MANAGER','ADMIN')")
     @DeleteMapping("/{templateId}")
     public ResponseEntity<CommonResDto> templateDelete(
             @PathVariable Long templateId,

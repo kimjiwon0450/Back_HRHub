@@ -1,5 +1,7 @@
 package com.playdata.approvalservice.approval.entity;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
@@ -7,6 +9,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Getter
 @NoArgsConstructor
@@ -33,7 +36,7 @@ public class Reports extends BaseTimeEntity {
     /**
      * 기안 양식 (FK)
      */
-    @Column(name = "report_template_id", columnDefinition = "JSON")
+    @Column(name = "report_template_id")
     private Long reportTemplateId;
 
     /**
@@ -129,7 +132,7 @@ public class Reports extends BaseTimeEntity {
     private List<ApprovalLine> approvalLines = new ArrayList<>();
 
     /**
-     * 요청 DTO를 엔티티로 변환하는 팩토리 메서드
+     * 요청 DTO를 엔티티로 변환하는 팩토리 메서드 (최종 수정안)
      */
     public static Reports fromDto(ReportSaveReqDto dto, Long userId) {
         Reports report = Reports.builder()
@@ -140,20 +143,15 @@ public class Reports extends BaseTimeEntity {
                 .reportCreatedAt(LocalDateTime.now())
                 .reportTemplateData(dto.getReportTemplateData())
                 .reminderCount(0)
+                .reportTemplateId(dto.getTemplateId())
                 .build();
 
-
         // 결재 라인 설정
-        report.replaceApprovalLines(dto.getApprovalLine());
-        if (!report.approvalLines.isEmpty()) {
-            report.currentApproverId = report.approvalLines.get(0).getEmployeeId();
-        }
-
-        // 첫 결재자
-        if(!report.getApprovalLines().isEmpty()) {
-            report.setCurrentApproverId(
-                    report.getApprovalLines().get(0).getEmployeeId()
-            );
+        if (dto.getApprovalLine() != null) {
+            report.replaceApprovalLines(dto.getApprovalLine());
+            if (!report.getApprovalLines().isEmpty()) {
+                report.setCurrentApproverId(report.getApprovalLines().get(0).getEmployeeId());
+            }
         }
 
         return report;
@@ -172,6 +170,7 @@ public class Reports extends BaseTimeEntity {
                 .reportCreatedAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now()) // ★ 제출일시도 바로 기록
                 .reminderCount(0)
+                .reportTemplateId(dto.getTemplateId())
                 .build();
 
         // 결재 라인 설정 (기존 로직과 동일)
