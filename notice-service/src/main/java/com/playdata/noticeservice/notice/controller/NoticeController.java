@@ -82,14 +82,14 @@ public class NoticeController {
         if (hasFilter) {
             topGeneralNotices = noticeService.getFilteredGeneralNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
             topNotices = noticeService.getFilteredNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
-            posts = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
+            posts = noticeService.getFilteredPosts(page, keyword, fromDate, toDate, pageSize, sortBy, sortDir);
         } else {
             // 부서 전체 공지글 5개
             topGeneralNotices = noticeService.getGeneralNotices().stream().limit(5).toList();
             // 상위 공지글 5개
             topNotices = noticeService.getAllNotices(sortBy, sortDir).stream().limit(5).toList();
             // 나머지 공지글 + 일반글 필터링한 결과를 수동 페이징 처리
-            posts = noticeService.getMergedPostsAfterTop5(pageSize, sortBy, sortDir);
+            posts = noticeService.getMergedPostsAfterTop5(page, pageSize, sortBy, sortDir);
         }
 
         Set<Long> employeeIds = Stream.concat(Stream.concat(topGeneralNotices.stream(), topNotices.stream()), posts.stream())
@@ -245,9 +245,6 @@ public class NoticeController {
     }
 
 
-
-
-
     // 글 삭제
     @DeleteMapping("/noticeboard/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id,
@@ -326,6 +323,5 @@ public class NoticeController {
         noticeService.deleteComment(noticeId, commentId, userInfo.getEmployeeId());
         return ResponseEntity.noContent().build();
     }
-
 
 }

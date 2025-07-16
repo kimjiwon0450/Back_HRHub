@@ -78,7 +78,7 @@ public class NoticeService {
 
 
     // 공지글 5개 이후 + 일반 게시글 전체를 합친 리스트 반환
-    public Page<Notice> getMergedPostsAfterTop5(int pageSize, String sortBy, String sortDir) {
+    public Page<Notice> getMergedPostsAfterTop5(int page, int pageSize, String sortBy, String sortDir) {
         log.info("case3");
 
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
@@ -110,7 +110,9 @@ public class NoticeService {
                 .collect(Collectors.toList());
 
         // 일반 게시글
-        Pageable pageable = PageRequest.of(0, pageSize, sort);
+        Pageable pageable = PageRequest.of(page, pageSize,
+                Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy));
+
         List<Notice> generalPosts = noticeRepository.findAllPosts(pageable).getContent();
 
         // 병합 + 정렬
@@ -185,7 +187,7 @@ public class NoticeService {
     }
 
     // ✅ 필터링된 일반글 조회
-    public Page<Notice> getFilteredPosts(String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
+    public Page<Notice> getFilteredPosts(int page, String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
         log.info("case5");
 
         // LocalDate → LocalDateTime으로 변환 (자정 기준)
@@ -193,7 +195,9 @@ public class NoticeService {
         LocalDateTime toDateTime;
 
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(page, pageSize,
+                Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy));
+
 
         // 날짜 기본값 처리
         if (from == null) {
