@@ -35,6 +35,8 @@ public class Notice {
 
 
 
+
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
