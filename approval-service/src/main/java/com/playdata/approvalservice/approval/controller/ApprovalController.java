@@ -3,6 +3,7 @@ package com.playdata.approvalservice.approval.controller;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.approval.dto.request.template.ReportFromTemplateReqDto;
 import com.playdata.approvalservice.approval.dto.response.*;
+import com.playdata.approvalservice.approval.dto.response.template.ReportFormResDto;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.service.ApprovalService;
@@ -55,7 +56,7 @@ public class ApprovalController {
      */
     @PostMapping(value = "/save", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> createReport(
-            @ModelAttribute @Valid ReportSaveReqDto req,
+            @RequestPart @Valid ReportSaveReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ) {
@@ -71,7 +72,7 @@ public class ApprovalController {
      */
     @PostMapping(value = "/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> progressReport(
-            @ModelAttribute @Valid ReportCreateReqDto req,
+            @RequestPart @Valid ReportCreateReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ){
@@ -260,5 +261,31 @@ public class ApprovalController {
         ReportCreateResDto resDto = approvalService.reportFromTemplate(req, userInfo.getEmail(), files);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "결재 문서가 성공적으로 상신되었습니다.", resDto));
+    }
+
+    // ApprovalController.java 에 추가
+
+    /**
+     * 결재 문서 작성/수정 화면을 위한 데이터 조회 API
+     * @param reportId (Optional) 임시저장/수정할 문서 ID
+     * @param templateId (Optional) 새로 작성할 양식 ID
+     * @return 양식의 구조(template)와 입력된 데이터(formData)
+     */
+    @GetMapping("/form")
+    public ResponseEntity<CommonResDto> getReportForm(
+            @RequestParam(required = false) Long reportId,
+            @RequestParam(required =false) Long templateId,
+            @AuthenticationPrincipal TokenUserInfo userInfo
+    ) {
+
+        if (reportId == null && templateId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reportId 또는 templateId가 필요합니다.");
+        }
+
+        Long userId = getCurrentUserId(userInfo);
+        ReportFormResDto res = approvalService.getReportForm(reportId, templateId, userId);
+
+        // CommonResDto로 감싸서 반환하도록 수정
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "결재 양식 조회 성공", res));
     }
 }
