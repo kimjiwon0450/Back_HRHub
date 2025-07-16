@@ -18,6 +18,9 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Set;
+import org.springframework.http.MediaType;
 
 @Component
 @RequiredArgsConstructor
@@ -57,4 +60,34 @@ public class HrUserClient {
 
         return response;
     }
+
+    public List<HrUserResponse> getUserInfoBulk(Set<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return List.of();
+
+        String gatewayUrl = env.getProperty("gateway.url", "http://localhost:8000");
+        String url = gatewayUrl + "/hr/employees/bulk";
+
+        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+        String token = request.getHeader("Authorization");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Set<Long>> entity = new HttpEntity<>(userIds, headers);
+
+        ResponseEntity<CommonResDto> response = restTemplate.exchange(
+                url, HttpMethod.POST, entity, CommonResDto.class
+        );
+
+        CommonResDto body = response.getBody();
+        if (body == null || body.getResult() == null) return List.of();
+
+        List<LinkedHashMap<String, Object>> resultList = (List<LinkedHashMap<String, Object>>) body.getResult();
+
+        return resultList.stream()
+                .map(map -> objectMapper.convertValue(map, HrUserResponse.class))
+                .toList();
+    }
+
 }

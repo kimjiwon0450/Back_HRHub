@@ -49,26 +49,26 @@ public class EvaluationController {
 
     // 인사평가 조회 By 직원 ID
     @GetMapping("/evaluation/{employeeId}")
-    public ResponseEntity<CommonResDto> getEvaluation(@PathVariable Long employeeId) {
-        CommonResDto commonResDto = new CommonResDto(HttpStatus.OK,
+    public ResponseEntity<CommonResDto<EvaluationResDto>> getEvaluation(@PathVariable Long employeeId) {
+        CommonResDto<EvaluationResDto> commonResDto = new CommonResDto<>(HttpStatus.OK,
                 "Success", evaluationService.getLatestEvaluation(employeeId));
         return new ResponseEntity<>(commonResDto, HttpStatus.OK);
     }
 
     // 인사평가 본인 이력 리스트 조회
     @GetMapping("/evaluations/{employeeId}")
-    public ResponseEntity<CommonResDto> getEvaluationListByEmployeeId(@PathVariable Long employeeId, Pageable pageable) {
+    public ResponseEntity<CommonResDto<Page<EvaluationListResDto>>> getEvaluationListByEmployeeId(@PathVariable Long employeeId, Pageable pageable) {
         Page<EvaluationListResDto> dtos = evaluationService.getEvaluationListByEmployeeId(employeeId, pageable);
         log.info(dtos.toString());
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", dtos), HttpStatus.OK);
+        return new ResponseEntity<>(new CommonResDto<>(HttpStatus.OK, "Success", dtos), HttpStatus.OK);
     }
 
     // 인사평가 이력 상세 조회
     @GetMapping("/evaluation/detail/{evaluationId}")
-    public ResponseEntity<CommonResDto> getEvaluationByEvaluationId(@PathVariable Long evaluationId) {
+    public ResponseEntity<CommonResDto<EvaluationResDto>> getEvaluationByEvaluationId(@PathVariable Long evaluationId) {
         EvaluationResDto dto = evaluationService.getEvaluationByEvaluationId(evaluationId);
         log.info(dto.toString());
-        return new ResponseEntity<>(new CommonResDto(HttpStatus.OK, "Success", dto), HttpStatus.OK);
+        return new ResponseEntity<>(new CommonResDto<>(HttpStatus.OK, "Success", dto), HttpStatus.OK);
     }
 
     @GetMapping("/top/employee")

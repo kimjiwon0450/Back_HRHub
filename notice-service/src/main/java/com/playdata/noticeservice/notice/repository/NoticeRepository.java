@@ -35,6 +35,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     @Query("SELECT n FROM Notice n WHERE " +
             "n.notice = true AND " +
             "n.boardStatus = true AND " +
+            "n.departmentId != 0 AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR n.createdAt <= :toDate)")
@@ -90,15 +91,11 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     Page<Notice> findAllPosts(Pageable pageable);
 
     // 전체 공지글 조회
-    @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true")
+    @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true AND n.departmentId != 0")
     List<Notice> findTopNotices(Pageable pageable);
 
-    // 공지글 전체 (정렬 포함)
-    @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true ORDER BY n.createdAt DESC")
-    List<Notice> findOverflowNotices(Pageable pageable);
-
     // departmentId가 0인 부서전체 공지 조회
-    List<Notice> findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(Long departmentId);
+    List<Notice> findByDepartmentIdAndBoardStatusTrueOrderByCreatedAtDesc(Long departmentId, Pageable pageable);
 
     // 직접 DB 연산으로 조회수 증가
     @Modifying
