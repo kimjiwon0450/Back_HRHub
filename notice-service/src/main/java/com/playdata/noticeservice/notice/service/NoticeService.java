@@ -3,18 +3,20 @@ package com.playdata.noticeservice.notice.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.noticeservice.common.dto.DepResponse;
-import com.playdata.noticeservice.notice.dto.NoticeCreateRequest;
-import com.playdata.noticeservice.notice.dto.NoticeUpdateRequest;
+import com.playdata.noticeservice.notice.dto.*;
+import com.playdata.noticeservice.notice.entity.Comment;
 import com.playdata.noticeservice.notice.entity.Notice;
 import com.playdata.noticeservice.notice.entity.NoticeAttachment;
 import com.playdata.noticeservice.notice.entity.NoticeRead;
+import com.playdata.noticeservice.notice.repository.CommentRepository;
 import com.playdata.noticeservice.notice.repository.NoticeAttachmentRepository;
 import com.playdata.noticeservice.notice.repository.NoticeReadRepository;
 import com.playdata.noticeservice.notice.repository.NoticeRepository;
+import com.playdata.noticeservice.notice.repository.CommentRepository;
 import com.playdata.noticeservice.common.client.HrUserClient;
 import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
-import com.playdata.noticeservice.notice.dto.NoticeResponse;
+
 import java.io.IOException;
 import com.fasterxml.jackson.core.type.TypeReference;
 
@@ -42,6 +44,7 @@ public class NoticeService {
 
     private final NoticeRepository noticeRepository;
     private final NoticeReadRepository noticeReadRepository;
+    private final CommentRepository commentRepository;
     private final S3Service s3Service;
     private final HrUserClient hrUserClient;
     private final DepartmentClient departmentClient;
@@ -441,5 +444,71 @@ public class NoticeService {
         );
     }
 
+    //////////////////////////댓글 Service///////////////////////////
+    // ✅ 댓글 등록
+    public void createComment(Long noticeId, CommentCreateRequest request, Long employeeId) {
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new RuntimeException("해당 게시글이 존재하지 않습니다."));
+
+        Comment comment = Comment.builder()
+                .notice(notice)
+                .content(request.getContent())
+                .employeeId(employeeId) // 내부 검증용으로 사용
+                .writerName(request.getWriterName())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        commentRepository.save(comment);
+    }
+
+    // ✅ 댓글 목록 조회
+    public List<CommentResponse> getComments(Long noticeId) {
+        List<Comment> comments = commentRepository.findByNoticeIdOrderByCreatedAtAsc(noticeId);
+
+        return comments.stream()
+                .map(comment -> {
+                    CommentResponse response = new CommentResponse();
+                    response.setId(comment.getId());
+                    response.setContent(comment.getContent());
+                    response.setWriterName(comment.getWriterName());
+                    response.setCreatedAt(comment.getCreatedAt());
+                    return response;
+                })
+                .toList();
+    }
+
+    // ✅ 댓글 수정
+    public void updateComment(Long noticeId, Long commentId, CommentUpdateRequest request, Long employeeId) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("댓글이 존재하지 않습니다."));
+
+        if (!comment.getNotice().getId().equals(noticeId)) {
+            throw new RuntimeException("해당 게시글의 댓글이 아닙니다.");
+        }
+
+        if (!comment.getEmployeeId().equals(employeeId)) {
+            throw new RuntimeException("댓글 수정 권한이 없습니다.");
+        }
+
+        comment.setContent(request.getContent());
+        comment.setUpdatedAt(LocalDateTime.now());
+        commentRepository.save(comment);
+    }
+
+    // ✅ 댓글 삭제
+    public void deleteComment(Long noticeId, Long commentId, Long employeeId) {
+        Comment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("댓글이 존재하지 않습니다."));
+
+        if (!comment.getNotice().getId().equals(noticeId)) {
+            throw new RuntimeException("해당 게시글의 댓글이 아닙니다.");
+        }
+
+        if (!comment.getEmployeeId().equals(employeeId)) {
+            throw new RuntimeException("댓글 삭제 권한이 없습니다.");
+        }
+
+        commentRepository.delete(comment);
+    }
 
 }

@@ -2,10 +2,8 @@ package com.playdata.noticeservice.notice.controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.playdata.noticeservice.common.auth.CustomUserDetails;
 import com.playdata.noticeservice.common.auth.TokenUserInfo;
 import com.playdata.noticeservice.common.client.DepartmentClient;
-import com.playdata.noticeservice.common.dto.CommonErrorDto;
 import com.playdata.noticeservice.common.client.HrUserClient;
 import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
@@ -14,7 +12,6 @@ import com.playdata.noticeservice.notice.entity.Notice;
 import com.playdata.noticeservice.notice.service.NoticeService;
 
 import com.playdata.noticeservice.notice.service.S3Service;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,9 +27,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -86,9 +81,7 @@ public class NoticeController {
 
         if (hasFilter) {
             topGeneralNotices = noticeService.getFilteredGeneralNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
-//            topGeneralNotices = GeneralTop.stream().limit(5).toList();
             topNotices = noticeService.getFilteredNotices(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
-//            topNotices = filteredTop.stream().limit(5).toList();
             posts = noticeService.getFilteredPosts(keyword, fromDate, toDate, pageSize, sortBy, sortDir);
         } else {
             // 부서 전체 공지글 5개
@@ -106,34 +99,6 @@ public class NoticeController {
         Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(employeeIds).stream()
                 .collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
 
-
-//        // ✅ 유저 정보 포함하여 DTO 변환
-//        List<NoticeResponse> GnoticeDtos = topGeneralNotices.stream()
-//                .map(n -> {
-//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-//                    return NoticeResponse.fromEntity(n, user);
-//                })
-//                .toList();
-//
-//        List<NoticeResponse> noticeDtos = topNotices.stream()
-//                .map(n -> {
-//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-//                    return NoticeResponse.fromEntity(n, user);
-//                })
-//                .toList();
-//
-//        List<NoticeResponse> postDtos = posts.stream()
-//                .map(n -> {
-//                    HrUserResponse user = hrUserClient.getUserInfo(n.getEmployeeId());
-//                    return NoticeResponse.fromEntity(n, user);
-//                })
-//                .toList();
-//
-//
-//        Map<String, Object> response = new HashMap<>();
-//        response.put("generalNotices", GnoticeDtos);
-//        response.put("notices", noticeDtos);
-//        response.put("posts", postDtos);
         Map<String, Object> response = new HashMap<>();
         response.put("generalNotices", topGeneralNotices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
         response.put("notices", topNotices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
@@ -324,5 +289,43 @@ public class NoticeController {
         Map<String, List<NoticeResponse>> result = noticeService.getUserAlerts(userId, user.getDepartmentId());
         return ResponseEntity.ok(result);
     }
+
+    ///////////////////////////댓글 Controller//////////////////////////////
+
+    // ✅ 댓글 작성
+    @PostMapping("/noticeboard/{noticeId}/comments")
+    public ResponseEntity<Void> createComment(@PathVariable Long noticeId,
+                                              @RequestBody @Valid CommentCreateRequest request,
+                                              @AuthenticationPrincipal TokenUserInfo userInfo) {
+        noticeService.createComment(noticeId, request, userInfo.getEmployeeId());
+        return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    // ✅ 댓글 목록 조회
+    @GetMapping("/noticeboard/{noticeId}/comments")
+    public ResponseEntity<List<CommentResponse>> getComments(@PathVariable Long noticeId) {
+        List<CommentResponse> comments = noticeService.getComments(noticeId);
+        return ResponseEntity.ok(comments);
+    }
+
+    // ✅ 댓글 수정
+    @PutMapping("/noticeboard/{noticeId}/comments/{commentId}")
+    public ResponseEntity<Void> updateComment(@PathVariable Long noticeId,
+                                              @PathVariable Long commentId,
+                                              @RequestBody @Valid CommentUpdateRequest request,
+                                              @AuthenticationPrincipal TokenUserInfo userInfo) {
+        noticeService.updateComment(noticeId, commentId, request, userInfo.getEmployeeId());
+        return ResponseEntity.ok().build();
+    }
+
+    // ✅ 댓글 삭제
+    @DeleteMapping("/noticeboard/{noticeId}/comments/{commentId}")
+    public ResponseEntity<Void> deleteComment(@PathVariable Long noticeId,
+                                              @PathVariable Long commentId,
+                                              @AuthenticationPrincipal TokenUserInfo userInfo) {
+        noticeService.deleteComment(noticeId, commentId, userInfo.getEmployeeId());
+        return ResponseEntity.noContent().build();
+    }
+
 
 }
