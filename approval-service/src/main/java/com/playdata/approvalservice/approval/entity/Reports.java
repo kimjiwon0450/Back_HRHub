@@ -36,7 +36,7 @@ public class Reports extends BaseTimeEntity {
     /**
      * 기안 양식 (FK)
      */
-    @Column(name = "report_template_id", columnDefinition = "JSON")
+    @Column(name = "report_template_id")
     private Long reportTemplateId;
 
     /**
@@ -143,6 +143,7 @@ public class Reports extends BaseTimeEntity {
                 .reportCreatedAt(LocalDateTime.now())
                 .reportTemplateData(dto.getReportTemplateData())
                 .reminderCount(0)
+                .reportTemplateId(dto.getTemplateId())
                 .build();
 
         // 결재 라인 설정
@@ -169,6 +170,7 @@ public class Reports extends BaseTimeEntity {
                 .reportCreatedAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now()) // ★ 제출일시도 바로 기록
                 .reminderCount(0)
+                .reportTemplateId(dto.getTemplateId())
                 .build();
 
         // 결재 라인 설정 (기존 로직과 동일)
