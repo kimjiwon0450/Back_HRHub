@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.approval.dto.request.template.ReportFromTemplateReqDto;
 import com.playdata.approvalservice.approval.dto.response.*;
+import com.playdata.approvalservice.approval.dto.response.template.ReportFormResDto;
 import com.playdata.approvalservice.approval.entity.*;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
@@ -800,4 +801,103 @@ public class ApprovalService {
                     .build();
         }
 
+
+    @Transactional(readOnly = true)
+    public ReportFormResDto getReportForm(Long reportId, Long templateId, Long userId) {
+        try {
+            Reports report = null;
+            ReportTemplate template;
+
+            // ----------------------------------------------------
+            // 1. 보고서(report)와 템플릿(template) 엔티티 조회
+            // ----------------------------------------------------
+            if (reportId != null) { // Case 1: 기존 문서 수정/조회
+                report = reportsRepository.findById(reportId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
+
+                // 권한 체크 (작성자만 수정 가능)
+                if (!report.getWriterId().equals(userId)) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
+                }
+
+                // 보고서에 연결된 템플릿 조회
+                template = templateRepository.findById(report.getReportTemplateId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "양식을 찾을 수 없습니다."));
+
+            } else { // Case 2: 새 문서 작성
+                template = templateRepository.findById(templateId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "양식을 찾을 수 없습니다."));
+            }
+
+            // ----------------------------------------------------
+            // 2. '구조(template)'와 '데이터(formData)' 파싱
+            // ----------------------------------------------------
+            Map<String, Object> templateStructure = objectMapper.readValue(template.getTemplate(), new TypeReference<>() {});
+            Map<String, Object> formData;
+
+            if (report != null && report.getReportTemplateData() != null && !report.getReportTemplateData().isBlank()) {
+                // 기존 데이터가 있으면 파싱
+                formData = objectMapper.readValue(report.getReportTemplateData(), new TypeReference<>() {});
+            } else {
+                // 새 문서이거나 데이터가 없으면 빈 맵 생성
+                formData = new HashMap<>();
+            }
+
+            // ----------------------------------------------------------------------------------
+            // 3. '결재선(approvalLine)'과 '첨부파일(attachments)' 정보 조회 및 DTO 변환
+            // (getReportDetail 메소드의 로직 재활용)
+            // ----------------------------------------------------------------------------------
+            List<ReportDetailResDto.ApprovalLineResDto> approvalLineDtos = Collections.emptyList();
+            List<ReportDetailResDto.AttachmentResDto> attachmentDtos = Collections.emptyList();
+
+            if (report != null) {
+                // --- 결재선 정보 조회 ---
+                Set<Long> employeeIdsToFetch = new HashSet<>();
+                report.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId()));
+
+                Map<Long, String> employeeNamesMap = Collections.emptyMap();
+                if(!employeeIdsToFetch.isEmpty()){
+                    ResponseEntity<Map<Long,String>> response = employeeFeignClient.getEmployeeNamesByEmployeeIds(new ArrayList<>(employeeIdsToFetch));
+                    employeeNamesMap = Optional.ofNullable(response.getBody()).orElse(Collections.emptyMap());
+                }
+                final Map<Long, String> finalEmployeeNamesMap = employeeNamesMap;
+
+                approvalLineDtos = report.getApprovalLines().stream()
+                        .map(l -> ReportDetailResDto.ApprovalLineResDto.builder()
+                                .employeeId(l.getEmployeeId())
+                                .name(finalEmployeeNamesMap.getOrDefault(l.getEmployeeId(), "알 수 없는 사용자"))
+                                .approvalStatus(l.getApprovalStatus())
+                                .context(l.getApprovalContext()) // int 타입으로 가정, ReportDetailResDto와 타입 일치 필요
+                                .approvedAt(l.getApprovalDateTime() != null ? l.getApprovalDateTime().format(fmt) : null)
+                                .build())
+                        .collect(Collectors.toList());
+
+                // --- 첨부파일 정보 파싱 ---
+                if (report.getDetail() != null && !report.getDetail().isBlank()) {
+                    JsonNode root = objectMapper.readTree(report.getDetail());
+                    attachmentDtos = Optional.of(root.path("attachments"))
+                            .filter(JsonNode::isArray)
+                            .map(arr -> objectMapper.convertValue(arr, new TypeReference<List<AttachmentJsonReqDto>>() {}))
+                            .orElse(Collections.emptyList())
+                            .stream()
+                            .map(a -> new ReportDetailResDto.AttachmentResDto(a.getFileName(), a.getUrl()))
+                            .collect(Collectors.toList());
+                }
+            }
+
+            // ----------------------------------------------------
+            // 4. 모든 정보를 담아 최종 DTO 생성 및 반환
+            // ----------------------------------------------------
+            return new ReportFormResDto(
+                    templateStructure,
+                    formData,
+                    approvalLineDtos,
+                    attachmentDtos
+            );
+
+        } catch (JsonProcessingException e) {
+            log.error("JSON 파싱 실패", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "양식 데이터를 처리하는 중 오류가 발생했습니다.");
+        }
+    }
 }
