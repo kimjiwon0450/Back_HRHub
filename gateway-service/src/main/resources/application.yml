@@ -38,7 +38,8 @@ spring:
           uri: lb://NOTICE
           #          uri: http://user-service.default.svc.cluster.local:8081
           predicates:
-            - Path=/notice/**
+            - Path=
+            - /notice/**
           filters:
             - AuthorizationHeaderFilter
 
