@@ -2,6 +2,8 @@ package com.playdata.noticeservice.notice.controller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.playdata.global.dto.AlertResponse;
+import com.playdata.global.enums.HRAlertMessage;
 import com.playdata.noticeservice.common.auth.TokenUserInfo;
 import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.client.HrUserClient;
@@ -25,13 +27,11 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -151,7 +151,6 @@ public class NoticeController {
     }
 
 
-
     // 나의 부서글 조회
     @GetMapping("/noticeboard/mydepartment")
     public ResponseEntity<List<NoticeResponse>> getDepartmentPosts(
@@ -166,15 +165,6 @@ public class NoticeController {
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         List<Notice> notices = noticeService.getNoticesByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate);
         List<Notice> posts = noticeService.getPostsByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate, pageable);
-
-//        List<NoticeResponse> responseList = Stream.concat(notices.stream(), posts.stream())
-//                .map(notice -> {
-//                    HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
-//                    return NoticeResponse.fromEntity(notice, writer);
-//                })
-//                .toList();
-//
-//        return ResponseEntity.ok(responseList);
 
         List<Notice> combined = Stream.concat(notices.stream(), posts.stream()).toList();
         Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(
@@ -197,7 +187,7 @@ public class NoticeController {
 
     // 글 작성 페이지
     @PostMapping("/noticeboard/write")
-    public ResponseEntity<Void> createNotice(
+    public ResponseEntity<AlertResponse> createNotice(
             @RequestBody @Valid NoticeCreateRequest request,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) throws IOException {
@@ -211,8 +201,8 @@ public class NoticeController {
         }
 
         // ✅ 실제 서비스 호출
-        noticeService.createNotice(request, employeeId, attachmentUri);
-        return ResponseEntity.status(HttpStatus.CREATED).build();
+        noticeService.createNotice(request, user, attachmentUri);
+        return ResponseEntity.ok(new AlertResponse(HRAlertMessage.NOTICE_CREATE_SUCCESS.getMessage(), "success"));
     }
 
 
@@ -239,8 +229,9 @@ public class NoticeController {
             @AuthenticationPrincipal TokenUserInfo userInfo) {
 
         Long employeeId = userInfo.getEmployeeId();
+        HrUserResponse user = hrUserClient.getUserInfo(employeeId);
         // 파일이 없기 때문에 null 전달 또는 별도 처리
-        noticeService.updateNotice(id, request, employeeId);
+        noticeService.updateNotice(id, request, user);
         return ResponseEntity.ok().build();
     }
 
@@ -323,5 +314,4 @@ public class NoticeController {
         noticeService.deleteComment(noticeId, commentId, userInfo.getEmployeeId());
         return ResponseEntity.noContent().build();
     }
-
 }
