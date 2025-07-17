@@ -9,67 +9,40 @@ import com.playdata.hrservice.hr.repository.EmployeeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
-import lombok.Value;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
-import java.time.Duration;
 import java.util.UUID;
 
 @Service
-@Slf4j
+@RequiredArgsConstructor
 public class S3Service {
 
-    @Value("${spring.cloud.aws.credentials.accessKey}")
-    private String accessKey;
-    @Value("${spring.cloud.aws.credentials.secretKey}")
-    private String secretKey;
-    @Value("${spring.cloud.aws.region.static}")
-    private String region;
-    @Value("${spring.cloud.aws.s3.bucket}")
-    private String bucketName;
+    private final EmployeeRepository employeeRepository;
+    private final AwsS3Config awsS3Config;
 
-    /**
-     * Pre-signed URL을 생성하는 범용 메소드
-     * @param fileKey S3 버킷 내의 파일 경로 (예: "attachments/uuid_filename.ext")
-     * @param dispositionType "inline" (미리보기) 또는 "attachment" (다운로드)
-     * @return 생성된 Pre-signed URL 문자열
-     */
-    public String generatePresignedUrl(String fileKey, String dispositionType) {
-        log.info("Generating presigned URL for key: {}, type: {}", fileKey, dispositionType);
 
-        S3Presigner presigner = S3Presigner.builder()
-                .region(Region.of(region))
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey))
-                )
-                .build();
+    public String uploadProfile(String targetEmail, MultipartFile file) throws Exception {
 
-        // 브라우저가 URL을 어떻게 처리할지 결정하는 헤더를 동적으로 설정합니다.
-        String contentDisposition = dispositionType + "; filename=\"" + fileKey + "\"";
+        Employee employee = employeeRepository.findByEmail(targetEmail).orElseThrow(
+                () -> new EntityNotFoundException("대상 이메일 확인바람 ")
+        );
 
-        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
-                .bucket(bucketName)
-                .key(fileKey)
-                .responseContentDisposition(contentDisposition)
-                .build();
+        // 1) 이전 프로필이 기본 url이 아니고, null도 아니라면 삭제
+        String oldUrl = employee.getProfileImageUri();
+        if (oldUrl != null && !oldUrl.isBlank()) {
+            awsS3Config.deleteFromS3Bucket(oldUrl);
+        }
 
-        GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(10)) // URL 유효 시간을 넉넉하게 설정
-                .getObjectRequest(getObjectRequest)
-                .build();
+        //2) 새 파일 업로드
+        String uniqueFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+        String imageUrl = awsS3Config.uploadToS3Bucket(file.getBytes(), uniqueFileName);
 
-        PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
-        presigner.close(); // 사용 후에는 리소스를 닫아주는 것이 좋습니다.
+        employee.updateProfileImageUri(imageUrl);
+        employeeRepository.save(employee);
 
-        return presignedRequest.url().toString();
+        return imageUrl;
     }
+
+
 }
