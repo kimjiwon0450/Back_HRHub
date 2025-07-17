@@ -3,7 +3,7 @@ package com.playdata.noticeservice.notice.controller;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.global.dto.AlertResponse;
-import com.playdata.global.enums.HRAlertMessage;
+import com.playdata.global.enums.AlertMessage;
 import com.playdata.noticeservice.common.auth.TokenUserInfo;
 import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.client.HrUserClient;
@@ -202,7 +202,7 @@ public class NoticeController {
 
         // ✅ 실제 서비스 호출
         noticeService.createNotice(request, user, attachmentUri);
-        return ResponseEntity.ok(new AlertResponse(HRAlertMessage.NOTICE_CREATE_SUCCESS.getMessage(), "success"));
+        return ResponseEntity.ok(new AlertResponse(AlertMessage.NOTICE_CREATE_SUCCESS.getMessage(), "success"));
     }
 
 
