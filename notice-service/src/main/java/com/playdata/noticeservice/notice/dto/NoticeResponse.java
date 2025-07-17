@@ -31,6 +31,9 @@ public class NoticeResponse {
     private LocalDateTime updatedAt;
     private int viewCount;
 
+    // 댓글 수
+    private int commentCount;
+
 
     // 엔티티 -> DTO 변환 정적 메서드
     public static NoticeResponse fromEntity(Notice notice) {
@@ -83,6 +86,25 @@ public class NoticeResponse {
         dto.createdAt = notice.getCreatedAt();
         dto.updatedAt = notice.getUpdatedAt();
         dto.viewCount = notice.getViewCount();
+        return dto;
+    }
+
+    public static NoticeResponse fromEntity(Notice notice, HrUserResponse user, int commentCount) {
+        NoticeResponse dto = new NoticeResponse();
+        dto.id = notice.getId();
+        dto.title = notice.getTitle();
+        dto.content = notice.getContent();
+        dto.name = user.getName();
+        dto.departmentId = notice.getDepartmentId();
+        dto.employStatus = user.getStatus();
+        dto.employeeId = notice.getEmployeeId();
+        dto.notice = notice.isNotice();
+        dto.attachmentUri = notice.getAttachmentUri();
+        dto.boardStatus = notice.isBoardStatus();
+        dto.createdAt = notice.getCreatedAt();
+        dto.updatedAt = notice.getUpdatedAt();
+        dto.viewCount = notice.getViewCount();
+        dto.commentCount = commentCount;
         return dto;
     }
 
