@@ -1,18 +1,8 @@
-package com.playdata.hrservice.hr.service;
+package com.playdata.approvalservice.approval.service;
 
-import com.playdata.hrservice.common.auth.Role;
-import com.playdata.hrservice.common.config.AwsS3Config;
-
-import com.playdata.hrservice.hr.entity.Employee;
-import com.playdata.hrservice.hr.repository.EmployeeRepository;
-
-import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
-
-import lombok.Value;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -22,12 +12,13 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 import java.time.Duration;
-import java.util.UUID;
 
 @Service
 @Slf4j
+// ✅ 2. 클래스 선언부에 파라미터를 넣으면 안 됩니다.
 public class S3Service {
 
+    // 필요한 필드 변수들을 선언하고 @Value 어노테이션으로 주입받습니다.
     @Value("${spring.cloud.aws.credentials.accessKey}")
     private String accessKey;
     @Value("${spring.cloud.aws.credentials.secretKey}")
@@ -38,10 +29,7 @@ public class S3Service {
     private String bucketName;
 
     /**
-     * Pre-signed URL을 생성하는 범용 메소드
-     * @param fileKey S3 버킷 내의 파일 경로 (예: "attachments/uuid_filename.ext")
-     * @param dispositionType "inline" (미리보기) 또는 "attachment" (다운로드)
-     * @return 생성된 Pre-signed URL 문자열
+     * Pre-signed URL을 생성하는 메소드
      */
     public String generatePresignedUrl(String fileKey, String dispositionType) {
         log.info("Generating presigned URL for key: {}, type: {}", fileKey, dispositionType);
@@ -53,7 +41,6 @@ public class S3Service {
                 )
                 .build();
 
-        // 브라우저가 URL을 어떻게 처리할지 결정하는 헤더를 동적으로 설정합니다.
         String contentDisposition = dispositionType + "; filename=\"" + fileKey + "\"";
 
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
@@ -63,12 +50,12 @@ public class S3Service {
                 .build();
 
         GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(10)) // URL 유효 시간을 넉넉하게 설정
+                .signatureDuration(Duration.ofMinutes(10))
                 .getObjectRequest(getObjectRequest)
                 .build();
 
         PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
-        presigner.close(); // 사용 후에는 리소스를 닫아주는 것이 좋습니다.
+        presigner.close();
 
         return presignedRequest.url().toString();
     }

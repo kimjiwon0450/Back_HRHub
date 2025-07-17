@@ -669,7 +669,6 @@ public class ApprovalService {
             System.out.println("토큰에서 추출한 작성자 ID (userInfo): " + writerId);
             System.out.println("보고서 엔티티의 작성자 ID: " + report.getWriterId());
             System.out.println("보고서 현재 상태: " + report.getReportStatus());
-            // --- 로그 추가 끝 ---
 
             if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
@@ -801,9 +800,6 @@ public class ApprovalService {
                     .build();
         }
 
-
-// 파일: ApprovalService.java
-
     @Transactional(readOnly = true)
     public ReportFormResDto getReportForm(Long reportId, Long templateId, Long userId) {
         try {
@@ -821,7 +817,6 @@ public class ApprovalService {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
                 }
 
-                // 이전에 에러가 났던 부분
                 Long reportTemplateId = report.getReportTemplateId();
                 if(reportTemplateId == null) {
                     throw new IllegalStateException("DB 데이터 오류: report_id=" + reportId + "의 report_template_id가 NULL입니다.");
@@ -838,12 +833,8 @@ public class ApprovalService {
             // 2. '구조(template)'와 '데이터(formData)' 파싱
             // ----------------------------------------------------
             Map<String, Object> templateStructure = objectMapper.readValue(template.getTemplate(), new TypeReference<>() {});
-
-            // ========================================================================
-            // [★★★★★ 최종 해결책 ★★★★★]
-            // 파싱된 template 구조 Map에, template 엔티티의 실제 ID를 'id'라는 키로 직접 넣어줍니다.
             templateStructure.put("id", template.getTemplateId());
-            // ========================================================================
+
 
             Map<String, Object> formData;
 
@@ -853,13 +844,8 @@ public class ApprovalService {
                 formData = new HashMap<>();
             }
 
-            // ... (3번, 4번 로직은 그대로) ...
             List<ReportDetailResDto.ApprovalLineResDto> approvalLineDtos = Collections.emptyList();
             List<ReportDetailResDto.AttachmentResDto> attachmentDtos = Collections.emptyList();
-
-            if (report != null) {
-                // ... (결재선, 첨부파일 조회 로직) ...
-            }
 
             return new ReportFormResDto(
                     templateStructure, // 이제 이 객체에는 { id: 21, title: ... } 처럼 id가 포함됩니다.
