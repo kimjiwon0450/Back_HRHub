@@ -7,6 +7,7 @@ import com.playdata.global.enums.AlertMessage;
 import com.playdata.noticeservice.common.auth.TokenUserInfo;
 import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.client.HrUserClient;
+import com.playdata.noticeservice.common.client.CommentClient;
 import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.*;
@@ -48,6 +49,7 @@ public class NoticeController {
     private final NoticeService noticeService;
     private final HrUserClient hrUserClient;
     private final DepartmentClient departmentClient;
+    private final CommentClient commentClient;
     private final ObjectMapper objectMapper;
     private final S3Service s3Service;
 
@@ -100,9 +102,26 @@ public class NoticeController {
                 .collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
 
         Map<String, Object> response = new HashMap<>();
-        response.put("generalNotices", topGeneralNotices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
-        response.put("notices", topNotices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
-        response.put("posts", posts.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList());
+        response.put("generalNotices", topGeneralNotices.stream()
+                .map(n -> {
+                    HrUserResponse user = userMap.get(n.getEmployeeId());
+                    int commentCount = commentClient.getCommentInfo(n.getId());
+                    return NoticeResponse.fromEntity(n, user, commentCount);
+                }).toList());
+
+        response.put("notices", topNotices.stream()
+                .map(n -> {
+                    HrUserResponse user = userMap.get(n.getEmployeeId());
+                    int commentCount = commentClient.getCommentInfo(n.getId());
+                    return NoticeResponse.fromEntity(n, user, commentCount);
+                }).toList());
+
+        response.put("posts", posts.stream()
+                .map(n -> {
+                    HrUserResponse user = userMap.get(n.getEmployeeId());
+                    int commentCount = commentClient.getCommentInfo(n.getId()); // ✅ 댓글 수
+                    return NoticeResponse.fromEntity(n, user, commentCount); // ✅ 댓글 수 포함
+                }).toList());
 
         response.put("totalPages", posts.getTotalPages());
         response.put("currentPage", posts.getNumber());
@@ -223,7 +242,7 @@ public class NoticeController {
 
     // 글 수정 페이지
     @PutMapping(value = "/noticeboard/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Void> updateNotice(
+    public ResponseEntity<AlertResponse> updateNotice(
             @PathVariable Long id,
             @RequestBody @Valid NoticeUpdateRequest request,
             @AuthenticationPrincipal TokenUserInfo userInfo) {
@@ -232,16 +251,17 @@ public class NoticeController {
         HrUserResponse user = hrUserClient.getUserInfo(employeeId);
         // 파일이 없기 때문에 null 전달 또는 별도 처리
         noticeService.updateNotice(id, request, user);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(new AlertResponse(AlertMessage.NOTICE_UPDATE_SUCCESS.getMessage(), "success"));
     }
 
 
     // 글 삭제
     @DeleteMapping("/noticeboard/{id}")
-    public ResponseEntity<Void> deletePost(@PathVariable Long id,
+    public ResponseEntity<AlertResponse> deletePost(@PathVariable Long id,
                                            @AuthenticationPrincipal TokenUserInfo userInfo) {
         noticeService.deletePost(id, userInfo.getEmployeeId());
-        return ResponseEntity.noContent().build();
+//        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(new AlertResponse(AlertMessage.NOTICE_DELETE_SUCCESS.getMessage(), "success"));
     }
 
     // ✅ 공지글 읽음 처리
@@ -314,4 +334,12 @@ public class NoticeController {
         noticeService.deleteComment(noticeId, commentId, userInfo.getEmployeeId());
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/noticeboard/{noticeId}/comments/count")
+    public ResponseEntity<CommonResDto> getCommentCount(@PathVariable Long noticeId) {
+        int count = noticeService.getCommentCountByNoticeId(noticeId);
+        return ResponseEntity.ok(CommonResDto.success("댓글 수 조회 성공", Map.of("commentCount", count)));
+    }
+
+
 }
