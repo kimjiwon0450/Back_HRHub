@@ -78,7 +78,7 @@ public class NoticeService {
 
 
     // 공지글 5개 이후 + 일반 게시글 전체를 합친 리스트 반환
-    public Page<Notice> getMergedPostsAfterTop5(int pageSize, String sortBy, String sortDir) {
+    public Page<Notice> getMergedPostsAfterTop5(int page, int pageSize, String sortBy, String sortDir) {
         log.info("case3");
 
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
@@ -110,7 +110,9 @@ public class NoticeService {
                 .collect(Collectors.toList());
 
         // 일반 게시글
-        Pageable pageable = PageRequest.of(0, pageSize, sort);
+        Pageable pageable = PageRequest.of(page, pageSize,
+                Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy));
+
         List<Notice> generalPosts = noticeRepository.findAllPosts(pageable).getContent();
 
         // 병합 + 정렬
@@ -185,7 +187,7 @@ public class NoticeService {
     }
 
     // ✅ 필터링된 일반글 조회
-    public Page<Notice> getFilteredPosts(String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
+    public Page<Notice> getFilteredPosts(int page, String keyword, LocalDate from, LocalDate to, int pageSize, String sortBy, String sortDir) {
         log.info("case5");
 
         // LocalDate → LocalDateTime으로 변환 (자정 기준)
@@ -193,7 +195,9 @@ public class NoticeService {
         LocalDateTime toDateTime;
 
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Pageable pageable = PageRequest.of(0, pageSize, Sort.by(direction, sortBy));
+        Pageable pageable = PageRequest.of(page, pageSize,
+                Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy));
+
 
         // 날짜 기본값 처리
         if (from == null) {
@@ -308,7 +312,7 @@ public class NoticeService {
     }
 
     // 공지글/게시글 작성
-    public void createNotice(NoticeCreateRequest request, Long employeeId, List<String> attachmentUri) {
+    public void createNotice(NoticeCreateRequest request, HrUserResponse user, List<String> attachmentUri) {
         log.info("!!!글 작성!!!");
         log.info(request.getTitle());
         log.info(request.getContent());
@@ -323,13 +327,18 @@ public class NoticeService {
             log.error("첨부파일 JSON 변환 오류", e);
         }
 
+        Long departmentId = user.getDepartmentId();
+        if (request.isNotice()) {
+            departmentId = request.getDepartmentId();
+        }
+
         Notice notice = Notice.builder()
                 .title(request.getTitle())
                 .content(request.getContent())
                 .notice(request.isNotice())
                 .attachmentUri(request.getAttachmentUri())
-                .employeeId(employeeId)
-                .departmentId(request.getDepartmentId())
+                .employeeId(user.getEmployeeId())
+                .departmentId(departmentId)
                 .boardStatus(true)
                 .createdAt(LocalDateTime.now())
                 .attachmentUri(attachmentUriJson) // ✅ JSON 배열 형태로 저장
@@ -340,17 +349,23 @@ public class NoticeService {
 
     // 공지글/게시글 수정
     @Transactional
-    public void updateNotice(Long id, NoticeUpdateRequest request, Long currentUserId) {
+    public void updateNotice(Long id, NoticeUpdateRequest request, HrUserResponse user) {
         Notice notice = noticeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
 
-        if (!notice.getEmployeeId().equals(currentUserId)) {
+        if (!notice.getEmployeeId().equals(user.getEmployeeId())) {
             throw new AccessDeniedException("작성자만 수정할 수 있습니다.");
+        }
+
+        Long departmentId = user.getDepartmentId();
+        if (request.isNotice()) {
+            departmentId = request.getDepartmentId();
         }
 
         notice.setTitle(request.getTitle());
         notice.setContent(request.getContent());
         notice.setNotice(request.isNotice());
+        notice.setDepartmentId(departmentId);
 
         ObjectMapper mapper = new ObjectMapper();
 
