@@ -3,9 +3,11 @@ package com.playdata.noticeservice.common.client;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.noticeservice.common.dto.CommonErrorDto;
 import com.playdata.noticeservice.common.dto.CommonResDto;
+import com.playdata.noticeservice.common.dto.HrUserBulkResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -61,13 +63,22 @@ public class HrUserClient {
         return response;
     }
 
-    public List<HrUserResponse> getUserInfoBulk(Set<Long> userIds) {
+    public List<HrUserResponse> getUserInfoBulk2(Set<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) return List.of();
 
         String gatewayUrl = env.getProperty("gateway.url", "http://localhost:8000");
         String url = gatewayUrl + "/hr/employees/bulk";
 
-        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+//        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+//        String token = request.getHeader("Authorization");
+
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            throw new RuntimeException("RequestAttributes is null, 인증 정보가 없습니다.");
+        }
+
+//        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+        HttpServletRequest request = attributes.getRequest();
         String token = request.getHeader("Authorization");
 
         HttpHeaders headers = new HttpHeaders();
@@ -75,19 +86,51 @@ public class HrUserClient {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<Set<Long>> entity = new HttpEntity<>(userIds, headers);
+        log.info("entity: {}", entity);
 
-        ResponseEntity<CommonResDto> response = restTemplate.exchange(
-                url, HttpMethod.POST, entity, CommonResDto.class
+        ResponseEntity<HrUserBulkResponse> response = restTemplate.exchange(
+                url, HttpMethod.POST, entity, new ParameterizedTypeReference<HrUserBulkResponse>() {}
         );
+        log.info("getUserInfoBulk: {}", response);
+        log.info("getUserInfoBulkBody: {}", response.getBody());
 
-        CommonResDto body = response.getBody();
-        if (body == null || body.getResult() == null) return List.of();
+        HrUserBulkResponse body = response.getBody();
 
-        List<LinkedHashMap<String, Object>> resultList = (List<LinkedHashMap<String, Object>>) body.getResult();
+        if (body == null || body.getResult() == null) {
+            log.warn("응답이 null이거나 result가 null입니다: {}", body);
+            return List.of(); // 또는 null 대신 빈 리스트를 반환
+        }
 
-        return resultList.stream()
-                .map(map -> objectMapper.convertValue(map, HrUserResponse.class))
-                .toList();
+        return body.getResult();
+    }
+
+    public List<HrUserResponse> getUserInfoBulk(Set<Long> userIds, String token) {
+        if (userIds == null || userIds.isEmpty()) return List.of();
+
+        String gatewayUrl = env.getProperty("gateway.url", "http://localhost:8000");
+        String url = gatewayUrl + "/hr/employees/bulk";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Set<Long>> entity = new HttpEntity<>(userIds, headers);
+        log.info("entity: {}", entity);
+
+        ResponseEntity<HrUserBulkResponse> response = restTemplate.exchange(
+                url, HttpMethod.POST, entity, new ParameterizedTypeReference<HrUserBulkResponse>() {}
+        );
+        log.info("getUserInfoBulk: {}", response);
+        log.info("getUserInfoBulkBody: {}", response.getBody());
+
+        HrUserBulkResponse body = response.getBody();
+
+        if (body == null || body.getResult() == null) {
+            log.warn("응답이 null이거나 result가 null입니다: {}", body);
+            return List.of();
+        }
+
+        return body.getResult();
     }
 
 }
