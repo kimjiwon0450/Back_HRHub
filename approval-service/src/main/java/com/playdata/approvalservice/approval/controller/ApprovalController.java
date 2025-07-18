@@ -83,20 +83,16 @@ public class ApprovalController {
     }
 
 
-    /**
-     * 보고서 수정 (Draft)
-     */
     @PutMapping("/reports/{reportId}")
     public ResponseEntity<CommonResDto> updateReport(
             @PathVariable Long reportId,
             @RequestBody @Valid ReportUpdateReqDto req,
             @AuthenticationPrincipal TokenUserInfo userInfo
-            // [수정] 파라미터로 writerId 주입
     ) {
-
         Long writerId = getCurrentUserId(userInfo);
 
-        ReportUpdateResDto res = approvalService.updateReport(reportId, req, writerId);
+        // 서비스에서 ReportDetailResDto를 반환하므로, 변수 타입도 맞춰줌
+        ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 수정 완료", res));
     }
 
