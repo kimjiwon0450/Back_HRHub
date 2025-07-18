@@ -12,7 +12,6 @@ import com.playdata.approvalservice.approval.entity.*;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
 import com.playdata.approvalservice.common.config.AwsS3Config;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -330,23 +329,40 @@ public class ApprovalService {
             Page<Reports> pr;
 
             if ("writer".equalsIgnoreCase(role)) {
+                // [내 기안 문서함] 로직 (변경 없음)
                 pr = (status != null)
                         ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
                         : reportsRepository.findByWriterId(writerId, pageable);
+
             } else if ("approver".equalsIgnoreCase(role)) {
-                if(status == ReportStatus.IN_PROGRESS) {
+
+                if (status == ReportStatus.IN_PROGRESS) {
+                    // [결재할 문서] - 내가 현재 결재자
+                    log.info("Fetching reports for CURRENT approver (role={}, status={})", role, status);
                     pr = reportsRepository.findByCurrentApproverIdAndReportStatus(writerId, ReportStatus.IN_PROGRESS, pageable);
+
+                } else if (status == null) {
+                    // [결재 진행함] - 내가 결재선에 포함된 모든 진행 중 문서
+                    log.info("Fetching all IN-PROGRESS reports where user is in approval line (role={}, status=null)", role);
+                    pr = reportsRepository.findInProgressForUser(writerId, pageable);
+
+                } else if (status == ReportStatus.APPROVED || status == ReportStatus.REJECTED) {
+                    // [완료 문서함] 또는 [반려 문서함]
+                    log.info("Fetching {} reports where user was in approval line (role={}, status={})", status, role, status);
+                    pr = reportsRepository.findByApproverIdAndStatus(writerId, status, pageable);
+
+                } else {
+                    // 그 외의 status 요청은 비어있는 페이지를 반환하거나 예외 처리
+                    log.warn("Unsupported status '{}' for role 'approver'", status);
+                    pr = Page.empty(pageable);
                 }
-                else {
-                    pr = reportsRepository.findByApproverIdAndExcludeDraftRecalled(writerId, pageable);
-                }
+
             } else if ("reference".equalsIgnoreCase(role)) {
-                // 이제 이 메서드는 정렬 정보가 담긴 Pageable 객체를 받아
-                // JPA가 최종 SQL을 만들 때 ORDER BY 절을 자동으로 추가해줍니다.
+                // [수신 참조함] 로직 (변경 없음)
                 pr = reportsRepository.findByReferenceEmployeeIdInDetailJsonAndExcludeDraftRecalled(writerId, pageable);
+
             } else {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "role은 writer, approver, 또는 reference만 가능합니다.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "role은 writer, approver, 또는 reference만 가능합니다.");
             }
 
             Set<Long> employeeIdsToFetch = new HashSet<>();
