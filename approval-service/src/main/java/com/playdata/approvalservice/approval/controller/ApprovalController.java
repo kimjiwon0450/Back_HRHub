@@ -52,6 +52,20 @@ public class ApprovalController {
     }
 
     /**
+     * 결재선/참조자 지정을 위해 재직 중인 직원 목록을 조회합니다.
+     */
+    @GetMapping("/employees/active")
+    public ResponseEntity<CommonResDto> getActiveEmployeesForApproval() {
+        // Feign Client를 통해 HR 서비스 호출
+        ResponseEntity<List<EmployeeResDto>> response = employeeFeignClient.getActiveEmployees();
+
+        // 응답을 CommonResDto로 감싸서 프론트엔드에 반환
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "재직 중인 직원 목록 조회 성공", response.getBody())
+        );
+    }
+
+    /**
      * 보고서 생성 (DRAFT)
      */
     @PostMapping(value = "/save", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
