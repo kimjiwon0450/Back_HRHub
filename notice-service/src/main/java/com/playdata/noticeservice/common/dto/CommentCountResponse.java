@@ -6,10 +6,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 
+import lombok.Getter;
+import lombok.Setter;
+
 @Getter
 @Setter
-@ToString
-@NoArgsConstructor
 public class CommentCountResponse {
     private int commentCount;
 }

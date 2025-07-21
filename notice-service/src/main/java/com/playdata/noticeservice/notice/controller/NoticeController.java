@@ -7,7 +7,6 @@ import com.playdata.global.enums.AlertMessage;
 import com.playdata.noticeservice.common.auth.TokenUserInfo;
 import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.client.HrUserClient;
-import com.playdata.noticeservice.common.client.CommentClient;
 import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.*;
@@ -15,6 +14,7 @@ import com.playdata.noticeservice.notice.entity.Notice;
 import com.playdata.noticeservice.notice.service.NoticeService;
 
 import com.playdata.noticeservice.notice.service.S3Service;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +49,6 @@ public class NoticeController {
     private final NoticeService noticeService;
     private final HrUserClient hrUserClient;
     private final DepartmentClient departmentClient;
-    private final CommentClient commentClient;
     private final ObjectMapper objectMapper;
     private final S3Service s3Service;
 
@@ -64,11 +63,14 @@ public class NoticeController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int pageSize,
             @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir
+            @RequestParam(defaultValue = "desc") String sortDir,
+            HttpServletRequest request
     ) {
         if (keyword != null && keyword.isBlank()) {
             keyword = null;
         }
+
+        String token = request.getHeader("Authorization");  // 토큰 꺼내기
 
         log.info("~~~게시글 조회 페이지 진입함~~~");
         log.info("sortBy: {}, desc: {}", sortBy, sortDir);
@@ -98,28 +100,32 @@ public class NoticeController {
                 .map(Notice::getEmployeeId)
                 .collect(Collectors.toSet());
 
-        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(employeeIds).stream()
+        log.info("employeeIds : {}",employeeIds);
+        log.info("token : {}",token);
+        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(employeeIds, token).stream()
                 .collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
+        log.info("userMap : {}",userMap);
 
         Map<String, Object> response = new HashMap<>();
         response.put("generalNotices", topGeneralNotices.stream()
                 .map(n -> {
                     HrUserResponse user = userMap.get(n.getEmployeeId());
-                    int commentCount = commentClient.getCommentInfo(n.getId());
+                    log.info("user : {}",user);
+                    int commentCount = noticeService.getCommentCountByNoticeId(n.getId());
                     return NoticeResponse.fromEntity(n, user, commentCount);
                 }).toList());
 
         response.put("notices", topNotices.stream()
                 .map(n -> {
                     HrUserResponse user = userMap.get(n.getEmployeeId());
-                    int commentCount = commentClient.getCommentInfo(n.getId());
+                    int commentCount = noticeService.getCommentCountByNoticeId(n.getId());
                     return NoticeResponse.fromEntity(n, user, commentCount);
                 }).toList());
 
         response.put("posts", posts.stream()
                 .map(n -> {
                     HrUserResponse user = userMap.get(n.getEmployeeId());
-                    int commentCount = commentClient.getCommentInfo(n.getId()); // ✅ 댓글 수
+                    int commentCount = noticeService.getCommentCountByNoticeId(n.getId()); // ✅ 댓글 수
                     return NoticeResponse.fromEntity(n, user, commentCount); // ✅ 댓글 수 포함
                 }).toList());
 
@@ -133,7 +139,9 @@ public class NoticeController {
 
     // 내가 쓴 글 조회
     @GetMapping("/noticeboard/my")
-    public ResponseEntity<List<NoticeResponse>> getMyPosts(@AuthenticationPrincipal TokenUserInfo userInfo) {
+    public ResponseEntity<Map<String, Object>> getMyPosts(
+            @AuthenticationPrincipal TokenUserInfo userInfo,
+            HttpServletRequest request) {
         List<Notice> notices = noticeService.getMyPosts(userInfo.getEmployeeId());
 
 //        List<NoticeResponse> responseList = notices.stream()
@@ -144,14 +152,22 @@ public class NoticeController {
 //                .toList();
 //
 //        return ResponseEntity.ok(responseList);
+        String token = request.getHeader("Authorization");
 
         Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(
                 notices.stream().map(Notice::getEmployeeId).collect(Collectors.toSet())
-        ).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
+        , token).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
 
-        return ResponseEntity.ok(
-                notices.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList()
-        );
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("myposts", notices.stream()
+                .map(n -> {
+                    HrUserResponse user = userMap.get(n.getEmployeeId());
+                    int commentCount = noticeService.getCommentCountByNoticeId(n.getId()); // ✅ 댓글 수
+                    return NoticeResponse.fromEntity(n, user, commentCount); // ✅ 댓글 수 포함
+                }).toList());
+        return ResponseEntity.ok(response);
+
     }
 
     // 전체 공지 조회 (department_id = 0)
@@ -162,7 +178,8 @@ public class NoticeController {
         List<NoticeResponse> responseList = notices.stream()
                 .map(notice -> {
                     HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, user);
+                    int commentCount = noticeService.getCommentCountByNoticeId(notice.getId()); // ✅ 댓글 수
+                    return NoticeResponse.fromEntity(notice, user, commentCount);
                 })
                 .toList();
 
@@ -172,15 +189,16 @@ public class NoticeController {
 
     // 나의 부서글 조회
     @GetMapping("/noticeboard/mydepartment")
-    public ResponseEntity<List<NoticeResponse>> getDepartmentPosts(
+    public ResponseEntity<Map<String, Object>> getDepartmentPosts(
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int pageSize,
-            @AuthenticationPrincipal TokenUserInfo userInfo) {
+            @AuthenticationPrincipal TokenUserInfo userInfo,
+            HttpServletRequest request) {
 
-
+        String token = request.getHeader("Authorization");
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
         List<Notice> notices = noticeService.getNoticesByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate);
         List<Notice> posts = noticeService.getPostsByDepartment(userInfo.getDepartmentId(), keyword, fromDate, toDate, pageable);
@@ -188,11 +206,17 @@ public class NoticeController {
         List<Notice> combined = Stream.concat(notices.stream(), posts.stream()).toList();
         Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(
                 combined.stream().map(Notice::getEmployeeId).collect(Collectors.toSet())
-        ).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
+        , token).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
 
-        return ResponseEntity.ok(
-                combined.stream().map(n -> NoticeResponse.fromEntity(n, userMap.get(n.getEmployeeId()))).toList()
-        );
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("mydepposts", notices.stream()
+                .map(n -> {
+                    HrUserResponse user = userMap.get(n.getEmployeeId());
+                    int commentCount = noticeService.getCommentCountByNoticeId(n.getId()); // ✅ 댓글 수
+                    return NoticeResponse.fromEntity(n, user, commentCount); // ✅ 댓글 수 포함
+                }).toList());
+        return ResponseEntity.ok(response);
     }
 
     // 글 상세 화면 조회
@@ -280,6 +304,7 @@ public class NoticeController {
     public ResponseEntity<Integer> getUnreadNoticeCount(
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) {
+        log.info("/noticeboard/unread-count: POST, userInfo: {}", userInfo);
         Long userId = userInfo.getEmployeeId();
         HrUserResponse user = hrUserClient.getUserInfo(userId);
         int count = noticeService.countUnreadNotices(userId, user.getDepartmentId());

@@ -204,7 +204,8 @@ public class EmployeeController {
     @PostMapping("/employees/bulk")
     public ResponseEntity<CommonResDto> getEmployeesByIds(@RequestBody Set<Long> employeeIds) {
         List<EmployeeResDto> users = employeeService.findByIds(employeeIds);
-        return ResponseEntity.ok(CommonResDto.success(users));
+        log.info("getEmployeesByIds: {}", users);
+        return ResponseEntity.ok().body(CommonResDto.success(users));
     }
 
 
