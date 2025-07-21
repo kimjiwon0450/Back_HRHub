@@ -3,6 +3,7 @@ package com.playdata.noticeservice.notice.dto;
 import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.entity.Notice;
+import com.playdata.noticeservice.notice.entity.Position;
 import lombok.*;
 import org.springframework.data.jpa.repository.Query;
 
@@ -30,6 +31,7 @@ public class NoticeResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private int viewCount;
+    private String position;
 
     // 댓글 수
     private int commentCount;
@@ -68,6 +70,7 @@ public class NoticeResponse {
         dto.updatedAt = notice.getUpdatedAt();
         dto.viewCount = notice.getViewCount();
         dto.commentCount = commentCount;
+        dto.position = Position.values()[notice.getPosition()].name();
         return dto;
     }
 
@@ -87,6 +90,7 @@ public class NoticeResponse {
         dto.createdAt = notice.getCreatedAt();
         dto.updatedAt = notice.getUpdatedAt();
         dto.viewCount = notice.getViewCount();
+        dto.position = Position.values()[notice.getPosition()].name();
         return dto;
     }
 
