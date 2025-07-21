@@ -120,6 +120,8 @@ public class ApprovalController {
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortOrder,
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
@@ -130,7 +132,7 @@ public class ApprovalController {
                 ? ReportStatus.valueOf(status.toUpperCase())
                 : null;
         ReportListResDto res = approvalService.getReports(
-                role, statusEnum, keyword, page, size, writerId);
+                role, statusEnum, keyword, page, size, writerId, sortBy, sortOrder);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 목록 조회", res));
     }
 

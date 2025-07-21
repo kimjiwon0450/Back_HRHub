@@ -17,10 +17,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import java.net.URLDecoder;
@@ -323,8 +325,16 @@ public class ApprovalService {
          * 보고서 목록 조회
          */
         public ReportListResDto getReports (String role, ReportStatus status, String keyword,
-                int page, int size, Long writerId){
-            Pageable pageable = PageRequest.of(page, size);
+                int page, int size, Long writerId,
+                                            @RequestParam(defaultValue = "id") String sortBy,
+                                            @RequestParam(defaultValue = "DESC") String sortOrder){
+            //동적 Sort 객체 생성
+            Sort.Direction direction = sortOrder.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
+            String sortProperty = sortBy.equals("reportCreatedAt") ? "reportCreatedAt" : "id";
+            Sort sort = Sort.by(direction, sortProperty);
+
+            // ★★★ 3. 동적으로 생성된 Sort 객체를 PageRequest에 포함 ★★★
+            Pageable pageable = PageRequest.of(page, size, sort);
 
             Page<Reports> pr;
 
