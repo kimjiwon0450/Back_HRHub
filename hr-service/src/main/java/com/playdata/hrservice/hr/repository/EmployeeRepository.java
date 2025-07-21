@@ -16,14 +16,15 @@ import java.util.Optional;
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByEmail(String email);
 
-   Optional<Employee> findByEmployeeId(Long employeeId);
+    Optional<Employee> findByEmployeeId(Long employeeId);
 
+    Page<Employee> findByEmployeeId(Long employeeId, Pageable pageable);
 
     Page<Employee> findByNameContaining(String keyword, Pageable pageable);
 
     Page<Employee> findByDepartmentNameContaining(String keyword, Pageable pageable);
 
-    Page<Employee> findByNameContainingAndDepartmentNameContaining(String name, String departmentName,  Pageable pageable);
+    Page<Employee> findByNameContainingAndDepartmentNameContaining(String name, String departmentName, Pageable pageable);
 
     Page<Employee> findByRoleAndDepartmentNameContaining(Role role, String department, Pageable pageable);
 
