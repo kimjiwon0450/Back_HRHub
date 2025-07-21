@@ -103,12 +103,6 @@ public class Reports extends BaseTimeEntity {
     private String detail;
 
     /**
-     * 탬플릿 여부
-     */
-    @Column(name = "report_is_custom")
-    private Boolean isCustom;
-
-    /**
      * 리마인더 횟수
      */
     @Column(name = "reminder_count", nullable = false)
