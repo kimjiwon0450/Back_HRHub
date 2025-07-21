@@ -736,10 +736,22 @@ public class ApprovalService {
             if (!originalReport.getWriterId().equals(writerId)) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
             }
-            if (originalReport.getReportStatus() != ReportStatus.REJECTED) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려된 보고서만 재상신할 수 있습니다.");
+
+            // 반려(REJECTED) 또는 회수(RECALLED) 상태의 문서만 재상신을 허용합니다.
+            if (originalReport.getReportStatus() != ReportStatus.REJECTED &&
+                    originalReport.getReportStatus() != ReportStatus.RECALLED) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려되거나 회수된 보고서만 재상신할 수 있습니다.");
             }
 
+            // 재상신 횟수를 단 한 번의 쿼리로 계산합니다.
+            Integer resubmitCount = reportsRepository.countResubmitChainDepth(originalReportId);
+            int currentResubmits = (resubmitCount == null) ? 0 : resubmitCount;
+            log.info("Report ID: {} 의 현재 재상신 횟수: {}", originalReportId, currentResubmits);
+
+            // 재상신 횟수가 3회 이상이면 차단합니다.
+            if (currentResubmits >= 3) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신은 최대 3회까지 가능합니다.");
+            }
 
             // 2) 새로운 라인 리스트와 제목·본문을 넘기도록 변경
             Reports newReport = originalReport.resubmit(
