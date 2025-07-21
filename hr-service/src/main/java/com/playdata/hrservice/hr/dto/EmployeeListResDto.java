@@ -1,6 +1,7 @@
 package com.playdata.hrservice.hr.dto;
 
 import com.playdata.hrservice.common.auth.Role;
+import com.playdata.hrservice.hr.entity.EmployeeStatus;
 import lombok.*;
 
 @Getter
@@ -18,5 +19,7 @@ public class EmployeeListResDto {
     private String phone;
     private String email; // 조직도를 위해 추가
     private String profileImageUri; // 조직도를 위해 추가
+
+    private EmployeeStatus status; //
 
 }

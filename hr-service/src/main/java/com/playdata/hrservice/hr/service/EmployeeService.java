@@ -207,6 +207,7 @@ public class EmployeeService {
                 .email(employee.getEmail())
                 .profileImageUri(employee.getProfileImageUri())
                 .role(employee.getRole().name())
+                .status(employee.getStatus())
                 .build());
     }
 

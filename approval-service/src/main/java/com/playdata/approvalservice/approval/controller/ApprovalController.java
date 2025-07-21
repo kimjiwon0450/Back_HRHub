@@ -206,7 +206,6 @@ public class ApprovalController {
     public ResponseEntity<CommonResDto> remindReport(
             @PathVariable Long reportId,
             @AuthenticationPrincipal TokenUserInfo userInfo
-            // [수정] 파라미터로 writerId 주입
     ) {
 
         Long writerId = getCurrentUserId(userInfo);
