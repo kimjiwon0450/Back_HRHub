@@ -5,6 +5,7 @@ import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Getter @Setter @ToString
 @NoArgsConstructor @AllArgsConstructor @Builder
@@ -20,6 +21,9 @@ public class ReportDetailResDto {
     private List<ApprovalLineResDto> approvalLine;
     private String currentApprover;
     private String dueDate;
+
+    private Map<String, Object> template;
+    private Map<String, Object> formData;
 
     @Getter @Setter @ToString
     @NoArgsConstructor

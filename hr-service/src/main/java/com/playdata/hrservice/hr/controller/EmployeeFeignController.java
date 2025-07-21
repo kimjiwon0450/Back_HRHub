@@ -59,4 +59,13 @@ public class EmployeeFeignController {
         Long employeeId = employeeService.findIdByEmail(email);
         return ResponseEntity.ok(employeeId);
     }
+
+    /**
+     * Feign 클라이언트에서 재직 중인 모든 직원을 조회합니다.
+     * (결재선/참조자 선택 UI에서 사용)
+     */
+    @GetMapping("/list/active")
+    public ResponseEntity<List<EmployeeResDto>> getActiveEmployees() {
+        return ResponseEntity.ok(employeeService.findActiveEmployees());
+    }
 }
