@@ -486,6 +486,33 @@ public class ApprovalService {
         }
         report.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId())); // 결재 라인의 모든 직원 ID
 
+        Map<String, Object> templateStructure = new HashMap<>();
+        Map<String, Object> formData = new HashMap<>();
+
+        try {
+            // 템플릿 ID가 있는지 확인
+            if (report.getReportTemplateId() != null) {
+                // 템플릿 ID로 ReportTemplate 엔티티를 DB에서 조회
+                ReportTemplate template = templateRepository.findById(report.getReportTemplateId())
+                        .orElse(null);
+
+                // 템플릿이 존재하면, template JSON 문자열을 Map으로 변환
+                if (template != null && template.getTemplate() != null) {
+                    templateStructure = objectMapper.readValue(template.getTemplate(), new TypeReference<>() {});
+                }
+            }
+
+            // 템플릿에 입력된 데이터(formData)가 있는지 확인
+            if (report.getReportTemplateData() != null && !report.getReportTemplateData().isBlank()) {
+                // reportTemplateData JSON 문자열을 Map으로 변환
+                formData = objectMapper.readValue(report.getReportTemplateData(), new TypeReference<>() {});
+            }
+        } catch (JsonProcessingException e) {
+            log.error("템플릿 또는 폼 데이터 파싱 실패: reportId={}", reportId, e);
+            // 파싱에 실패하더라도 에러를 발생시키지 않고, 빈 객체를 보내줍니다.
+            // 프론트엔드가 null 대신 빈 객체를 받아 안정적으로 처리할 수 있도록 합니다.
+        }
+
         // 4. 단 한 번의 Feign API 호출로 모든 직원 이름을 가져옵니다.
         Map<Long, String> employeeNamesMap = Collections.emptyMap();
         if (!employeeIdsToFetch.isEmpty()) {
@@ -570,7 +597,8 @@ public class ApprovalService {
                 .reportStatus(report.getReportStatus())
                 .approvalLine(lines)
                 .currentApprover(currentApprover)
-                .dueDate(null) // 필요 시 구현
+                .template(templateStructure)
+                .formData(formData)
                 .build();
 
         if (!resultDto.getApprovalLine().isEmpty()) {
