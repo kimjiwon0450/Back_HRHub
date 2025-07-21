@@ -466,10 +466,12 @@ public class NoticeService {
                 .orElseThrow(() -> new RuntimeException("해당 게시글이 존재하지 않습니다."));
 
         Comment comment = Comment.builder()
-                .notice(notice)
+                .noticeId(noticeId)
                 .content(request.getContent())
-                .employeeId(employeeId) // 내부 검증용으로 사용
+                .employeeId(employeeId)
                 .writerName(request.getWriterName())
+                .authorId(request.getWriterId())
+                .commentStatus(true)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -478,17 +480,15 @@ public class NoticeService {
 
     // ✅ 댓글 목록 조회
     public List<CommentResponse> getComments(Long noticeId) {
-        List<Comment> comments = commentRepository.findByNoticeIdOrderByCreatedAtAsc(noticeId);
+        List<Comment> comments = commentRepository.findByNoticeIdAndCommentStatusIsTrueOrderByCreatedAtAsc(noticeId);
 
         return comments.stream()
-                .map(comment -> {
-                    CommentResponse response = new CommentResponse();
-                    response.setId(comment.getId());
-                    response.setContent(comment.getContent());
-                    response.setWriterName(comment.getWriterName());
-                    response.setCreatedAt(comment.getCreatedAt());
-                    return response;
-                })
+                .map(comment -> CommentResponse.builder()
+                        .id(comment.getId())
+                        .content(comment.getContent())
+                        .writerName(comment.getWriterName())
+                        .createdAt(comment.getCreatedAt())
+                        .build())
                 .toList();
     }
 
@@ -497,12 +497,8 @@ public class NoticeService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("댓글이 존재하지 않습니다."));
 
-        if (!comment.getNotice().getId().equals(noticeId)) {
-            throw new RuntimeException("해당 게시글의 댓글이 아닙니다.");
-        }
-
         if (!comment.getEmployeeId().equals(employeeId)) {
-            throw new RuntimeException("댓글 수정 권한이 없습니다.");
+            throw new RuntimeException("작성자만 수정할 수 있습니다.");
         }
 
         comment.setContent(request.getContent());
@@ -515,15 +511,20 @@ public class NoticeService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("댓글이 존재하지 않습니다."));
 
-        if (!comment.getNotice().getId().equals(noticeId)) {
-            throw new RuntimeException("해당 게시글의 댓글이 아닙니다.");
-        }
-
         if (!comment.getEmployeeId().equals(employeeId)) {
-            throw new RuntimeException("댓글 삭제 권한이 없습니다.");
+            throw new RuntimeException("작성자만 삭제할 수 있습니다.");
         }
 
-        commentRepository.delete(comment);
+        comment.setCommentStatus(false);
+        comment.setUpdatedAt(LocalDateTime.now());
+        commentRepository.save(comment);
     }
+
+    // ✅ 댓글 수 조회
+    public int getCommentCountByNoticeId(Long noticeId) {
+        return commentRepository.countByNoticeIdAndCommentStatusTrue(noticeId);
+    }
+
+
 
 }

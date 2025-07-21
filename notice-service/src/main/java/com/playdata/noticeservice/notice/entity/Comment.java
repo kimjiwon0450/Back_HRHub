@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
 @Table(name = "tbl_comment")
@@ -17,27 +17,23 @@ public class Comment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 댓글 내용
-    @Column(nullable = false, length = 1000)
+    private Long noticeId;
+    private Long authorId;
+
+    @Column(nullable = false)
     private String content;
 
     // 작성자 이름
     @Column(nullable = false)
     private String writerName;
 
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
     // 작성자 ID (검증용)
     @Column(nullable = false)
     private Long employeeId;
 
-    // 생성일
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
+    private boolean commentStatus;
 
-    // 수정일 (nullable, 최초에는 null)
-    private LocalDateTime updatedAt;
-
-    // 게시글과의 연관관계
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "notice_id", nullable = false)
-    private Notice notice;
 }
