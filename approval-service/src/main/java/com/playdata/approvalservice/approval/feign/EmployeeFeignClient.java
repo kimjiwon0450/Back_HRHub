@@ -47,4 +47,11 @@ public interface EmployeeFeignClient {
      */
     @GetMapping("/feign/employees/id")
     ResponseEntity<Long> findIdByEmail(@RequestParam("email") String email);
+
+    /**
+     * 모든 직원 status 조회
+     * @return
+     */
+    @GetMapping("/feign/employees/list/active")
+    ResponseEntity<List<EmployeeResDto>> getActiveEmployees();
 }

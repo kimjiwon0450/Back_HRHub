@@ -2,6 +2,7 @@ package com.playdata.hrservice.hr.repository;
 
 import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.hr.entity.Employee;
+import com.playdata.hrservice.hr.entity.EmployeeStatus;
 import com.playdata.hrservice.hr.entity.Position;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,4 +37,5 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Page<Employee> findByPositionAndDepartmentNameContaining(Position position, String department, Pageable pageable);
 
+    List<Employee> findByStatus(EmployeeStatus status);
 }
