@@ -52,7 +52,7 @@ public class NoticeResponse {
     }
 
 
-    public static NoticeResponse fromEntity(Notice notice, HrUserResponse user) {
+    public static NoticeResponse fromEntity(Notice notice, HrUserResponse user, int commentCount) {
         NoticeResponse dto = new NoticeResponse();
         dto.id = notice.getId();
         dto.title = notice.getTitle();
@@ -67,6 +67,7 @@ public class NoticeResponse {
         dto.createdAt = notice.getCreatedAt();
         dto.updatedAt = notice.getUpdatedAt();
         dto.viewCount = notice.getViewCount();
+        dto.commentCount = commentCount;
         return dto;
     }
 
@@ -88,25 +89,5 @@ public class NoticeResponse {
         dto.viewCount = notice.getViewCount();
         return dto;
     }
-
-    public static NoticeResponse fromEntity(Notice notice, HrUserResponse user, int commentCount) {
-        NoticeResponse dto = new NoticeResponse();
-        dto.id = notice.getId();
-        dto.title = notice.getTitle();
-        dto.content = notice.getContent();
-        dto.name = user.getName();
-        dto.departmentId = notice.getDepartmentId();
-        dto.employStatus = user.getStatus();
-        dto.employeeId = notice.getEmployeeId();
-        dto.notice = notice.isNotice();
-        dto.attachmentUri = notice.getAttachmentUri();
-        dto.boardStatus = notice.isBoardStatus();
-        dto.createdAt = notice.getCreatedAt();
-        dto.updatedAt = notice.getUpdatedAt();
-        dto.viewCount = notice.getViewCount();
-        dto.commentCount = commentCount;
-        return dto;
-    }
-
 
 }

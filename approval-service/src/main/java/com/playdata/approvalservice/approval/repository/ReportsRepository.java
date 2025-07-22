@@ -57,4 +57,25 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     @Query("SELECT r FROM Reports r WHERE r.reportStatus = 'IN_PROGRESS' AND " +
             "(r.writerId = :userId OR EXISTS (SELECT 1 FROM ApprovalLine l WHERE l.reports = r AND l.employeeId = :userId))")
     Page<Reports> findInProgressForUser(@Param("userId") Long userId, Pageable pageable);
+
+    /**
+     * 특정 보고서 ID를 시작으로 재상신 체인을 역추적하여, 재상신된 횟수(체인의 깊이)를 계산합니다.
+     * MySQL 8.0 이상에서 지원하는 재귀적 CTE를 사용합니다.
+     * @param reportId 재상신 횟수를 계산할 기준 보고서의 ID
+     * @return 재상신 횟수 (자기 자신을 포함한 체인의 총 문서 개수 - 1)
+     */
+    @Query(value =
+            "WITH RECURSIVE ResubmitChain AS (" +
+                    "    SELECT report_id, previous_report_id, 1 AS depth " +
+                    "    FROM reports " +
+                    "    WHERE report_id = :reportId " +
+                    "    UNION ALL " +
+                    "    SELECT r.report_id, r.previous_report_id, rc.depth + 1 " +
+                    "    FROM reports r " +
+                    "    INNER JOIN ResubmitChain rc ON r.report_id = rc.previous_report_id " +
+                    "    WHERE r.previous_report_id IS NOT NULL" +
+                    ") " +
+                    "SELECT MAX(depth) - 1 FROM ResubmitChain",
+            nativeQuery = true)
+    Integer countResubmitChainDepth(@Param("reportId") Long reportId);
 }

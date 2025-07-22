@@ -2,36 +2,28 @@ package com.playdata.noticeservice.notice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.playdata.noticeservice.common.dto.DepResponse;
 import com.playdata.noticeservice.notice.dto.*;
 import com.playdata.noticeservice.notice.entity.Comment;
 import com.playdata.noticeservice.notice.entity.Notice;
-import com.playdata.noticeservice.notice.entity.NoticeAttachment;
 import com.playdata.noticeservice.notice.entity.NoticeRead;
 import com.playdata.noticeservice.notice.repository.CommentRepository;
 import com.playdata.noticeservice.notice.repository.NoticeAttachmentRepository;
 import com.playdata.noticeservice.notice.repository.NoticeReadRepository;
 import com.playdata.noticeservice.notice.repository.NoticeRepository;
-import com.playdata.noticeservice.notice.repository.CommentRepository;
 import com.playdata.noticeservice.common.client.HrUserClient;
 import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 
-import java.io.IOException;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.validation.constraints.Max;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.fileupload.FileUploadException;
 import org.springframework.data.domain.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -449,7 +441,8 @@ public class NoticeService {
         List<NoticeResponse> unreadNoticeResponses = unreadNotices.stream()
                 .map(notice -> {
                     HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    return NoticeResponse.fromEntity(notice, writer);
+                    int commentCount = getCommentCountByNoticeId(notice.getId());
+                    return NoticeResponse.fromEntity(notice, writer, commentCount);
                 })
                 .toList();
 
