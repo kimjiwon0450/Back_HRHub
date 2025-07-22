@@ -1,5 +1,6 @@
 package com.playdata.noticeservice.common.dto;
 
+import com.playdata.noticeservice.notice.entity.Position;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -16,4 +17,5 @@ public class HrUserResponse {
     private Long departmentId;
     private String departmentName;
     private String status;
+    private Position position;
 }

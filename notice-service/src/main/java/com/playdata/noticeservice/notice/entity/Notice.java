@@ -32,20 +32,23 @@ public class Notice {
     private String attachmentUri;
     private boolean boardStatus;
     private int viewCount = 0;
+//    @Enumerated(EnumType.ORDINAL) // 👈 추가
+    private int position;
 
 
-
-
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+    // Setter with enum
+    public void setPosition(Position position) {
+        this.position = position.ordinal();
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+    // Getter with enum
+    public Position getPositionEnum() {
+        return Position.values()[this.position];
+    }
+
+    // Optional: position 필드 접근 getter도 유지 가능
+    public int getPosition() {
+        return this.position;
     }
 
 }
