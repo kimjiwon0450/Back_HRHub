@@ -75,16 +75,26 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
-          envs: ECR_REGISTRY,AWS_REGION
+          envs: ECR_REGISTRY,AWS_REGION,CONFIG_SERVICE_DEV_YML
           script: |
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-            docker stop ${{ matrix.service }} || true
-            docker rm ${{ matrix.service }} || true
-            docker pull $ECR_REGISTRY/${{ matrix.service }}:latest
-
             if [ "${{ matrix.service }}" = "config-service" ]; then
-              docker run -d --name config-service -p 8888:8888 $ECR_REGISTRY/config-service:latest
+              # 민감 yml 파일을 EC2에 저장
+              cat <<EOF > /home/ubuntu/application-dev.yml
+${CONFIG_SERVICE_DEV_YML}
+EOF
+              aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+              docker stop config-service || true
+              docker rm config-service || true
+              docker pull $ECR_REGISTRY/config-service:latest
+              docker run -d --name config-service -p 8888:8888 \
+                -v /home/ubuntu/application-dev.yml:/app/application-dev.yml \
+                $ECR_REGISTRY/config-service:latest \
+                --spring.config.location=classpath:/application.yml,/app/application-dev.yml
             elif [ "${{ matrix.service }}" = "discovery-service" ]; then
+              aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+              docker stop discovery-service || true
+              docker rm discovery-service || true
+              docker pull $ECR_REGISTRY/discovery-service:latest
               docker run -d --name discovery-service -p 8761:8761 $ECR_REGISTRY/discovery-service:latest
             fi
 
