@@ -38,6 +38,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Grant execute permission for gradlew
+        if: steps.changes.outputs.service == 'true'
+        run: chmod +x ./gradlew
+
       - name: Build with Gradle
         if: steps.changes.outputs.service == 'true'
         run: ./gradlew build -x test
@@ -138,6 +142,10 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      - name: Grant execute permission for gradlew
+        if: steps.changes.outputs.service == 'true'
+        run: chmod +x ./gradlew
 
       - name: Build with Gradle
         if: steps.changes.outputs.service == 'true'
