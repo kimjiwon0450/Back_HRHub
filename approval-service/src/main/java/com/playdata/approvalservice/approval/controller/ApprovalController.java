@@ -52,6 +52,20 @@ public class ApprovalController {
     }
 
     /**
+     * 결재선/참조자 지정을 위해 재직 중인 직원 목록을 조회합니다.
+     */
+    @GetMapping("/employees/active")
+    public ResponseEntity<CommonResDto> getActiveEmployeesForApproval() {
+        // Feign Client를 통해 HR 서비스 호출
+        ResponseEntity<List<EmployeeResDto>> response = employeeFeignClient.getActiveEmployees();
+
+        // 응답을 CommonResDto로 감싸서 프론트엔드에 반환
+        return ResponseEntity.ok(
+                new CommonResDto(HttpStatus.OK, "재직 중인 직원 목록 조회 성공", response.getBody())
+        );
+    }
+
+    /**
      * 보고서 생성 (DRAFT)
      */
     @PostMapping(value = "/save", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -83,20 +97,16 @@ public class ApprovalController {
     }
 
 
-    /**
-     * 보고서 수정 (Draft)
-     */
     @PutMapping("/reports/{reportId}")
     public ResponseEntity<CommonResDto> updateReport(
             @PathVariable Long reportId,
             @RequestBody @Valid ReportUpdateReqDto req,
             @AuthenticationPrincipal TokenUserInfo userInfo
-            // [수정] 파라미터로 writerId 주입
     ) {
-
         Long writerId = getCurrentUserId(userInfo);
 
-        ReportUpdateResDto res = approvalService.updateReport(reportId, req, writerId);
+        // 서비스에서 ReportDetailResDto를 반환하므로, 변수 타입도 맞춰줌
+        ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 수정 완료", res));
     }
 
@@ -110,6 +120,8 @@ public class ApprovalController {
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "DESC") String sortOrder,
             @AuthenticationPrincipal TokenUserInfo userInfo
             // [수정] 파라미터로 writerId 주입
     ) {
@@ -120,7 +132,7 @@ public class ApprovalController {
                 ? ReportStatus.valueOf(status.toUpperCase())
                 : null;
         ReportListResDto res = approvalService.getReports(
-                role, statusEnum, keyword, page, size, writerId);
+                role, statusEnum, keyword, page, size, writerId, sortBy, sortOrder);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 목록 조회", res));
     }
 

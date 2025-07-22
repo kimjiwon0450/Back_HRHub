@@ -18,14 +18,6 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
 
     Page<Reports> findByWriterIdAndReportStatus(Long writerId, ReportStatus reportStatus, Pageable pageable);
 
-    /**
-     * 결재자(ApprovalLine)로 조회
-     */
-    @Query("SELECT DISTINCT r FROM Reports r JOIN FETCH r.approvalLines l " +
-            "WHERE l.employeeId = :approverId " +
-            "AND r.reportStatus IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')")
-    Page<Reports> findByApproverIdAndExcludeDraftRecalled(@Param("approverId") Long approverId, Pageable pageable);
-
     Optional<Reports> findByIdAndReportStatus(Long id, ReportStatus reportStatus);
 
     // [수정] Pageable 파라미터를 가장 마지막으로 이동시킵니다.
@@ -43,4 +35,47 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
             nativeQuery = true
     )
     Page<Reports> findByReferenceEmployeeIdInDetailJsonAndExcludeDraftRecalled(@Param("employeeId") Long employeeId, Pageable pageable);
+
+
+    // 내가 결재선에 포함되어 있으면서, 상태가 IN_PROGRESS인 문서만 조회
+    @Query("SELECT r FROM Reports r WHERE r.reportStatus = 'IN_PROGRESS' AND " +
+            "EXISTS (SELECT 1 FROM ApprovalLine l WHERE l.reports = r AND l.employeeId = :approverId)")
+    Page<Reports> findInProgressReportsByApproverInLine(@Param("approverId") Long approverId, Pageable pageable);
+
+    /**
+     * 특정 사용자가 결재선에 포함되어 있으면서, 특정 상태(완료 또는 반려)인 문서 목록을 조회합니다.
+     * (완료/반려 문서함 기능에 사용)
+     * @param approverId 결재자 ID
+     * @param status 조회할 보고서 상태 (APPROVED 또는 REJECTED)
+     * @param pageable 페이징 정보
+     * @return 보고서 페이지
+     */
+    @Query("SELECT r FROM Reports r WHERE r.reportStatus = :status AND " +
+            "EXISTS (SELECT 1 FROM ApprovalLine l WHERE l.reports = r AND l.employeeId = :approverId)")
+    Page<Reports> findByApproverIdAndStatus(@Param("approverId") Long approverId, @Param("status") ReportStatus status, Pageable pageable);
+
+    @Query("SELECT r FROM Reports r WHERE r.reportStatus = 'IN_PROGRESS' AND " +
+            "(r.writerId = :userId OR EXISTS (SELECT 1 FROM ApprovalLine l WHERE l.reports = r AND l.employeeId = :userId))")
+    Page<Reports> findInProgressForUser(@Param("userId") Long userId, Pageable pageable);
+
+    /**
+     * 특정 보고서 ID를 시작으로 재상신 체인을 역추적하여, 재상신된 횟수(체인의 깊이)를 계산합니다.
+     * MySQL 8.0 이상에서 지원하는 재귀적 CTE를 사용합니다.
+     * @param reportId 재상신 횟수를 계산할 기준 보고서의 ID
+     * @return 재상신 횟수 (자기 자신을 포함한 체인의 총 문서 개수 - 1)
+     */
+    @Query(value =
+            "WITH RECURSIVE ResubmitChain AS (" +
+                    "    SELECT report_id, previous_report_id, 1 AS depth " +
+                    "    FROM reports " +
+                    "    WHERE report_id = :reportId " +
+                    "    UNION ALL " +
+                    "    SELECT r.report_id, r.previous_report_id, rc.depth + 1 " +
+                    "    FROM reports r " +
+                    "    INNER JOIN ResubmitChain rc ON r.report_id = rc.previous_report_id " +
+                    "    WHERE r.previous_report_id IS NOT NULL" +
+                    ") " +
+                    "SELECT MAX(depth) - 1 FROM ResubmitChain",
+            nativeQuery = true)
+    Integer countResubmitChainDepth(@Param("reportId") Long reportId);
 }

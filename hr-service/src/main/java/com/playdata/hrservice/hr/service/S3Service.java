@@ -2,7 +2,8 @@ package com.playdata.hrservice.hr.service;
 
 import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.common.config.AwsS3Config;
-
+import java.net.URLEncoder; // 추가
+import java.nio.charset.StandardCharsets; // 추가
 import com.playdata.hrservice.hr.entity.Employee;
 import com.playdata.hrservice.hr.repository.EmployeeRepository;
 
@@ -20,6 +21,7 @@ public class S3Service {
 
     private final EmployeeRepository employeeRepository;
     private final AwsS3Config awsS3Config;
+
 
 
     public String uploadProfile(String targetEmail, MultipartFile file) throws Exception {

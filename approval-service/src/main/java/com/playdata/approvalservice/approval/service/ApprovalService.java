@@ -12,7 +12,6 @@ import com.playdata.approvalservice.approval.entity.*;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
 import com.playdata.approvalservice.common.config.AwsS3Config;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -23,10 +22,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 import java.io.IOException;
+import java.net.URL;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -47,6 +50,7 @@ public class ApprovalService {
     private final EmployeeFeignClient employeeFeignClient;
     private final ReportTemplateRepository templateRepository;
     private final AwsS3Config awsS3Config;
+    private final S3Service s3Service;
 
     private final ObjectMapper objectMapper;
 
@@ -131,7 +135,7 @@ public class ApprovalService {
          * 보고서 수정 (Draft 상태)
          */
         @Transactional
-        public ReportUpdateResDto updateReport (Long reportId, ReportUpdateReqDto req, Long writerId){
+        public ReportDetailResDto updateReport (Long reportId, ReportUpdateReqDto req, Long writerId){
             Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
@@ -144,6 +148,7 @@ public class ApprovalService {
 
             // detail 에 attachments, references 담기
             Map<String, Object> detailMap = new HashMap<>();
+
             if (req.getAttachments() != null) {
                 detailMap.put("attachments", req.getAttachments());
             }
@@ -158,13 +163,10 @@ public class ApprovalService {
                 }
             }
 
-
+            // 수정된 보고서 저장
             Reports updated = reportsRepository.save(report);
-            return ReportUpdateResDto.builder()
-                    .id(updated.getId())
-                    .title(updated.getTitle())
-                    .reportStatus(updated.getReportStatus())
-                    .build();
+
+            return getReportDetail(updated.getId(), writerId);
         }
 
     /**
@@ -323,29 +325,54 @@ public class ApprovalService {
          * 보고서 목록 조회
          */
         public ReportListResDto getReports (String role, ReportStatus status, String keyword,
-                int page, int size, Long writerId){
-            Pageable pageable = PageRequest.of(page, size);
+                int page, int size, Long writerId,
+                                            @RequestParam(defaultValue = "id") String sortBy,
+                                            @RequestParam(defaultValue = "DESC") String sortOrder){
+            //동적 Sort 객체 생성
+            Sort.Direction direction = sortOrder.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
+            String sortProperty = sortBy.equals("reportCreatedAt") ? "reportCreatedAt" : "id";
+            Sort sort = Sort.by(direction, sortProperty);
+
+            // ★★★ 3. 동적으로 생성된 Sort 객체를 PageRequest에 포함 ★★★
+            Pageable pageable = PageRequest.of(page, size, sort);
 
             Page<Reports> pr;
 
             if ("writer".equalsIgnoreCase(role)) {
+                // [내 기안 문서함] 로직 (변경 없음)
                 pr = (status != null)
                         ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
                         : reportsRepository.findByWriterId(writerId, pageable);
+
             } else if ("approver".equalsIgnoreCase(role)) {
-                if(status == ReportStatus.IN_PROGRESS) {
+
+                if (status == ReportStatus.IN_PROGRESS) {
+                    // [결재할 문서] - 내가 현재 결재자
+                    log.info("Fetching reports for CURRENT approver (role={}, status={})", role, status);
                     pr = reportsRepository.findByCurrentApproverIdAndReportStatus(writerId, ReportStatus.IN_PROGRESS, pageable);
+
+                } else if (status == null) {
+                    // [결재 진행함] - 내가 결재선에 포함된 모든 진행 중 문서
+                    log.info("Fetching all IN-PROGRESS reports where user is in approval line (role={}, status=null)", role);
+                    pr = reportsRepository.findInProgressForUser(writerId, pageable);
+
+                } else if (status == ReportStatus.APPROVED || status == ReportStatus.REJECTED) {
+                    // [완료 문서함] 또는 [반려 문서함]
+                    log.info("Fetching {} reports where user was in approval line (role={}, status={})", status, role, status);
+                    pr = reportsRepository.findByApproverIdAndStatus(writerId, status, pageable);
+
+                } else {
+                    // 그 외의 status 요청은 비어있는 페이지를 반환하거나 예외 처리
+                    log.warn("Unsupported status '{}' for role 'approver'", status);
+                    pr = Page.empty(pageable);
                 }
-                else {
-                    pr = reportsRepository.findByApproverIdAndExcludeDraftRecalled(writerId, pageable);
-                }
+
             } else if ("reference".equalsIgnoreCase(role)) {
-                // 이제 이 메서드는 정렬 정보가 담긴 Pageable 객체를 받아
-                // JPA가 최종 SQL을 만들 때 ORDER BY 절을 자동으로 추가해줍니다.
+                // [수신 참조함] 로직 (변경 없음)
                 pr = reportsRepository.findByReferenceEmployeeIdInDetailJsonAndExcludeDraftRecalled(writerId, pageable);
+
             } else {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "role은 writer, approver, 또는 reference만 가능합니다.");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "role은 writer, approver, 또는 reference만 가능합니다.");
             }
 
             Set<Long> employeeIdsToFetch = new HashSet<>();
@@ -493,6 +520,20 @@ public class ApprovalService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 파싱 실패", e);
             }
         }
+        List<ReportDetailResDto.AttachmentResDto> finalAttachments = atts.stream()
+                .map(attachment -> {
+                    try {
+                        String fileKey = extractS3KeyFromUrl(attachment.getUrl());
+                        // 'inline'은 브라우저에서 바로 열리도록 하는 옵션입니다.
+                        String presignedUrl = s3Service.generatePresignedUrl(fileKey, "inline");
+                        return new ReportDetailResDto.AttachmentResDto(attachment.getFileName(), presignedUrl);
+                    } catch (Exception e) {
+                        log.error("Pre-signed URL 생성 실패: {}", attachment.getUrl(), e);
+                        // 실패 시에는 빈 URL이나 원본 URL을 그대로 반환할 수 있습니다.
+                        return new ReportDetailResDto.AttachmentResDto(attachment.getFileName(), "");
+                    }
+                })
+                .collect(Collectors.toList());
 
         // 6. 미리 가져온 이름 맵을 사용하여 결재 라인 DTO를 생성합니다.
         List<ReportDetailResDto.ApprovalLineResDto> lines = report.getApprovalLines().stream()
@@ -519,7 +560,7 @@ public class ApprovalService {
                 .id(report.getId())
                 .title(report.getTitle())
                 .content(report.getContent())
-                .attachments(atts)
+                .attachments(finalAttachments)
                 .references(refs)
                 .writer(ReportDetailResDto.WriterInfoDto.builder()
                         .id(report.getWriterId())
@@ -669,7 +710,6 @@ public class ApprovalService {
             System.out.println("토큰에서 추출한 작성자 ID (userInfo): " + writerId);
             System.out.println("보고서 엔티티의 작성자 ID: " + report.getWriterId());
             System.out.println("보고서 현재 상태: " + report.getReportStatus());
-            // --- 로그 추가 끝 ---
 
             if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
@@ -696,10 +736,22 @@ public class ApprovalService {
             if (!originalReport.getWriterId().equals(writerId)) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
             }
-            if (originalReport.getReportStatus() != ReportStatus.REJECTED) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려된 보고서만 재상신할 수 있습니다.");
+
+            // 반려(REJECTED) 또는 회수(RECALLED) 상태의 문서만 재상신을 허용합니다.
+            if (originalReport.getReportStatus() != ReportStatus.REJECTED &&
+                    originalReport.getReportStatus() != ReportStatus.RECALLED) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반려되거나 회수된 보고서만 재상신할 수 있습니다.");
             }
 
+            // 재상신 횟수를 단 한 번의 쿼리로 계산합니다.
+            Integer resubmitCount = reportsRepository.countResubmitChainDepth(originalReportId);
+            int currentResubmits = (resubmitCount == null) ? 0 : resubmitCount;
+            log.info("Report ID: {} 의 현재 재상신 횟수: {}", originalReportId, currentResubmits);
+
+            // 재상신 횟수가 3회 이상이면 차단합니다.
+            if (currentResubmits >= 3) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신은 최대 3회까지 가능합니다.");
+            }
 
             // 2) 새로운 라인 리스트와 제목·본문을 넘기도록 변경
             Reports newReport = originalReport.resubmit(
@@ -801,9 +853,6 @@ public class ApprovalService {
                     .build();
         }
 
-
-// 파일: ApprovalService.java
-
     @Transactional(readOnly = true)
     public ReportFormResDto getReportForm(Long reportId, Long templateId, Long userId) {
         try {
@@ -821,7 +870,6 @@ public class ApprovalService {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
                 }
 
-                // 이전에 에러가 났던 부분
                 Long reportTemplateId = report.getReportTemplateId();
                 if(reportTemplateId == null) {
                     throw new IllegalStateException("DB 데이터 오류: report_id=" + reportId + "의 report_template_id가 NULL입니다.");
@@ -838,12 +886,8 @@ public class ApprovalService {
             // 2. '구조(template)'와 '데이터(formData)' 파싱
             // ----------------------------------------------------
             Map<String, Object> templateStructure = objectMapper.readValue(template.getTemplate(), new TypeReference<>() {});
-
-            // ========================================================================
-            // [★★★★★ 최종 해결책 ★★★★★]
-            // 파싱된 template 구조 Map에, template 엔티티의 실제 ID를 'id'라는 키로 직접 넣어줍니다.
             templateStructure.put("id", template.getTemplateId());
-            // ========================================================================
+
 
             Map<String, Object> formData;
 
@@ -853,13 +897,8 @@ public class ApprovalService {
                 formData = new HashMap<>();
             }
 
-            // ... (3번, 4번 로직은 그대로) ...
             List<ReportDetailResDto.ApprovalLineResDto> approvalLineDtos = Collections.emptyList();
             List<ReportDetailResDto.AttachmentResDto> attachmentDtos = Collections.emptyList();
-
-            if (report != null) {
-                // ... (결재선, 첨부파일 조회 로직) ...
-            }
 
             return new ReportFormResDto(
                     templateStructure, // 이제 이 객체에는 { id: 21, title: ... } 처럼 id가 포함됩니다.
@@ -871,6 +910,17 @@ public class ApprovalService {
         } catch (JsonProcessingException e) {
             log.error("JSON 파싱 실패", e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "양식 데이터를 처리하는 중 오류가 발생했습니다.");
+        }
+    }
+
+    private String extractS3KeyFromUrl(String fileUrl) {
+        try {
+            String path = new URL(fileUrl).getPath();
+            // 경로의 맨 앞 '/'를 제거하고, URL 디코딩을 수행합니다.
+            return URLDecoder.decode(path.substring(1), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            log.error("S3 URL 파싱 또는 디코딩 실패: {}", fileUrl, e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 파일 URL 형식입니다.");
         }
     }
 }

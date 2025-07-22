@@ -349,6 +349,13 @@ public class EmployeeService {
                 .toList();
     }
 
+    // 퇴사자 조회
+    public List<EmployeeResDto> findActiveEmployees() {
+        List<Employee> activeEmployees = employeeRepository.findByStatus(EmployeeStatus.ACTIVE);
+        return activeEmployees.stream()
+                .map(Employee::toDto) // 엔티티의 toDto() 메소드 활용
+                .collect(Collectors.toList());
+    }
 
 
 }
