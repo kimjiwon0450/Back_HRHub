@@ -206,7 +206,6 @@ public class ApprovalController {
     public ResponseEntity<CommonResDto> remindReport(
             @PathVariable Long reportId,
             @AuthenticationPrincipal TokenUserInfo userInfo
-            // [수정] 파라미터로 writerId 주입
     ) {
 
         Long writerId = getCurrentUserId(userInfo);
@@ -272,7 +271,7 @@ public class ApprovalController {
             ){
         ReportCreateResDto resDto = approvalService.reportFromTemplate(req, userInfo.getEmail(), files);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new CommonResDto(HttpStatus.CREATED, "결재 문서가 성공적으로 상신되었습니다.", resDto));
+                .body(new CommonResDto(HttpStatus.CREATED, null, resDto));
     }
 
     // ApprovalController.java 에 추가

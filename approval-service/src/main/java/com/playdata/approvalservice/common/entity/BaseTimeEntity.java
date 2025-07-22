@@ -13,5 +13,5 @@ public abstract class BaseTimeEntity {
 
     @CreationTimestamp
     @Column(updatable = false)
-    private LocalDateTime createdAt;
+    private LocalDateTime reportCreatedAt;
 }

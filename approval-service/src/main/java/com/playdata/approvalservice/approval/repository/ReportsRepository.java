@@ -23,20 +23,6 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
     // [수정] Pageable 파라미터를 가장 마지막으로 이동시킵니다.
     Page<Reports> findByCurrentApproverIdAndReportStatus(Long currentApproverId, ReportStatus reportStatus, Pageable pageable);
 
-    // 3. [수정] 참조자 기준 조회 - DRAFT, RECALLED 상태 제외
-    // 네이티브 쿼리에 WHERE 조건을 추가합니다.
-    @Query(
-            value = "SELECT * FROM reports r " +
-                    "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references') " +
-                    "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')",
-            countQuery = "SELECT count(*) FROM reports r " +
-                    "WHERE JSON_CONTAINS(r.report_detail, JSON_OBJECT('employeeId', :employeeId), '$.references') " +
-                    "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')",
-            nativeQuery = true
-    )
-    Page<Reports> findByReferenceEmployeeIdInDetailJsonAndExcludeDraftRecalled(@Param("employeeId") Long employeeId, Pageable pageable);
-
-
     // 내가 결재선에 포함되어 있으면서, 상태가 IN_PROGRESS인 문서만 조회
     @Query("SELECT r FROM Reports r WHERE r.reportStatus = 'IN_PROGRESS' AND " +
             "EXISTS (SELECT 1 FROM ApprovalLine l WHERE l.reports = r AND l.employeeId = :approverId)")
@@ -78,4 +64,16 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
                     "SELECT MAX(depth) - 1 FROM ResubmitChain",
             nativeQuery = true)
     Integer countResubmitChainDepth(@Param("reportId") Long reportId);
+
+    @Query(
+            value = "SELECT * FROM reports r " +
+                    // ★★★ 핵심 수정: CONCAT에서 대괄호 '[]'를 제거하여 JSON 객체를 만듭니다 ★★★
+                    "WHERE JSON_CONTAINS(r.report_detail, CAST(CONCAT('{\"employeeId\":', :employeeId, '}') AS JSON), '$.references') " +
+                    "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')",
+            countQuery = "SELECT count(*) FROM reports r " +
+                    "WHERE JSON_CONTAINS(r.report_detail, CAST(CONCAT('{\"employeeId\":', :employeeId, '}') AS JSON), '$.references') " +
+                    "AND r.report_status IN ('IN_PROGRESS', 'APPROVED', 'REJECTED')",
+            nativeQuery = true
+    )
+    Page<Reports> findReferencedReportsByJsonContains(@Param("employeeId") Long employeeId, Pageable pageable);
 }
