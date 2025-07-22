@@ -68,7 +68,7 @@ jobs:
         run: |
           docker push $ECR_REGISTRY/${{ matrix.service }}:latest
 
-      - name: Deploy to EC2
+            - name: Deploy to EC2
         if: steps.changes.outputs.service == 'true'
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -78,7 +78,10 @@ jobs:
           envs: ECR_REGISTRY,AWS_REGION,CONFIG_SERVICE_DEV_YML
           script: |
             if [ "${{ matrix.service }}" = "config-service" ]; then
-              # 민감 yml을 파일로 저장
+              # Secret이 비었는지 먼저 확인
+              [ -z "$CONFIG_SERVICE_DEV_YML" ] && echo "CONFIG_SERVICE_DEV_YML is EMPTY" && exit 1
+
+              # application-dev.yml 생성 (줄바꿈/특수문자 그대로)
               printf '%s' "$CONFIG_SERVICE_DEV_YML" > /home/ubuntu/application-dev.yml
 
               aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
@@ -86,10 +89,11 @@ jobs:
               docker rm config-service || true
               docker pull $ECR_REGISTRY/config-service:latest
 
-              docker run -d --name config-service -p 8888:8888 \
-                -v /home/ubuntu/application-dev.yml:/app/application-dev.yml \
-                $ECR_REGISTRY/config-service:latest \
-                --spring.config.location=classpath:/application.yml,/app/application-dev.yml
+              # Spring이 자동으로 /config/*.yml 읽도록 mount + profile만 켬
+              docker run -d --name config-service -p 8888:8080 \
+                -e SPRING_PROFILES_ACTIVE=dev \
+                -v /home/ubuntu/application-dev.yml:/config/application-dev.yml \
+                $ECR_REGISTRY/config-service:latest
 
             elif [ "${{ matrix.service }}" = "discovery-service" ]; then
               aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
@@ -98,6 +102,7 @@ jobs:
               docker pull $ECR_REGISTRY/discovery-service:latest
               docker run -d --name discovery-service -p 8761:8761 $ECR_REGISTRY/discovery-service:latest
             fi
+
 
   wait_config_discovery:
     name: Wait for Config/Discovery Ready
