@@ -68,7 +68,7 @@ jobs:
         run: |
           docker push $ECR_REGISTRY/${{ matrix.service }}:latest
 
-            - name: Deploy to EC2
+      - name: Deploy to EC2
         if: steps.changes.outputs.service == 'true'
         uses: appleboy/ssh-action@v1.0.0
         with:
