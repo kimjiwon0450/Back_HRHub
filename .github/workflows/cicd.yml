@@ -92,7 +92,7 @@ jobs:
               docker pull $ECR_REGISTRY/config-service:latest
 
               # Spring이 자동으로 /config/*.yml 읽도록 mount + profile만 켬
-              docker run -d --name config-service -p 8888:8080 \
+              docker run -d --name config-service -p 8888:8888 \
                 -e SPRING_PROFILES_ACTIVE=dev \
                 -v /home/ubuntu/application-dev.yml:/config/application-dev.yml \
                 $ECR_REGISTRY/config-service:latest
