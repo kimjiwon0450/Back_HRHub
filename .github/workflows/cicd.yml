@@ -71,6 +71,8 @@ jobs:
       - name: Deploy to EC2
         if: steps.changes.outputs.service == 'true'
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          CONFIG_SERVICE_DEV_YML: ${{ secrets.CONFIG_SERVICE_DEV_YML }}   # ← 추가
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
