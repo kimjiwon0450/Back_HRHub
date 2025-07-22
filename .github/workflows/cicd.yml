@@ -1,0 +1,185 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+jobs:
+  build_and_push_base:
+    name: Build and Deploy Config/Discovery
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [ config-service, discovery-service ]
+    defaults:
+      run:
+        working-directory: ./${{ matrix.service }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            service:
+              - ${{ matrix.service }}/**
+
+      - name: Set up JDK 17
+        if: steps.changes.outputs.service == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build with Gradle
+        if: steps.changes.outputs.service == 'true'
+        run: ./gradlew build -x test
+
+      - name: Docker build
+        if: steps.changes.outputs.service == 'true'
+        run: |
+          docker build -t $ECR_REGISTRY/${{ matrix.service }}:latest .
+
+      - name: Configure AWS credentials
+        if: steps.changes.outputs.service == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
+        if: steps.changes.outputs.service == 'true'
+        run: aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+      - name: Push to ECR
+        if: steps.changes.outputs.service == 'true'
+        run: |
+          docker push $ECR_REGISTRY/${{ matrix.service }}:latest
+
+      - name: Deploy to EC2
+        if: steps.changes.outputs.service == 'true'
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+            docker stop ${{ matrix.service }} || true
+            docker rm ${{ matrix.service }} || true
+            docker pull $ECR_REGISTRY/${{ matrix.service }}:latest
+
+            if [ "${{ matrix.service }}" = "config-service" ]; then
+              docker run -d --name config-service -p 8888:8888 $ECR_REGISTRY/config-service:latest
+            elif [ "${{ matrix.service }}" = "discovery-service" ]; then
+              docker run -d --name discovery-service -p 8761:8761 $ECR_REGISTRY/discovery-service:latest
+            fi
+
+  wait_config_discovery:
+    name: Wait for Config/Discovery Ready
+    runs-on: ubuntu-latest
+    needs: build_and_push_base
+    steps:
+      - name: Check Config/Discovery healthy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            for i in {1..24}
+            do
+              CONFIG_UP=$(curl -s http://localhost:8888/actuator/health | grep UP || true)
+              DISCOVERY_UP=$(curl -s http://localhost:8761/actuator/health | grep UP || true)
+              if [ "$CONFIG_UP" != "" ] && [ "$DISCOVERY_UP" != "" ]; then
+                echo "Both config and discovery service are UP"
+                exit 0
+              fi
+              echo "Waiting for config/discovery... try $i"
+              sleep 5
+            done
+            echo "config-service or discovery-service not UP after waiting."
+            exit 1
+
+  build_and_push_others:
+    name: Build and Deploy Others/Gateway
+    runs-on: ubuntu-latest
+    needs: wait_config_discovery
+    strategy:
+      matrix:
+        service: [ hr-service, notice-service, approval-service, gateway-service ]
+    defaults:
+      run:
+        working-directory: ./${{ matrix.service }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            service:
+              - ${{ matrix.service }}/**
+
+      - name: Set up JDK 17
+        if: steps.changes.outputs.service == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Build with Gradle
+        if: steps.changes.outputs.service == 'true'
+        run: ./gradlew build -x test
+
+      - name: Docker build
+        if: steps.changes.outputs.service == 'true'
+        run: |
+          docker build -t $ECR_REGISTRY/${{ matrix.service }}:latest .
+
+      - name: Configure AWS credentials
+        if: steps.changes.outputs.service == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
+        if: steps.changes.outputs.service == 'true'
+        run: aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+      - name: Push to ECR
+        if: steps.changes.outputs.service == 'true'
+        run: |
+          docker push $ECR_REGISTRY/${{ matrix.service }}:latest
+
+      - name: Deploy to EC2
+        if: steps.changes.outputs.service == 'true'
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+            docker stop ${{ matrix.service }} || true
+            docker rm ${{ matrix.service }} || true
+            docker pull $ECR_REGISTRY/${{ matrix.service }}:latest
+
+            if [ "${{ matrix.service }}" = "gateway-service" ]; then
+              docker run -d --name gateway-service -p 8000:8000 $ECR_REGISTRY/gateway-service:latest
+            else
+              docker run -d --name ${{ matrix.service }} $ECR_REGISTRY/${{ matrix.service }}:latest
+            fi
