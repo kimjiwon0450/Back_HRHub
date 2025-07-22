@@ -97,16 +97,20 @@ public class ApprovalController {
     }
 
 
-    @PutMapping("/reports/{reportId}")
+    @PutMapping(value = "/reports/{reportId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> updateReport(
             @PathVariable Long reportId,
-            @RequestBody @Valid ReportUpdateReqDto req,
+            // 2. @RequestBody를 @RequestPart로 변경
+            @RequestPart("req") @Valid ReportUpdateReqDto req,
+            // 3. 새로 추가되는 파일도 받을 수 있도록 @RequestPart 추가
+            @RequestPart(value = "files", required = false) List<MultipartFile> newFiles,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) {
         Long writerId = getCurrentUserId(userInfo);
 
-        // 서비스에서 ReportDetailResDto를 반환하므로, 변수 타입도 맞춰줌
-        ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId);
+        // 4. 서비스 호출 시 newFiles도 전달하도록 수정 (ApprovalService도 함께 수정 필요)
+        ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId, newFiles);
+
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 수정 완료", res));
     }
 

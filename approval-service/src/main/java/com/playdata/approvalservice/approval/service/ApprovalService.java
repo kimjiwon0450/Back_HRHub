@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -135,7 +136,7 @@ public class ApprovalService {
          * 보고서 수정 (Draft 상태)
          */
         @Transactional
-        public ReportDetailResDto updateReport (Long reportId, ReportUpdateReqDto req, Long writerId){
+        public ReportDetailResDto updateReport (Long reportId, ReportUpdateReqDto req, Long writerId, List<MultipartFile> newFiles){
             Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
@@ -328,60 +329,21 @@ public class ApprovalService {
                 int page, int size, Long writerId,
                                             @RequestParam(defaultValue = "id") String sortBy,
                                             @RequestParam(defaultValue = "DESC") String sortOrder){
-            //동적 Sort 객체 생성
+
             Sort.Direction direction = sortOrder.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
-
-            String sortProperty;
-
-            if ("createdAt".equalsIgnoreCase(sortBy)) {
-                // 프론트엔드의 'createdAt' 요청을 엔티티 필드명 'reportCreatedAt'으로 매핑합니다.
-                sortProperty = "reportCreatedAt";
-            } else {
-                // 기본 정렬 기준은 엔티티 필드명 'id'를 사용합니다.
-                sortProperty = "id";
-            }
+            String sortProperty = "createdAt".equalsIgnoreCase(sortBy) ? "reportCreatedAt" : "id";
             Sort sort = Sort.by(direction, sortProperty);
 
-            // ★★★ 3. 동적으로 생성된 Sort 객체를 PageRequest에 포함 ★★★
+            // 2. 페이징(Pageable) 객체 생성
             Pageable pageable = PageRequest.of(page, size, sort);
 
-            Page<Reports> pr;
+            // 3. 동적 검색 조건(Specification) 생성
+            // ReportSpecifications 클래스의 정적 메소드를 호출하여 조건을 조합합니다.
+            Specification<Reports> spec = ReportSpecifications.withDynamicQuery(role, status, keyword, writerId);
 
-            if ("writer".equalsIgnoreCase(role)) {
-                // [내 기안 문서함] 로직 (변경 없음)
-                pr = (status != null)
-                        ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
-                        : reportsRepository.findByWriterId(writerId, pageable);
-
-            } else if ("approver".equalsIgnoreCase(role)) {
-
-                if (status == ReportStatus.IN_PROGRESS) {
-                    // [결재할 문서] - 내가 현재 결재자
-                    log.info("Fetching reports for CURRENT approver (role={}, status={})", role, status);
-                    pr = reportsRepository.findByCurrentApproverIdAndReportStatus(writerId, ReportStatus.IN_PROGRESS, pageable);
-
-                } else if (status == null) {
-                    // [결재 진행함] - 내가 결재선에 포함된 모든 진행 중 문서
-                    log.info("Fetching all IN-PROGRESS reports where user is in approval line (role={}, status=null)", role);
-                    pr = reportsRepository.findInProgressForUser(writerId, pageable);
-
-                } else if (status == ReportStatus.APPROVED || status == ReportStatus.REJECTED) {
-                    // [완료 문서함] 또는 [반려 문서함]
-                    log.info("Fetching {} reports where user was in approval line (role={}, status={})", status, role, status);
-                    pr = reportsRepository.findByApproverIdAndStatus(writerId, status, pageable);
-
-                } else {
-                    // 그 외의 status 요청은 비어있는 페이지를 반환하거나 예외 처리
-                    log.warn("Unsupported status '{}' for role 'approver'", status);
-                    pr = Page.empty(pageable);
-                }
-
-            } else if ("reference".equalsIgnoreCase(role)) {
-                pr = reportsRepository.findReferencedReportsByJsonContains(writerId, pageable);
-
-            } else {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "role은 writer, approver, 또는 reference만 가능합니다.");
-            }
+            // 4. Repository의 findAll 메소드를 단 한 번만 호출하여 데이터 조회
+            // JpaSpecificationExecutor를 상속받았기 때문에 이 메소드를 사용할 수 있습니다.
+            Page<Reports> pr = reportsRepository.findAll(spec, pageable);
 
             Set<Long> employeeIdsToFetch = new HashSet<>();
             pr.getContent().forEach(report -> {

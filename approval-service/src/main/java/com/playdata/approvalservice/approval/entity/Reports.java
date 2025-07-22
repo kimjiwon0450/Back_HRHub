@@ -184,10 +184,16 @@ public class Reports extends BaseTimeEntity {
         this.title = dto.getTitle();
         this.content = dto.getContent();
 
+        // ★★★ 여기에 두 필드 업데이트 로직 추가 ★★★
+        this.reportTemplateId = dto.getTemplateId();
+        this.reportTemplateData = dto.getReportTemplateData();
+
         if (dto.getApprovalLine() != null) {
             replaceApprovalLines(dto.getApprovalLine());
             if (!approvalLines.isEmpty()) {
                 this.currentApproverId = approvalLines.get(0).getEmployeeId();
+            } else {
+                this.currentApproverId = null; // 결재선이 비워졌을 경우
             }
         }
     }
