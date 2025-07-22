@@ -330,7 +330,16 @@ public class ApprovalService {
                                             @RequestParam(defaultValue = "DESC") String sortOrder){
             //동적 Sort 객체 생성
             Sort.Direction direction = sortOrder.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
-            String sortProperty = sortBy.equals("reportCreatedAt") ? "reportCreatedAt" : "id";
+
+            String sortProperty;
+
+            if ("createdAt".equalsIgnoreCase(sortBy)) {
+                // 프론트엔드의 'createdAt' 요청을 엔티티 필드명 'reportCreatedAt'으로 매핑합니다.
+                sortProperty = "reportCreatedAt";
+            } else {
+                // 기본 정렬 기준은 엔티티 필드명 'id'를 사용합니다.
+                sortProperty = "id";
+            }
             Sort sort = Sort.by(direction, sortProperty);
 
             // ★★★ 3. 동적으로 생성된 Sort 객체를 PageRequest에 포함 ★★★
@@ -368,8 +377,7 @@ public class ApprovalService {
                 }
 
             } else if ("reference".equalsIgnoreCase(role)) {
-                // [수신 참조함] 로직 (변경 없음)
-                pr = reportsRepository.findByReferenceEmployeeIdInDetailJsonAndExcludeDraftRecalled(writerId, pageable);
+                pr = reportsRepository.findReferencedReportsByJsonContains(writerId, pageable);
 
             } else {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "role은 writer, approver, 또는 reference만 가능합니다.");
