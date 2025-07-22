@@ -32,7 +32,7 @@ public class Notice {
     private String attachmentUri;
     private boolean boardStatus;
     private int viewCount = 0;
-    @Enumerated(EnumType.ORDINAL) // 👈 추가
+//    @Enumerated(EnumType.ORDINAL) // 👈 추가
     private int position;
 
 

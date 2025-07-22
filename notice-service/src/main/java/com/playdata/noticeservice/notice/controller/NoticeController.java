@@ -305,7 +305,7 @@ public class NoticeController {
 
 
     // 일반게시글 나의 부서글 조회()
-    @GetMapping("/noticeboard/mydepartment")
+    @GetMapping("/community/mydepartment")
     public ResponseEntity<Map<String, Object>> getDepartmentPosts(
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
