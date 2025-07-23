@@ -95,22 +95,26 @@ public class EmployeeController {
     // 간소화 된 직원 리스트
     @GetMapping("/employees")
     public ResponseEntity<CommonResDto<Page<EmployeeListResDto>>> getEmployeesList(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable, @RequestParam(required = false) String field,
-                                                                                   @RequestParam(required = false) String keyword, @RequestParam(required = false) String department,
+                                                                                   @RequestParam(required = false) String keyword,
+                                                                                   @RequestParam(required = false) String department,
+                                                                                   @RequestParam(required = false, defaultValue = "true") String isActive,
                                                                                    @AuthenticationPrincipal TokenUserInfo tokenUserInfo) {
         return new ResponseEntity<>(
                 new CommonResDto<>(HttpStatus.OK,
                     "Success",
-                    employeeService.getEmployeeList(pageable, field, keyword, department, tokenUserInfo, false))
+                    employeeService.getEmployeeList(pageable, field, keyword, department, tokenUserInfo, false, Boolean.parseBoolean(isActive)))
                 , HttpStatus.OK);
     }// 간소화 된 직원 리스트
     @GetMapping("/employees/contact")
     public ResponseEntity<CommonResDto<Page<EmployeeListResDto>>> getEmployeesListForContact(@PageableDefault(size = 10, sort = "employeeId") Pageable pageable, @RequestParam(required = false) String field,
-                                                                                   @RequestParam(required = false) String keyword, @RequestParam(required = false) String department,
+                                                                                   @RequestParam(required = false) String keyword,
+                                                                                             @RequestParam(required = false) String department,
+                                                                                             @RequestParam(required = false, defaultValue = "true") String isActive,
                                                                                    @AuthenticationPrincipal TokenUserInfo tokenUserInfo) {
         return new ResponseEntity<>(
                 new CommonResDto<>(HttpStatus.OK,
                     "Success",
-                    employeeService.getEmployeeList(pageable, field, keyword, department, tokenUserInfo, true))
+                    employeeService.getEmployeeList(pageable, field, keyword, department, tokenUserInfo, true, Boolean.parseBoolean(isActive)))
                 , HttpStatus.OK);
     }
 

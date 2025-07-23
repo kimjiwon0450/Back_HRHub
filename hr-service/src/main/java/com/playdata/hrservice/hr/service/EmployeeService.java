@@ -140,8 +140,10 @@ public class EmployeeService {
         return employee.toDto();
     }
 
-    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable, String field, String keyword, String department, TokenUserInfo tokenUserInfo, boolean isContact) {
+    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable, String field, String keyword, String department, TokenUserInfo tokenUserInfo, boolean isContact, boolean isActive) {
         Page<Employee> page = null;
+        EmployeeStatus status = isActive ? EmployeeStatus.ACTIVE : EmployeeStatus.INACTIVE;
+
         if (tokenUserInfo.getRole().equals(Role.ADMIN)||tokenUserInfo.getRole().equals(Role.HR_MANAGER)||isContact) {
             log.info("getEmployeeList: field={}, keyword={}, department={}", field, keyword, department);
 
@@ -149,9 +151,9 @@ public class EmployeeService {
                 switch (field) {
                     case "name" -> {
                         if (department != null) {
-                            page = employeeRepository.findByNameContainingAndDepartmentNameContaining(keyword, department, pageable);
+                            page = employeeRepository.findByNameContainingAndDepartmentNameContainingAndStatus(keyword, department, status, pageable);
                         } else {
-                            page = employeeRepository.findByNameContaining(keyword, pageable);
+                            page = employeeRepository.findByNameContainingAndStatus(keyword, status, pageable);
                         }
                     }
                     case "position" -> {
@@ -164,9 +166,9 @@ public class EmployeeService {
                             position = Position.valueOf(matchedPositionName);
                         }
                         if (department != null) {
-                            page = employeeRepository.findByPositionAndDepartmentNameContaining(position, department, pageable);
+                            page = employeeRepository.findByPositionAndDepartmentNameContainingAndStatus(position, department, status, pageable);
                         } else {
-                            page = employeeRepository.findByPosition(position, pageable);
+                            page = employeeRepository.findByPositionAndStatus(position, status, pageable);
                         }
                     }
                     case "role" -> {
@@ -179,28 +181,28 @@ public class EmployeeService {
                             role = Role.valueOf(matchedRoleName);
                         }
                         if (department != null) {
-                            page = employeeRepository.findByRoleAndDepartmentNameContaining(role, department, pageable);
+                            page = employeeRepository.findByRoleAndDepartmentNameContainingAndStatus(role, department,status, pageable);
                         } else {
-                            page = employeeRepository.findByRole(role, pageable);
+                            page = employeeRepository.findByRoleAndStatus(role,status, pageable);
                         }
                     }
-                    case "department" -> page = employeeRepository.findByDepartmentNameContaining(keyword, pageable);
+                    case "department" -> page = employeeRepository.findByDepartmentNameContainingAndStatus(keyword,status, pageable);
                     case "phone" -> {
                         if (department != null) {
-                            page = employeeRepository.findByPhoneContainingAndDepartmentNameContaining(keyword, department, pageable);
+                            page = employeeRepository.findByPhoneContainingAndDepartmentNameContainingAndStatus(keyword, department,status, pageable);
                         } else {
-                            page = employeeRepository.findByPhoneContaining(keyword, pageable);
+                            page = employeeRepository.findByPhoneContainingAndStatus(keyword,status, pageable);
                         }
                     }
                 }
             } else if (department != null) {
-                page = employeeRepository.findByDepartmentNameContaining(department, pageable);
+                page = employeeRepository.findByDepartmentNameContainingAndStatus(department,status, pageable);
             }
             if (page == null) {
-                page = employeeRepository.findAll(pageable);
+                page = employeeRepository.findAllByStatus(status, pageable);
             }
         } else {
-            page = employeeRepository.findByEmployeeId(tokenUserInfo.getEmployeeId(), pageable);
+            page = employeeRepository.findByEmployeeIdAndStatus(tokenUserInfo.getEmployeeId(), status, pageable);
 
         }
         return page.map(employee -> EmployeeListResDto.builder()
