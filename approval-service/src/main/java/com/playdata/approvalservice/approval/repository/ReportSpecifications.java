@@ -6,7 +6,8 @@ import com.playdata.approvalservice.approval.entity.ReportStatus;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.data.jpa.repository.JpaRepository;
+import com.playdata.approvalservice.approval.entity.ReportReferences;
+
 
 public class ReportSpecifications {
 
@@ -41,16 +42,17 @@ public class ReportSpecifications {
                     predicate = criteriaBuilder.and(predicate, criteriaBuilder.equal(approvalLineJoin.get("employeeId"), userId));
                     break;
                 case "reference":
-                    String searchPattern = "\"employeeId\":" + userId;
-                    predicate = criteriaBuilder.and(predicate, criteriaBuilder.like(root.get("detail"), "%" + searchPattern + "%"));
+                    Join<Reports, ReportReferences> referencesJoin = root.join("reportReferences");
+                    predicate = criteriaBuilder.and(predicate, criteriaBuilder.equal(referencesJoin.get("employeeId"), userId));
                     break;
                 case "all":
-                    Join<Reports, ApprovalLine> joinForAll = root.join("approvalLines");
-                    String patternForAll = "\"employeeId\":" + userId;
+                    Join<Reports, ApprovalLine> joinForApprover = root.join("approvalLines");
+                    Join<Reports, ReportReferences> joinForReference = root.join("reportReferences"); // 참조자 조인 추가
+
                     Predicate allConditions = criteriaBuilder.or(
                             criteriaBuilder.equal(root.get("writerId"), userId),
-                            criteriaBuilder.equal(joinForAll.get("employeeId"), userId),
-                            criteriaBuilder.like(root.get("detail"), "%" + patternForAll + "%")
+                            criteriaBuilder.equal(joinForApprover.get("employeeId"), userId),
+                            criteriaBuilder.equal(joinForReference.get("employeeId"), userId) // LIKE 대신 EQUAL 사용
                     );
                     predicate = criteriaBuilder.and(predicate, allConditions);
                     break;

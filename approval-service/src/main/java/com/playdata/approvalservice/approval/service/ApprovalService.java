@@ -420,10 +420,9 @@ public class ApprovalService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
-        // 2. 조회 권한을 확인합니다. (작성자 또는 결재 라인에 포함된 사람만 조회 가능)
-        boolean isWriter = report.getWriterId().equals(writerId);
-        boolean isApprover = report.getApprovalLines().stream()
-                .anyMatch(l -> l.getEmployeeId().equals(writerId));
+        // 리팩토링
+        checkReadAccess(report, writerId);
+
 
         boolean isReference = false;
         if (report.getDetail() != null && !report.getDetail().isBlank()) {
@@ -442,10 +441,7 @@ public class ApprovalService {
                 log.error("getApprovalHistory 권한 체크 중 detail JSON 파싱 실패, reportId: {}", reportId, e);
             }
         }
-
-        if (!isWriter && !isApprover && !isReference) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
-        }
+        isUserInReferences(report, writerId);
 
         // 3. API 호출을 위한 모든 관련 직원 ID를 수집합니다.
         Set<Long> employeeIdsToFetch = new HashSet<>();
@@ -637,10 +633,7 @@ public class ApprovalService {
                     (() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
-            boolean isWriter = report.getWriterId().equals(writerId);
-            boolean isApprover = report.getApprovalLines().stream()
-                    .anyMatch(l -> l.getEmployeeId().equals(writerId));
-
+            checkReadAccess(report, writerId);
             boolean isReference = false;
             if (report.getDetail() != null && !report.getDetail().isBlank()) {
                 try {
@@ -658,11 +651,7 @@ public class ApprovalService {
                     log.error("getApprovalHistory 권한 체크 중 detail JSON 파싱 실패, reportId: {}", reportId, e);
                 }
             }
-
-            if (!isWriter && !isApprover && !isReference) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
-            }
-
+            isUserInReferences(report, writerId);
             List<ApprovalLine> lines = approvalRepository
                     .findApprovalLinesByReportId(reportId);
 
@@ -924,5 +913,44 @@ public class ApprovalService {
             log.error("S3 URL 파싱 또는 디코딩 실패: {}", fileUrl, e);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 파일 URL 형식입니다.");
         }
+    }
+
+    /**
+     * 사용자가 특정 보고서에 대한 읽기 권한(작성자, 결재자, 참조자)이 있는지 확인합니다.
+     * @param report 확인할 보고서 엔티티
+     * @param userId 확인할 사용자의 ID
+     * @throws ResponseStatusException 권한이 없을 경우 FORBIDDEN 예외 발생
+     */
+    private void checkReadAccess(Reports report, Long userId) {
+        boolean isWriter = report.getWriterId().equals(userId);
+        boolean isApprover = report.getApprovalLines().stream()
+                .anyMatch(l -> l.getEmployeeId().equals(userId));
+        boolean isReference = isUserInReferences(report, userId);
+
+        if (!isWriter && !isApprover && !isReference) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+        }
+    }
+
+    /**
+     * 보고서의 detail JSON을 파싱하여 참조자 목록에 특정 사용자가 있는지 확인하는 헬퍼 메소드
+     */
+    private boolean isUserInReferences(Reports report, Long userId) {
+        if (report.getDetail() != null && !report.getDetail().isBlank()) {
+            try {
+                JsonNode root = objectMapper.readTree(report.getDetail());
+                JsonNode referencesNode = root.path("references");
+                if (referencesNode.isArray()) {
+                    for (JsonNode refNode : referencesNode) {
+                        if (refNode.path("employeeId").asLong() == userId) {
+                            return true;
+                        }
+                    }
+                }
+            } catch (JsonProcessingException e) {
+                log.error("참조자 권한 체크 중 JSON 파싱 실패, reportId: {}", report.getId(), e);
+            }
+        }
+        return false;
     }
 }

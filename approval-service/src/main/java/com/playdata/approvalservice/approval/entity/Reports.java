@@ -262,17 +262,18 @@ public class Reports extends BaseTimeEntity {
         }
 
         // 승인된 경우, 다음 결재자 찾기
-        Optional<ApprovalLine> next = approvalLines.stream()
-                .filter(l -> l.getApprovalContext() > line.getApprovalContext())
+        Optional<ApprovalLine> next = this.approvalLines.stream()
+                .filter(l -> l.getApprovalStatus() == ApprovalStatus.PENDING)
                 .min(Comparator.comparing(ApprovalLine::getApprovalContext));
 
+        // 3. PENDING 상태인 결재자가 남아있는지 확인
         if (next.isPresent()) {
-            // 아직 남은 결재자가 있으면 in progress
+            // 아직 결재할 사람이 남았으므로 IN_PROGRESS 유지
             this.reportStatus = ReportStatus.IN_PROGRESS;
             this.currentApproverId = next.get().getEmployeeId();
         } else {
-            // 마지막 결재자였으면 최종 승인
-            this.reportStatus      = ReportStatus.APPROVED;
+            // PENDING 상태인 결재자가 더 이상 없으면 최종 승인
+            this.reportStatus = ReportStatus.APPROVED;
             this.completedAt = line.getApprovalDateTime();
             this.currentApproverId = null;
         }
