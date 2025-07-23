@@ -11,16 +11,16 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "tbl_notice_read", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"notice_id", "employee_id"})
+@Table(name = "tbl_community_read", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"community_id", "employee_id"})
 })
-public class NoticeRead {
+public class CommunityRead {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long noticeReadId;
+    private Long communityReadId;
 
-    private Long noticeId;
+    private Long communityId;
 
     private Long employeeId;
 

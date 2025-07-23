@@ -16,17 +16,16 @@ import java.time.LocalDateTime;
 @Builder
 @Entity
 
-@Table(name = "tbl_board")
+@Table(name = "tbl_notice")
 public class Notice {
 
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long noticeId;
     private String title;
     @Column(columnDefinition = "TEXT")
     private String content;
     private Long employeeId;
     private Long departmentId;
-    private boolean notice; // 공지 여부
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String attachmentUri;

@@ -11,8 +11,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @ToString
 @Builder
-public class CommentResponse {
-    private Long id;
+public class CommunityCommentResponse {
+    private Long CommunityComentId;
     private String content;
     private String writerName;
     private LocalDateTime createdAt;

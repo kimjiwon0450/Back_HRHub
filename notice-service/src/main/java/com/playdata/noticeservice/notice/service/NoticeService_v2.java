@@ -7,12 +7,11 @@ import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.client.HrUserClient;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.*;
-import com.playdata.noticeservice.notice.entity.Comment;
+import com.playdata.noticeservice.notice.entity.NoticeComment;
 import com.playdata.noticeservice.notice.entity.Notice;
 import com.playdata.noticeservice.notice.entity.NoticeRead;
 import com.playdata.noticeservice.notice.entity.Position;
-import com.playdata.noticeservice.notice.repository.CommentRepository;
-import com.playdata.noticeservice.notice.repository.NoticeAttachmentRepository;
+import com.playdata.noticeservice.notice.repository.NoticeCommentRepository;
 import com.playdata.noticeservice.notice.repository.NoticeReadRepository;
 import com.playdata.noticeservice.notice.repository.NoticeRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -35,33 +34,24 @@ public class NoticeService_v2 {
 
     private final NoticeRepository noticeRepository;
     private final NoticeReadRepository noticeReadRepository;
-    private final CommentRepository commentRepository;
+    private final NoticeCommentRepository noticeCommentRepository;
     private final S3Service s3Service;
     private final HrUserClient hrUserClient;
     private final DepartmentClient departmentClient;
-    private final NoticeAttachmentRepository noticeAttachmentRepository;
 
     private Comparator<Notice> getDynamicComparator(String sortBy, Sort.Direction direction) {
-        Comparator<Notice> comparator;
-
-        switch (sortBy) {
-            case "title":
-                comparator = Comparator.comparing(Notice::getTitle, Comparator.nullsLast(String::compareToIgnoreCase));
-                break;
-            case "createdAt":
-                comparator = Comparator.comparing(Notice::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
-                break;
-            case "updatedAt":
-                comparator = Comparator.comparing(Notice::getUpdatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
-                break;
-            case "viewCount":
-                comparator = Comparator.comparingInt(Notice::getViewCount);
-                break;
-            default:
+        Comparator<Notice> comparator = switch (sortBy) {
+            case "title" ->
+                    Comparator.comparing(Notice::getTitle, Comparator.nullsLast(String::compareToIgnoreCase));
+            case "createdAt" ->
+                    Comparator.comparing(Notice::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+            case "updatedAt" ->
+                    Comparator.comparing(Notice::getUpdatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+            case "viewCount" -> Comparator.comparingInt(Notice::getViewCount);
+            default ->
                 // 기본은 createdAt
-                comparator = Comparator.comparing(Notice::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
-        }
-
+                    Comparator.comparing(Notice::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+        };
         return direction == Sort.Direction.DESC ? comparator.reversed() : comparator;
     }
 
@@ -73,7 +63,8 @@ public class NoticeService_v2 {
     public List<Notice> getTopGeneralNotices(String sortBy, String sortDir, Position position) {
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Pageable pageable = PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt"));
-        List<Notice> allGeneralNotices = noticeRepository.findAllGeneralNotices(position, pageable);
+        int position_num = position.ordinal();
+        List<Notice> allGeneralNotices = noticeRepository.findAllGeneralNotices(position_num, pageable);
 
         List<Notice> notices = new ArrayList<>(allGeneralNotices);
         notices.sort(getDynamicComparator(sortBy, direction)); // 커스텀 정렬
@@ -108,11 +99,13 @@ public class NoticeService_v2 {
             toDateTime = toDate.atTime(23, 59, 59);
         }
 
-        return noticeRepository.findFilteredGeneralNotices(position, keyword, fromDateTime, toDateTime, departmentId, pageable);
+        int position_num = position.ordinal();
+
+        return noticeRepository.findFilteredGeneralNotices(position_num, keyword, fromDateTime, toDateTime, departmentId, pageable);
     }
 
     /**
-     * 내 부서 공지글 조회
+     * 내 부서 공지글 조회(기본)
      */
     @Transactional(readOnly = true)
     public Page<Notice> getMyDepartmentNotices(Position position, Long departmentId,
@@ -120,21 +113,23 @@ public class NoticeService_v2 {
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
         Sort sort = Sort.by(direction, sortBy);
         Pageable pageable = PageRequest.of(page, size, sort);
+        int position_num = position.ordinal();
 
         // 상단 고정용 상위 5개 전체공지글 (createdAt 고정)
         List<Notice> top5GeneralNotices =
                 noticeRepository.findAllGeneralNotices(
-                        position, PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt")));
-        Set<Long> top5GeneralIds = top5GeneralNotices.stream().map(Notice::getId).collect(Collectors.toSet());
+                        position_num, PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt")));
+        Set<Long> top5GeneralIds = top5GeneralNotices.stream().map(Notice::getNoticeId).collect(Collectors.toSet());
 
         // 나머지 전체공지글 (정렬 기준 반영)
         List<Notice> sortedGeneralNotices =
                 noticeRepository.findAllGeneralNotices(
-                        position,PageRequest.of(0, 1000, sort)); // 충분히 크게
+                        position_num,PageRequest.of(0, 1000, sort)); // 충분히 크게
         List<Notice> overflowGenetalNotices = sortedGeneralNotices.stream()
-                .filter(n -> !top5GeneralIds.contains(n.getId()))
-                .collect(Collectors.toList());
-        return noticeRepository.findAllNotices(position, departmentId, pageable);
+                .filter(n -> !top5GeneralIds.contains(n.getNoticeId()))
+                .toList();
+
+        return noticeRepository.findAllNotices(position_num, departmentId, pageable);
     }
 
     /**
@@ -163,7 +158,9 @@ public class NoticeService_v2 {
         } else {
             toDateTime = toDate.atTime(23, 59, 59);
         }
-        return noticeRepository.findFilteredNotices(position, keyword, fromDateTime, toDateTime, pageable);
+
+        int position_num =  position.ordinal();
+        return noticeRepository.findFilteredNotices(position_num, keyword, fromDateTime, toDateTime, pageable);
     }
 
     /**
@@ -174,91 +171,17 @@ public class NoticeService_v2 {
         return noticeRepository.findMyNotices(employeeId);
     }
 
-    /**
-     * 전체 일반 게시글
-     */
-    @Transactional(readOnly = true)
-    public Page<Notice> getAllPosts(int page, int size, String sortBy, String sortDir) {
-        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Sort sort = Sort.by(direction, sortBy);
-        Pageable pageable = PageRequest.of(page, size, sort);
-        return noticeRepository.findAllPosts(pageable);
-    }
-
-    /**
-     * 필터링된 일반 게시글
-     */
-    @Transactional(readOnly = true)
-    public Page<Notice> getFilteredPosts(String keyword, LocalDate fromDate, LocalDate toDate,
-                                         int page, int size, String sortBy, String sortDir) {
-        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Sort sort = Sort.by(direction, sortBy);
-        Pageable pageable = PageRequest.of(page, size, sort);
-
-        LocalDateTime fromDateTime;
-        LocalDateTime toDateTime;
-
-        // 날짜 기본값 처리
-        if (fromDate == null) {
-            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
-        } else {
-            fromDateTime = fromDate.atStartOfDay();
-        }
-
-        if (toDate == null) {
-            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
-        } else {
-            toDateTime = toDate.atTime(23, 59, 59);
-        }
-
-        return noticeRepository.findFilteredPosts(keyword, fromDateTime, toDateTime, pageable);
-    }
-
-    /**
-     * 내 부서 일반 게시글 (필터링 포함)
-     */
-    @Transactional(readOnly = true)
-    public List<Notice> getMyDepartmentPosts(String keyword, LocalDate fromDate, LocalDate toDate, Long departmentId, Pageable pageable) {
-
-        LocalDateTime fromDateTime;
-        LocalDateTime toDateTime;
-
-        // 날짜 기본값 처리
-        if (fromDate == null) {
-            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
-        } else {
-            fromDateTime = fromDate.atStartOfDay();
-        }
-
-        if (toDate == null) {
-            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
-        } else {
-            toDateTime = toDate.atTime(23, 59, 59);
-        }
-
-        return noticeRepository.findMyDepartmentPosts(keyword, fromDateTime, toDateTime, departmentId);
-    }
-
-    /**
-     * 내가 쓴 일반 게시글
-     */
-    @Transactional(readOnly = true)
-    public List<Notice> getMyPosts(Long employeeId) {
-        return noticeRepository.findByEmployeeIdAndBoardStatusTrueAndNoticeFalseOrderByCreatedAtDesc(employeeId);
-    }
-
 
     // 상세 페이지 조회
-    public Notice findPostById(Long id) {
-        return noticeRepository.findById(id).orElseThrow(() -> new RuntimeException("Post not found"));
+    public Notice findPostById(Long noticeId) {
+        return noticeRepository.findById(noticeId).orElseThrow(() -> new RuntimeException("Post not found"));
     }
 
-    // 공지글/게시글 작성
+    // 공지글 작성
     public void createNotice(NoticeCreateRequest request, HrUserResponse user, List<String> attachmentUri) {
         log.info("!!!글 작성!!!");
         log.info(request.getTitle());
         log.info(request.getContent());
-        log.info(String.valueOf(request.isNotice()));
 
         ObjectMapper mapper = new ObjectMapper();
         String attachmentUriJson = "";
@@ -270,14 +193,13 @@ public class NoticeService_v2 {
         }
 
         Long departmentId = user.getDepartmentId();
-        if (request.isNotice()) {
-            departmentId = request.getDepartmentId();
+        if (request.getDepartmentId() == 0L) {
+            departmentId = 0L;
         }
 
         Notice notice = Notice.builder()
                 .title(request.getTitle())
                 .content(request.getContent())
-                .notice(request.isNotice())
                 .attachmentUri(request.getAttachmentUri())
                 .employeeId(user.getEmployeeId())
                 .departmentId(departmentId)
@@ -292,8 +214,8 @@ public class NoticeService_v2 {
 
     // 공지글/게시글 수정
     @Transactional
-    public void updateNotice(Long id, NoticeUpdateRequest request, HrUserResponse user) {
-        Notice notice = noticeRepository.findById(id)
+    public void updateNotice(Long noticeId, NoticeUpdateRequest request, HrUserResponse user) {
+        Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
 
         if (!notice.getEmployeeId().equals(user.getEmployeeId())) {
@@ -301,13 +223,12 @@ public class NoticeService_v2 {
         }
 
         Long departmentId = user.getDepartmentId();
-        if (request.isNotice()) {
-            departmentId = request.getDepartmentId();
+        if (request.getDepartmentId() == 0L) {
+            departmentId = 0L;
         }
 
         notice.setTitle(request.getTitle());
         notice.setContent(request.getContent());
-        notice.setNotice(request.isNotice());
         notice.setDepartmentId(departmentId);
 
         ObjectMapper mapper = new ObjectMapper();
@@ -329,8 +250,8 @@ public class NoticeService_v2 {
 
     // 공지글/게시글 삭제
     @Transactional
-    public void deletePost(Long id, Long currentUserId) {
-        Notice notice = noticeRepository.findById(id)
+    public void deletePost(Long noticeId, Long currentUserId) {
+        Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
 
         if (!notice.getEmployeeId().equals(currentUserId)) {
@@ -392,7 +313,7 @@ public class NoticeService_v2 {
         List<NoticeResponse> unreadNoticeResponses = unreadNotices.stream()
                 .map(notice -> {
                     HrUserResponse writer = hrUserClient.getUserInfo(notice.getEmployeeId());
-                    int commentCount = getCommentCountByNoticeId(notice.getId());
+                    int commentCount = getCommentCountByNoticeId(notice.getNoticeId());
                     return NoticeResponse.fromEntity(notice, writer, commentCount);
                 })
                 .toList();
@@ -409,7 +330,7 @@ public class NoticeService_v2 {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new RuntimeException("해당 게시글이 존재하지 않습니다."));
 
-        Comment comment = Comment.builder()
+        NoticeComment comment = NoticeComment.builder()
                 .noticeId(noticeId)
                 .content(request.getContent())
                 .employeeId(employeeId)
@@ -419,16 +340,16 @@ public class NoticeService_v2 {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        commentRepository.save(comment);
+        noticeCommentRepository.save(comment);
     }
 
     // ✅ 댓글 목록 조회
-    public List<CommentResponse> getComments(Long noticeId) {
-        List<Comment> comments = commentRepository.findByNoticeIdAndCommentStatusIsTrueOrderByCreatedAtAsc(noticeId);
+    public List<NoticeCommentResponse> getComments(Long noticeId) {
+        List<NoticeComment> comments = noticeCommentRepository.findByNoticeIdAndCommentStatusIsTrueOrderByCreatedAtAsc(noticeId);
 
         return comments.stream()
-                .map(comment -> CommentResponse.builder()
-                        .id(comment.getId())
+                .map(comment -> NoticeCommentResponse.builder()
+                        .noticeCommentId(comment.getNoticeCommentId())
                         .content(comment.getContent())
                         .writerName(comment.getWriterName())
                         .createdAt(comment.getCreatedAt())
@@ -438,7 +359,7 @@ public class NoticeService_v2 {
 
     // ✅ 댓글 수정
     public void updateComment(Long noticeId, Long commentId, CommentUpdateRequest request, Long employeeId) {
-        Comment comment = commentRepository.findById(commentId)
+        NoticeComment comment = noticeCommentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("댓글이 존재하지 않습니다."));
 
         if (!comment.getEmployeeId().equals(employeeId)) {
@@ -447,12 +368,12 @@ public class NoticeService_v2 {
 
         comment.setContent(request.getContent());
         comment.setUpdatedAt(LocalDateTime.now());
-        commentRepository.save(comment);
+        noticeCommentRepository.save(comment);
     }
 
     // ✅ 댓글 삭제
     public void deleteComment(Long noticeId, Long commentId, Long employeeId) {
-        Comment comment = commentRepository.findById(commentId)
+        NoticeComment comment = noticeCommentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("댓글이 존재하지 않습니다."));
 
         if (!comment.getEmployeeId().equals(employeeId)) {
@@ -461,11 +382,11 @@ public class NoticeService_v2 {
 
         comment.setCommentStatus(false);
         comment.setUpdatedAt(LocalDateTime.now());
-        commentRepository.save(comment);
+        noticeCommentRepository.save(comment);
     }
 
     // ✅ 댓글 수 조회
     public int getCommentCountByNoticeId(Long noticeId) {
-        return commentRepository.countByNoticeIdAndCommentStatusTrue(noticeId);
+        return noticeCommentRepository.countByNoticeIdAndCommentStatusTrue(noticeId);
     }
 }
