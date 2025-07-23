@@ -10,12 +10,12 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-@Table(name = "tbl_comment")
-public class Comment {
+@Table(name = "tbl_notice_comment")
+public class NoticeComment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long noticeCommentId;
 
     private Long noticeId;
     private Long authorId;

@@ -5,11 +5,13 @@ import com.playdata.approvalservice.approval.entity.ReportStatus;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ReportsRepository extends JpaRepository<Reports, Long> {
+public interface ReportsRepository extends JpaRepository<Reports, Long> , JpaSpecificationExecutor<Reports> {
 
     /**
      * 작성자 기준 페이징 조회
@@ -76,4 +78,7 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> {
             nativeQuery = true
     )
     Page<Reports> findReferencedReportsByJsonContains(@Param("employeeId") Long employeeId, Pageable pageable);
+
+
+    Page<Reports> findAll(Specification<Reports> spec, Pageable pageable);
 }

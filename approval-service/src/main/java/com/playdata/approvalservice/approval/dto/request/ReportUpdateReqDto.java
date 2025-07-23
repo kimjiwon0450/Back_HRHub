@@ -21,4 +21,7 @@ public class ReportUpdateReqDto {
     private List<ApprovalLineReqDto> approvalLine;
     private List<AttachmentJsonReqDto> attachments;
     private List<ReferenceJsonReqDto> references;
+
+    private Long templateId;
+    private String reportTemplateData; // JSON 형식의 문자열
 }

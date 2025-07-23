@@ -23,7 +23,7 @@ public class ReportReferences {
     private Long employeeId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "report_approval_id", insertable = false, updatable = false)
+    @JoinColumn(name = "report_approval_id")
     private Reports reports;
 
     /**

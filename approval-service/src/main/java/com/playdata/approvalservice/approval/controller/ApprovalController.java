@@ -4,8 +4,11 @@ import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.approval.dto.request.template.ReportFromTemplateReqDto;
 import com.playdata.approvalservice.approval.dto.response.*;
 import com.playdata.approvalservice.approval.dto.response.template.ReportFormResDto;
+import com.playdata.approvalservice.approval.entity.ReportReferences;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
+import com.playdata.approvalservice.approval.entity.Reports;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
+import com.playdata.approvalservice.approval.repository.ReportsRepository;
 import com.playdata.approvalservice.approval.service.ApprovalService;
 import com.playdata.approvalservice.common.auth.TokenUserInfo;
 import com.playdata.approvalservice.common.dto.CommonResDto;
@@ -17,6 +20,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,6 +38,7 @@ public class ApprovalController {
 
     private final ApprovalService approvalService;
     private final EmployeeFeignClient employeeFeignClient;
+    private final ReportsRepository reportsRepository;
 
 
     /**
@@ -97,16 +102,20 @@ public class ApprovalController {
     }
 
 
-    @PutMapping("/reports/{reportId}")
+    @PutMapping(value = "/reports/{reportId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> updateReport(
             @PathVariable Long reportId,
-            @RequestBody @Valid ReportUpdateReqDto req,
+            // 2. @RequestBody를 @RequestPart로 변경
+            @RequestPart("req") @Valid ReportUpdateReqDto req,
+            // 3. 새로 추가되는 파일도 받을 수 있도록 @RequestPart 추가
+            @RequestPart(value = "files", required = false) List<MultipartFile> newFiles,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) {
         Long writerId = getCurrentUserId(userInfo);
 
-        // 서비스에서 ReportDetailResDto를 반환하므로, 변수 타입도 맞춰줌
-        ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId);
+        // 4. 서비스 호출 시 newFiles도 전달하도록 수정 (ApprovalService도 함께 수정 필요)
+        ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId, newFiles);
+
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 수정 완료", res));
     }
 
@@ -251,16 +260,28 @@ public class ApprovalController {
     /**
      * 참조자 제거 처리
      */
-    @DeleteMapping("/reports/{reportId}/references/{employeeId}")
-    public ResponseEntity<CommonResDto> deleteReferences(
-            @PathVariable Long reportId,
-            @PathVariable Long employeeId,
-            @AuthenticationPrincipal TokenUserInfo userInfo // [수정] 파라미터로 writerId 주입
-    ) {
-        Long writerId = getCurrentUserId(userInfo);
+    @Transactional
+    public ReportReferencesResDto deleteReferences(Long reportId, Long writerId, Long employeeIdToDelete) {
+        Reports report = reportsRepository.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
 
-        ReportReferencesResDto res = approvalService.deleteReferences(reportId, writerId, employeeId);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "참조자 삭제 완료", res));
+        if (!report.getWriterId().equals(writerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 삭제 권한이 없습니다.");
+        }
+
+        // 1. ReportReferences 리스트에서 해당 참조자를 찾는다.
+        ReportReferences referenceToRemove = report.getReportReferences().stream()
+                .filter(ref -> ref.getEmployeeId().equals(employeeIdToDelete))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "삭제할 참조자를 찾을 수 없습니다."));
+
+        // 2. 리스트에서 제거한다. (orphanRemoval=true 덕분에 DB에서도 삭제됨)
+        report.getReportReferences().remove(referenceToRemove);
+
+        return ReportReferencesResDto.builder()
+                .reportId(reportId)
+                .employeeId(employeeIdToDelete)
+                .build();
     }
 
     @PostMapping("/reports/category")

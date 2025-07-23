@@ -1,3 +1,4 @@
+
 server:
   port: 8000
 
@@ -42,6 +43,13 @@ spring:
           filters:
             - AuthorizationHeaderFilter
 
+        - id: community
+          uri: lb://NOTICE
+          #          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/community/**
+          filters:
+            - AuthorizationHeaderFilter
 
         - id: approval
           uri: lb://APPROVAL
