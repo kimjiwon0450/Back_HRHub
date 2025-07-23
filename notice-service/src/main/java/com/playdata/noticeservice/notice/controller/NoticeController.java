@@ -246,7 +246,9 @@ public class NoticeController {
         log.info("/general/unread-count: POST, userInfo: {}", userInfo);
         Long userId = userInfo.getEmployeeId();
         HrUserResponse user = hrUserClient.getUserInfo(userId);
-        int count = noticeService.countUnreadNotices(userId, user.getDepartmentId());
+        Position position = user.getPosition();  // 직급 ID
+
+        int count = noticeService.countUnreadNotices(position ,userId, user.getDepartmentId());
         return ResponseEntity.ok(count);
     }
 
@@ -258,7 +260,9 @@ public class NoticeController {
     ) {
         Long userId = userInfo.getEmployeeId();
         HrUserResponse user = hrUserClient.getUserInfo(userId);
-        Map<String, List<NoticeResponse>> result = noticeService.getUserAlerts(userId, user.getDepartmentId());
+        Position position = user.getPosition();  // 직급 ID
+
+        Map<String, List<NoticeResponse>> result = noticeService.getUserAlerts(position, userId, user.getDepartmentId());
         return ResponseEntity.ok(result);
     }
 
