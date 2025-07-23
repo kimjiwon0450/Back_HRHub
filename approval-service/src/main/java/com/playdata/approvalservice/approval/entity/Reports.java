@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -125,6 +126,10 @@ public class Reports extends BaseTimeEntity {
     @OrderBy("approvalContext ASC")
     private List<ApprovalLine> approvalLines = new ArrayList<>();
 
+    @Builder.Default
+    @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReportReferences> reportReferences = new ArrayList<>();
+
     /**
      * 요청 DTO를 엔티티로 변환하는 팩토리 메서드 (최종 수정안)
      */
@@ -184,10 +189,16 @@ public class Reports extends BaseTimeEntity {
         this.title = dto.getTitle();
         this.content = dto.getContent();
 
+        // ★★★ 여기에 두 필드 업데이트 로직 추가 ★★★
+        this.reportTemplateId = dto.getTemplateId();
+        this.reportTemplateData = dto.getReportTemplateData();
+
         if (dto.getApprovalLine() != null) {
             replaceApprovalLines(dto.getApprovalLine());
             if (!approvalLines.isEmpty()) {
                 this.currentApproverId = approvalLines.get(0).getEmployeeId();
+            } else {
+                this.currentApproverId = null; // 결재선이 비워졌을 경우
             }
         }
     }
@@ -251,17 +262,18 @@ public class Reports extends BaseTimeEntity {
         }
 
         // 승인된 경우, 다음 결재자 찾기
-        Optional<ApprovalLine> next = approvalLines.stream()
-                .filter(l -> l.getApprovalContext() > line.getApprovalContext())
+        Optional<ApprovalLine> next = this.approvalLines.stream()
+                .filter(l -> l.getApprovalStatus() == ApprovalStatus.PENDING)
                 .min(Comparator.comparing(ApprovalLine::getApprovalContext));
 
+        // 3. PENDING 상태인 결재자가 남아있는지 확인
         if (next.isPresent()) {
-            // 아직 남은 결재자가 있으면 in progress
+            // 아직 결재할 사람이 남았으므로 IN_PROGRESS 유지
             this.reportStatus = ReportStatus.IN_PROGRESS;
             this.currentApproverId = next.get().getEmployeeId();
         } else {
-            // 마지막 결재자였으면 최종 승인
-            this.reportStatus      = ReportStatus.APPROVED;
+            // PENDING 상태인 결재자가 더 이상 없으면 최종 승인
+            this.reportStatus = ReportStatus.APPROVED;
             this.completedAt = line.getApprovalDateTime();
             this.currentApproverId = null;
         }
@@ -310,5 +322,13 @@ public class Reports extends BaseTimeEntity {
     }
 
 
+    public ReportReferences addReference(@NotNull(message = "참조자 ID를 입력해주세요.") Long employeeId) {
+        ReportReferences newRef = ReportReferences.builder()
+                .reports(this)
+                .employeeId(employeeId)
+                .build();
+        this.reportReferences.add(newRef);
+        return newRef;
+    }
 }
 

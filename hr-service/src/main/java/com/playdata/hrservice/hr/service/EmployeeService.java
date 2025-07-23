@@ -127,7 +127,7 @@ public class EmployeeService {
 
         // F2-25
         if (employee.getStatus().equals(EmployeeStatus.INACTIVE)) {
-        throw new IllegalArgumentException("퇴사자 입니다. 인사부에 문의하세요");
+            throw new IllegalArgumentException("퇴사자 입니다. 인사부에 문의하세요");
         }
 
         if (employee.getPasswordHash() == null) {
@@ -140,63 +140,68 @@ public class EmployeeService {
         return employee.toDto();
     }
 
-    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable, String field, String keyword, String department) {
+    public Page<EmployeeListResDto> getEmployeeList(Pageable pageable, String field, String keyword, String department, TokenUserInfo tokenUserInfo, boolean isContact) {
         Page<Employee> page = null;
-        log.info("getEmployeeList: field={}, keyword={}, department={}", field, keyword, department);
+        if (tokenUserInfo.getRole().equals(Role.ADMIN)||tokenUserInfo.getRole().equals(Role.HR_MANAGER)||isContact) {
+            log.info("getEmployeeList: field={}, keyword={}, department={}", field, keyword, department);
 
-        if (field != null) {
-            switch (field) {
-                case "name" -> {
-                    if (department != null) {
-                        page = employeeRepository.findByNameContainingAndDepartmentNameContaining(keyword, department, pageable);
-                    } else {
-                        page = employeeRepository.findByNameContaining(keyword, pageable);
+            if (field != null) {
+                switch (field) {
+                    case "name" -> {
+                        if (department != null) {
+                            page = employeeRepository.findByNameContainingAndDepartmentNameContaining(keyword, department, pageable);
+                        } else {
+                            page = employeeRepository.findByNameContaining(keyword, pageable);
+                        }
+                    }
+                    case "position" -> {
+                        List<String> positions = Arrays.stream(Position.values()).map(Enum::name).collect(Collectors.toList());
+                        String matchedPositionName = positions.stream()
+                                .filter(roleName -> roleName.contains(keyword))
+                                .findFirst().orElse(null);
+                        Position position = null;
+                        if (matchedPositionName != null) {
+                            position = Position.valueOf(matchedPositionName);
+                        }
+                        if (department != null) {
+                            page = employeeRepository.findByPositionAndDepartmentNameContaining(position, department, pageable);
+                        } else {
+                            page = employeeRepository.findByPosition(position, pageable);
+                        }
+                    }
+                    case "role" -> {
+                        List<String> roles = Arrays.stream(Role.values()).map(Enum::name).collect(Collectors.toList());
+                        String matchedRoleName = roles.stream()
+                                .filter(roleName -> roleName.contains(keyword))
+                                .findFirst().orElse(null);
+                        Role role = null;
+                        if (matchedRoleName != null) {
+                            role = Role.valueOf(matchedRoleName);
+                        }
+                        if (department != null) {
+                            page = employeeRepository.findByRoleAndDepartmentNameContaining(role, department, pageable);
+                        } else {
+                            page = employeeRepository.findByRole(role, pageable);
+                        }
+                    }
+                    case "department" -> page = employeeRepository.findByDepartmentNameContaining(keyword, pageable);
+                    case "phone" -> {
+                        if (department != null) {
+                            page = employeeRepository.findByPhoneContainingAndDepartmentNameContaining(keyword, department, pageable);
+                        } else {
+                            page = employeeRepository.findByPhoneContaining(keyword, pageable);
+                        }
                     }
                 }
-                case "position" -> {
-                    List<String> positions = Arrays.stream(Position.values()).map(Enum::name).collect(Collectors.toList());
-                    String matchedPositionName = positions.stream()
-                            .filter(roleName -> roleName.contains(keyword))
-                            .findFirst().orElse(null);
-                    Position position = null;
-                    if (matchedPositionName != null) {
-                        position = Position.valueOf(matchedPositionName);
-                    }
-                    if (department != null) {
-                        page = employeeRepository.findByPositionAndDepartmentNameContaining(position, department, pageable);
-                    } else {
-                        page = employeeRepository.findByPosition(position, pageable);
-                    }
-                }
-                case "role" -> {
-                    List<String> roles = Arrays.stream(Role.values()).map(Enum::name).collect(Collectors.toList());
-                    String matchedRoleName = roles.stream()
-                            .filter(roleName -> roleName.contains(keyword))
-                            .findFirst().orElse(null);
-                    Role role = null;
-                    if (matchedRoleName != null) {
-                        role = Role.valueOf(matchedRoleName);
-                    }
-                    if (department != null) {
-                        page = employeeRepository.findByRoleAndDepartmentNameContaining(role, department, pageable);
-                    } else {
-                        page = employeeRepository.findByRole(role, pageable);
-                    }
-                }
-                case "department" -> page = employeeRepository.findByDepartmentNameContaining(keyword, pageable);
-                case "phone" -> {
-                    if (department != null) {
-                        page = employeeRepository.findByPhoneContainingAndDepartmentNameContaining(keyword, department, pageable);
-                    } else {
-                        page = employeeRepository.findByPhoneContaining(keyword, pageable);
-                    }
-                }
+            } else if (department != null) {
+                page = employeeRepository.findByDepartmentNameContaining(department, pageable);
             }
-        } else if (department != null) {
-            page = employeeRepository.findByDepartmentNameContaining(department, pageable);
-        }
-        if (page == null) {
-            page = employeeRepository.findAll(pageable);
+            if (page == null) {
+                page = employeeRepository.findAll(pageable);
+            }
+        } else {
+            page = employeeRepository.findByEmployeeId(tokenUserInfo.getEmployeeId(), pageable);
+
         }
         return page.map(employee -> EmployeeListResDto.builder()
                 .id(employee.getEmployeeId())
@@ -207,6 +212,7 @@ public class EmployeeService {
                 .email(employee.getEmail())
                 .profileImageUri(employee.getProfileImageUri())
                 .role(employee.getRole().name())
+                .status(employee.getStatus())
                 .build());
     }
 
@@ -242,17 +248,18 @@ public class EmployeeService {
     private void initTransferHistory(Employee employee, Long departmentId, String positionName, String memo) throws JsonProcessingException {
         List<HrTransferHistoryDto> hrTransferHistoryDtos = new ArrayList<>();
         hrTransferHistoryDtos.add(HrTransferHistoryDto.builder()
-                        .sequenceId(0L)
-                        .departmentId(departmentId)
-                        .positionName(positionName)
-                        .memo(memo)
-                        .build());
+                .sequenceId(0L)
+                .departmentId(departmentId)
+                .positionName(positionName)
+                .memo(memo)
+                .build());
         HrTransferHistory hrTransferHistory = HrTransferHistory.builder()
-                    .employee(employee)
-                    .transferHistory(new ObjectMapper().writeValueAsString(hrTransferHistoryDtos))
-                    .build();
+                .employee(employee)
+                .transferHistory(new ObjectMapper().writeValueAsString(hrTransferHistoryDtos))
+                .build();
         hrTransferHistoryRepository.save(hrTransferHistory);
     }
+
     // 인사이동
     private void insertTransferHistory(Employee employee, Long departmentId, String positionName, String memo) throws JsonProcessingException {
         HrTransferHistory hrTransferHistory = hrTransferHistoryRepository.findByEmployee(employee);
@@ -262,11 +269,12 @@ public class EmployeeService {
         }
         String json = hrTransferHistory.getTransferHistory();
         List<HrTransferHistoryDto> hrTransferHistoryDtos = new ObjectMapper()
-                .readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {});
+                .readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {
+                });
         if (!hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getDepartmentId().equals(departmentId)
-                || !hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getPositionName().equals(positionName)) {
+            || !hrTransferHistoryDtos.get(hrTransferHistoryDtos.size() - 1).getPositionName().equals(positionName)) {
             hrTransferHistoryDtos.add(HrTransferHistoryDto.builder()
-                    .sequenceId((long)hrTransferHistoryDtos.size())
+                    .sequenceId((long) hrTransferHistoryDtos.size())
                     .departmentId(departmentId)
                     .positionName(positionName)
                     .memo(memo)
@@ -279,12 +287,12 @@ public class EmployeeService {
 
     public String getEmployeeName(Long id) {
         return employeeRepository.findById(id).orElseThrow(
-                () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")        ).getName();
+                () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")).getName();
     }
 
     public String getDepartmentNameOfEmployee(Long id) {
         return employeeRepository.findById(id).orElseThrow(
-                () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")        ).getDepartment().getName();
+                () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")).getDepartment().getName();
     }
 
     // 직원삭제
@@ -307,7 +315,7 @@ public class EmployeeService {
     }
 
     public HrTransferHistoryResDto getTransferHistory(Long employeeId, TokenUserInfo tokenUserInfo) throws JsonProcessingException {
-        if(!tokenUserInfo.getEmployeeId().equals(employeeId)) {
+        if (!tokenUserInfo.getEmployeeId().equals(employeeId)) {
             if (!tokenUserInfo.getRole().equals(Role.ADMIN) && !tokenUserInfo.getRole().equals(Role.HR_MANAGER)) {
                 throw new RuntimeException("권한이 없습니다!");
             }
@@ -319,7 +327,8 @@ public class EmployeeService {
         }
 
         String json = hrTransferHistory.getTransferHistory();
-        List<HrTransferHistoryDto> hrTransferHistoryDtos = new ObjectMapper().readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {});
+        List<HrTransferHistoryDto> hrTransferHistoryDtos = new ObjectMapper().readValue(json, new TypeReference<List<HrTransferHistoryDto>>() {
+        });
 
         return HrTransferHistoryResDto.builder()
                 .tranferHistoryId(hrTransferHistory.getId())

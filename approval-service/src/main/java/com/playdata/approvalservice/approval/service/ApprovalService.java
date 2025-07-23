@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -135,7 +136,7 @@ public class ApprovalService {
          * 보고서 수정 (Draft 상태)
          */
         @Transactional
-        public ReportDetailResDto updateReport (Long reportId, ReportUpdateReqDto req, Long writerId){
+        public ReportDetailResDto updateReport (Long reportId, ReportUpdateReqDto req, Long writerId, List<MultipartFile> newFiles){
             Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
@@ -328,52 +329,21 @@ public class ApprovalService {
                 int page, int size, Long writerId,
                                             @RequestParam(defaultValue = "id") String sortBy,
                                             @RequestParam(defaultValue = "DESC") String sortOrder){
-            //동적 Sort 객체 생성
+
             Sort.Direction direction = sortOrder.equalsIgnoreCase("ASC") ? Sort.Direction.ASC : Sort.Direction.DESC;
-            String sortProperty = sortBy.equals("reportCreatedAt") ? "reportCreatedAt" : "id";
+            String sortProperty = "createdAt".equalsIgnoreCase(sortBy) ? "reportCreatedAt" : "id";
             Sort sort = Sort.by(direction, sortProperty);
 
-            // ★★★ 3. 동적으로 생성된 Sort 객체를 PageRequest에 포함 ★★★
+            // 2. 페이징(Pageable) 객체 생성
             Pageable pageable = PageRequest.of(page, size, sort);
 
-            Page<Reports> pr;
+            // 3. 동적 검색 조건(Specification) 생성
+            // ReportSpecifications 클래스의 정적 메소드를 호출하여 조건을 조합합니다.
+            Specification<Reports> spec = ReportSpecifications.withDynamicQuery(role, status, keyword, writerId);
 
-            if ("writer".equalsIgnoreCase(role)) {
-                // [내 기안 문서함] 로직 (변경 없음)
-                pr = (status != null)
-                        ? reportsRepository.findByWriterIdAndReportStatus(writerId, status, pageable)
-                        : reportsRepository.findByWriterId(writerId, pageable);
-
-            } else if ("approver".equalsIgnoreCase(role)) {
-
-                if (status == ReportStatus.IN_PROGRESS) {
-                    // [결재할 문서] - 내가 현재 결재자
-                    log.info("Fetching reports for CURRENT approver (role={}, status={})", role, status);
-                    pr = reportsRepository.findByCurrentApproverIdAndReportStatus(writerId, ReportStatus.IN_PROGRESS, pageable);
-
-                } else if (status == null) {
-                    // [결재 진행함] - 내가 결재선에 포함된 모든 진행 중 문서
-                    log.info("Fetching all IN-PROGRESS reports where user is in approval line (role={}, status=null)", role);
-                    pr = reportsRepository.findInProgressForUser(writerId, pageable);
-
-                } else if (status == ReportStatus.APPROVED || status == ReportStatus.REJECTED) {
-                    // [완료 문서함] 또는 [반려 문서함]
-                    log.info("Fetching {} reports where user was in approval line (role={}, status={})", status, role, status);
-                    pr = reportsRepository.findByApproverIdAndStatus(writerId, status, pageable);
-
-                } else {
-                    // 그 외의 status 요청은 비어있는 페이지를 반환하거나 예외 처리
-                    log.warn("Unsupported status '{}' for role 'approver'", status);
-                    pr = Page.empty(pageable);
-                }
-
-            } else if ("reference".equalsIgnoreCase(role)) {
-                // [수신 참조함] 로직 (변경 없음)
-                pr = reportsRepository.findByReferenceEmployeeIdInDetailJsonAndExcludeDraftRecalled(writerId, pageable);
-
-            } else {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "role은 writer, approver, 또는 reference만 가능합니다.");
-            }
+            // 4. Repository의 findAll 메소드를 단 한 번만 호출하여 데이터 조회
+            // JpaSpecificationExecutor를 상속받았기 때문에 이 메소드를 사용할 수 있습니다.
+            Page<Reports> pr = reportsRepository.findAll(spec, pageable);
 
             Set<Long> employeeIdsToFetch = new HashSet<>();
             pr.getContent().forEach(report -> {
@@ -450,10 +420,9 @@ public class ApprovalService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
-        // 2. 조회 권한을 확인합니다. (작성자 또는 결재 라인에 포함된 사람만 조회 가능)
-        boolean isWriter = report.getWriterId().equals(writerId);
-        boolean isApprover = report.getApprovalLines().stream()
-                .anyMatch(l -> l.getEmployeeId().equals(writerId));
+        // 리팩토링
+        checkReadAccess(report, writerId);
+
 
         boolean isReference = false;
         if (report.getDetail() != null && !report.getDetail().isBlank()) {
@@ -472,10 +441,7 @@ public class ApprovalService {
                 log.error("getApprovalHistory 권한 체크 중 detail JSON 파싱 실패, reportId: {}", reportId, e);
             }
         }
-
-        if (!isWriter && !isApprover && !isReference) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
-        }
+        isUserInReferences(report, writerId);
 
         // 3. API 호출을 위한 모든 관련 직원 ID를 수집합니다.
         Set<Long> employeeIdsToFetch = new HashSet<>();
@@ -485,6 +451,33 @@ public class ApprovalService {
             employeeIdsToFetch.add(report.getCurrentApproverId()); // 현재 결재자 ID
         }
         report.getApprovalLines().forEach(line -> employeeIdsToFetch.add(line.getEmployeeId())); // 결재 라인의 모든 직원 ID
+
+        Map<String, Object> templateStructure = new HashMap<>();
+        Map<String, Object> formData = new HashMap<>();
+
+        try {
+            // 템플릿 ID가 있는지 확인
+            if (report.getReportTemplateId() != null) {
+                // 템플릿 ID로 ReportTemplate 엔티티를 DB에서 조회
+                ReportTemplate template = templateRepository.findById(report.getReportTemplateId())
+                        .orElse(null);
+
+                // 템플릿이 존재하면, template JSON 문자열을 Map으로 변환
+                if (template != null && template.getTemplate() != null) {
+                    templateStructure = objectMapper.readValue(template.getTemplate(), new TypeReference<>() {});
+                }
+            }
+
+            // 템플릿에 입력된 데이터(formData)가 있는지 확인
+            if (report.getReportTemplateData() != null && !report.getReportTemplateData().isBlank()) {
+                // reportTemplateData JSON 문자열을 Map으로 변환
+                formData = objectMapper.readValue(report.getReportTemplateData(), new TypeReference<>() {});
+            }
+        } catch (JsonProcessingException e) {
+            log.error("템플릿 또는 폼 데이터 파싱 실패: reportId={}", reportId, e);
+            // 파싱에 실패하더라도 에러를 발생시키지 않고, 빈 객체를 보내줍니다.
+            // 프론트엔드가 null 대신 빈 객체를 받아 안정적으로 처리할 수 있도록 합니다.
+        }
 
         // 4. 단 한 번의 Feign API 호출로 모든 직원 이름을 가져옵니다.
         Map<Long, String> employeeNamesMap = Collections.emptyMap();
@@ -570,7 +563,8 @@ public class ApprovalService {
                 .reportStatus(report.getReportStatus())
                 .approvalLine(lines)
                 .currentApprover(currentApprover)
-                .dueDate(null) // 필요 시 구현
+                .template(templateStructure)
+                .formData(formData)
                 .build();
 
         if (!resultDto.getApprovalLine().isEmpty()) {
@@ -639,10 +633,7 @@ public class ApprovalService {
                     (() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
 
-            boolean isWriter = report.getWriterId().equals(writerId);
-            boolean isApprover = report.getApprovalLines().stream()
-                    .anyMatch(l -> l.getEmployeeId().equals(writerId));
-
+            checkReadAccess(report, writerId);
             boolean isReference = false;
             if (report.getDetail() != null && !report.getDetail().isBlank()) {
                 try {
@@ -660,11 +651,7 @@ public class ApprovalService {
                     log.error("getApprovalHistory 권한 체크 중 detail JSON 파싱 실패, reportId: {}", reportId, e);
                 }
             }
-
-            if (!isWriter && !isApprover && !isReference) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
-            }
-
+            isUserInReferences(report, writerId);
             List<ApprovalLine> lines = approvalRepository
                     .findApprovalLinesByReportId(reportId);
 
@@ -825,9 +812,13 @@ public class ApprovalService {
             Reports report = reportsRepository.findById(reportId)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-            ReportReferences ref = ReportReferences.fromReferenceReqDto(report, req);
-            ReportReferences saved = referenceRepository.save(ref);
-            return ReferenceResDto.fromReportReferences(saved);
+
+            if(!report.getWriterId().equals(writerId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 추가 권한이 없습니다.");
+            }
+            ReportReferences saveRef = report.addReference(req.getEmployeeId());
+
+            return ReferenceResDto.fromReportReferences(saveRef);
         }
 
         /**
@@ -922,5 +913,44 @@ public class ApprovalService {
             log.error("S3 URL 파싱 또는 디코딩 실패: {}", fileUrl, e);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잘못된 파일 URL 형식입니다.");
         }
+    }
+
+    /**
+     * 사용자가 특정 보고서에 대한 읽기 권한(작성자, 결재자, 참조자)이 있는지 확인합니다.
+     * @param report 확인할 보고서 엔티티
+     * @param userId 확인할 사용자의 ID
+     * @throws ResponseStatusException 권한이 없을 경우 FORBIDDEN 예외 발생
+     */
+    private void checkReadAccess(Reports report, Long userId) {
+        boolean isWriter = report.getWriterId().equals(userId);
+        boolean isApprover = report.getApprovalLines().stream()
+                .anyMatch(l -> l.getEmployeeId().equals(userId));
+        boolean isReference = isUserInReferences(report, userId);
+
+        if (!isWriter && !isApprover && !isReference) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+        }
+    }
+
+    /**
+     * 보고서의 detail JSON을 파싱하여 참조자 목록에 특정 사용자가 있는지 확인하는 헬퍼 메소드
+     */
+    private boolean isUserInReferences(Reports report, Long userId) {
+        if (report.getDetail() != null && !report.getDetail().isBlank()) {
+            try {
+                JsonNode root = objectMapper.readTree(report.getDetail());
+                JsonNode referencesNode = root.path("references");
+                if (referencesNode.isArray()) {
+                    for (JsonNode refNode : referencesNode) {
+                        if (refNode.path("employeeId").asLong() == userId) {
+                            return true;
+                        }
+                    }
+                }
+            } catch (JsonProcessingException e) {
+                log.error("참조자 권한 체크 중 JSON 파싱 실패, reportId: {}", report.getId(), e);
+            }
+        }
+        return false;
     }
 }
