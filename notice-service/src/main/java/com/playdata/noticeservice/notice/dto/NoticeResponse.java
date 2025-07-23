@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Builder
 public class NoticeResponse {
 
-    private Long id;
+    private Long noticeId;
     private String title;
     private String content;
     private Long employeeId;
@@ -25,7 +25,7 @@ public class NoticeResponse {
     private String departmentName;
     private String employStatus;
     private Long departmentId;
-    private boolean notice;
+    private boolean general;
     private String attachmentUri;
     private boolean boardStatus;
     private LocalDateTime createdAt;
@@ -40,10 +40,9 @@ public class NoticeResponse {
     // 엔티티 -> DTO 변환 정적 메서드
     public static NoticeResponse fromEntity(Notice notice) {
         return NoticeResponse.builder()
-                .id(notice.getId())
+                .noticeId(notice.getNoticeId())
                 .title(notice.getTitle())
                 .content(notice.getContent())
-                .notice(notice.isNotice())
                 .attachmentUri(notice.getAttachmentUri())
                 .employeeId(notice.getEmployeeId())
                 .departmentId(notice.getDepartmentId())
@@ -56,14 +55,13 @@ public class NoticeResponse {
 
     public static NoticeResponse fromEntity(Notice notice, HrUserResponse user, int commentCount) {
         NoticeResponse dto = new NoticeResponse();
-        dto.id = notice.getId();
+        dto.noticeId = notice.getNoticeId();
         dto.title = notice.getTitle();
         dto.content = notice.getContent();
         dto.name = user.getName();
         dto.departmentId = notice.getDepartmentId();
         dto.employStatus = user.getStatus(); // ✅ 직관적 매핑
         dto.employeeId = notice.getEmployeeId();
-        dto.notice = notice.isNotice();
         dto.attachmentUri = notice.getAttachmentUri();
         dto.boardStatus = notice.isBoardStatus();
         dto.createdAt = notice.getCreatedAt();
@@ -76,7 +74,7 @@ public class NoticeResponse {
 
     public static NoticeResponse fromEntity(Notice notice, HrUserResponse user, DepResponse dep) {
         NoticeResponse dto = new NoticeResponse();
-        dto.id = notice.getId();
+        dto.noticeId = notice.getNoticeId();
         dto.title = notice.getTitle();
         dto.content = notice.getContent();
         dto.name = user.getName();
@@ -84,7 +82,6 @@ public class NoticeResponse {
         dto.departmentName = dep.getName();
         dto.employStatus = user.getStatus(); // ✅ 직관적 매핑
         dto.employeeId = notice.getEmployeeId();
-        dto.notice = notice.isNotice();
         dto.attachmentUri = notice.getAttachmentUri();
         dto.boardStatus = notice.isBoardStatus();
         dto.createdAt = notice.getCreatedAt();

@@ -31,24 +31,22 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     // 전체공지글
     @Query("SELECT n FROM Notice n WHERE " +
-            "n.notice = true AND " +
             "n.boardStatus = true AND " +
             "n.departmentId = 0 AND " +
             "n.position <= :position"
             )
-    List<Notice> findAllGeneralNotices(@Param("position") Position position,
+    List<Notice> findAllGeneralNotices(@Param("position") int position,
                                        Pageable pageable);
 
     // 전체공지글필터
     @Query("SELECT n FROM Notice n WHERE " +
-            "n.notice = true AND " +
             "n.boardStatus = true AND " +
             "n.departmentId = :departmentId AND " +
             "n.position <= :position AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR n.createdAt <= :toDate)")
-    List<Notice> findFilteredGeneralNotices(@Param("position") Position position,
+    List<Notice> findFilteredGeneralNotices(@Param("position") int position,
                                             @Param("keyword") String keyword,
                                              @Param("fromDate") LocalDateTime fromDate,
                                              @Param("toDate") LocalDateTime toDate,
@@ -56,20 +54,19 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                              Pageable pageable);
 
     // 부서공지글(내 부서)
-    @Query("SELECT n FROM Notice n WHERE n.notice = true AND n.boardStatus = true AND n.departmentId = :departmentId AND n.position <= :position")
-    Page<Notice> findAllNotices(@Param("position") Position position,
+    @Query("SELECT n FROM Notice n WHERE n.boardStatus = true AND n.departmentId = :departmentId AND n.position <= :position")
+    Page<Notice> findAllNotices(@Param("position") int position,
                                 Long departmentId, Pageable pageable);
 
     // 부서공지글필터
     @Query("SELECT n FROM Notice n WHERE " +
-            "n.notice = true AND " +
             "n.boardStatus = true AND " +
             "n.departmentId = :departmentId AND " +
             "n.position <= :position AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR n.createdAt <= :toDate)")
-    Page<Notice> findFilteredNotices(@Param("position") Position position,
+    Page<Notice> findFilteredNotices(@Param("position") int position,
                                      @Param("keyword") String keyword,
                                      @Param("fromDate") LocalDateTime fromDate,
                                      @Param("toDate") LocalDateTime toDate,
@@ -77,48 +74,13 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
     // 부서공지글 내가쓴글
     @Query("SELECT n FROM Notice n WHERE " +
-            "n.notice = true AND " +
             "n.boardStatus = true AND " +
             "n.employeeId = :employeeId")
     List<Notice> findMyNotices(Long employeeId);
 
-
-    // 일반게시글전체
-    @Query("SELECT n FROM Notice n WHERE n.notice = false AND n.boardStatus = true")
-    Page<Notice> findAllPosts(Pageable pageable);
-
-    // 일반게시글필터
-    @Query("SELECT n FROM Notice n WHERE " +
-            "n.notice = false AND " +
-            "n.boardStatus = true AND " +
-            "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
-            "(:toDate IS NULL OR n.createdAt <= :toDate)")
-    Page<Notice> findFilteredPosts(@Param("keyword") String keyword,
-                                   @Param("fromDate") LocalDateTime fromDate,
-                                   @Param("toDate") LocalDateTime toDate,
-                                   Pageable pageable);
-
-    // 일반게시글 내부서
-    @Query("SELECT n FROM Notice n WHERE " +
-            "n.notice = false AND " +
-            "n.boardStatus = true AND " +
-            "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
-            "(:toDate IS NULL OR n.createdAt <= :toDate) AND " +
-            "n.departmentId = :departmentId")
-    List<Notice> findMyDepartmentPosts(@Param("keyword") String keyword,
-                                       @Param("fromDate") LocalDateTime fromDate,
-                                       @Param("toDate") LocalDateTime toDate,
-                                       Long departmentId);
-
-    // 일반게시글 내가쓴글
-    List<Notice> findByEmployeeIdAndBoardStatusTrueAndNoticeFalseOrderByCreatedAtDesc(Long employeeId);
-
-
     // 직접 DB 연산으로 조회수 증가
     @Modifying
-    @Query("UPDATE Notice n SET n.viewCount = n.viewCount + 1 WHERE n.id = :id")
+    @Query("UPDATE Notice n SET n.viewCount = n.viewCount + 1 WHERE n.noticeId = :id")
     void incrementViewCount(@Param("id") Long id);
 
 }
