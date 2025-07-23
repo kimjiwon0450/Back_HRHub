@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -124,6 +125,10 @@ public class Reports extends BaseTimeEntity {
     @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("approvalContext ASC")
     private List<ApprovalLine> approvalLines = new ArrayList<>();
+
+    @Builder.Default
+    @OneToMany(mappedBy = "reports", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ReportReferences> reportReferences = new ArrayList<>();
 
     /**
      * 요청 DTO를 엔티티로 변환하는 팩토리 메서드 (최종 수정안)
@@ -316,5 +321,13 @@ public class Reports extends BaseTimeEntity {
     }
 
 
+    public ReportReferences addReference(@NotNull(message = "참조자 ID를 입력해주세요.") Long employeeId) {
+        ReportReferences newRef = ReportReferences.builder()
+                .reports(this)
+                .employeeId(employeeId)
+                .build();
+        this.reportReferences.add(newRef);
+        return newRef;
+    }
 }
 

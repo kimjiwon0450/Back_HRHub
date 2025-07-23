@@ -823,9 +823,13 @@ public class ApprovalService {
             Reports report = reportsRepository.findById(reportId)
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-            ReportReferences ref = ReportReferences.fromReferenceReqDto(report, req);
-            ReportReferences saved = referenceRepository.save(ref);
-            return ReferenceResDto.fromReportReferences(saved);
+
+            if(!report.getWriterId().equals(writerId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 추가 권한이 없습니다.");
+            }
+            ReportReferences saveRef = report.addReference(req.getEmployeeId());
+
+            return ReferenceResDto.fromReportReferences(saveRef);
         }
 
         /**
