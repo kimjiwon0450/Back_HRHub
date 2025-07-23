@@ -295,19 +295,20 @@ public class NoticeService_v2 {
 
 
     // 읽지 않은 공지글 개수 조회
-    public int countUnreadNotices(Long employeeId, Long departmentId1) {
+    public int countUnreadNotices(Position position, Long employeeId, Long departmentId1) {
         Long departmentId2 = 0L;
-        return noticeReadRepository.countUnreadNoticesByDepartmentAndEmployeeId(departmentId1, departmentId2, employeeId);
+        int position_num =  position.ordinal();
+        return noticeReadRepository.countUnreadNoticesByDepartmentAndEmployeeId(position_num, departmentId1, departmentId2, employeeId);
     }
 
 
     // 읽지 않은 공지글 알림
-    public Map<String, List<NoticeResponse>> getUserAlerts(Long employeeId, Long departmentId) {
+    public Map<String, List<NoticeResponse>> getUserAlerts(Position position, Long employeeId, Long departmentId) {
         Pageable pageable = PageRequest.of(0, 30);
-
+        int position_num =  position.ordinal();
         // 읽지 않은 공지글을 한 번에 조회
         List<Notice> unreadNotices = noticeReadRepository
-                .findUnreadNoticesByDepartmentAndEmployeeId(departmentId, employeeId, pageable);
+                .findUnreadNoticesByDepartmentAndEmployeeId(position_num, departmentId, employeeId, pageable);
 
         // 작성자 이름 포함한 DTO로 변환
         List<NoticeResponse> unreadNoticeResponses = unreadNotices.stream()
