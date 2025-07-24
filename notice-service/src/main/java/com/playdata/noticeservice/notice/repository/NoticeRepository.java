@@ -33,7 +33,8 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     @Query("SELECT n FROM Notice n WHERE " +
             "n.boardStatus = true AND " +
             "n.departmentId = 0 AND " +
-            "n.position <= :position"
+            "n.position <= :position AND " +
+            "n.published = true"
             )
     List<Notice> findAllGeneralNotices(@Param("position") int position,
                                        Pageable pageable);
@@ -43,6 +44,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
             "n.boardStatus = true AND " +
             "n.departmentId = :departmentId AND " +
             "n.position <= :position AND " +
+            "n.published = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR n.createdAt <= :toDate)")
@@ -54,7 +56,11 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                              Pageable pageable);
 
     // 부서공지글(내 부서)
-    @Query("SELECT n FROM Notice n WHERE n.boardStatus = true AND n.departmentId = :departmentId AND n.position <= :position")
+    @Query("SELECT n FROM Notice n WHERE " +
+            "n.boardStatus = true AND " +
+            "n.departmentId = :departmentId AND " +
+            "n.position <= :position AND " +
+            "n.published = true")
     Page<Notice> findAllNotices(@Param("position") int position,
                                 Long departmentId, Pageable pageable);
 
@@ -63,6 +69,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
             "n.boardStatus = true AND " +
             "n.departmentId = :departmentId AND " +
             "n.position <= :position AND " +
+            "n.published = true AND " +
             "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR n.createdAt <= :toDate)")
@@ -75,8 +82,19 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     // 부서공지글 내가쓴글
     @Query("SELECT n FROM Notice n WHERE " +
             "n.boardStatus = true AND " +
+            "n.published = true AND " +
             "n.employeeId = :employeeId")
     List<Notice> findMyNotices(Long employeeId);
+
+    // NoticeRepository.java
+    List<Notice> findByPublishedFalseAndScheduledAtBefore(LocalDateTime time);
+
+    // 예약한 문서 보기
+    @Query("SELECT n FROM Notice n WHERE " +
+            "n.boardStatus = true AND " +
+            "n.published = false AND " +
+            "n.employeeId = :employeeId")
+    List<Notice> findMyScheduledNotices(Long employeeId);
 
     // 직접 DB 연산으로 조회수 증가
     @Modifying

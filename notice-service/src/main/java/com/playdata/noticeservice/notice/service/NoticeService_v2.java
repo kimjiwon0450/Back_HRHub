@@ -171,6 +171,12 @@ public class NoticeService_v2 {
         return noticeRepository.findMyNotices(employeeId);
     }
 
+    // 예약한 공지글
+    @Transactional(readOnly = true)
+    public List<Notice> getMyScheduledNotice(Long employeeId) {
+        return noticeRepository.findMyScheduledNotices(employeeId);
+    }
+
 
     // 상세 페이지 조회
     public Notice findPostById(Long noticeId) {
@@ -180,8 +186,13 @@ public class NoticeService_v2 {
     // 공지글 작성
     public void createNotice(NoticeCreateRequest request, HrUserResponse user, List<String> attachmentUri) {
         log.info("!!!글 작성!!!");
-        log.info(request.getTitle());
-        log.info(request.getContent());
+        log.info("request.getTitle() : {}", request.getTitle());
+        log.info("request.getContent() : {}", request.getContent());
+        log.info("request.getDepartmentId() : {}", request.getDepartmentId());
+        log.info("request.getPosition() : {}", request.getPosition());
+        log.info("request.getScheduledAt() : {}", request.getScheduledAt());
+        log.info("request.isPublished() : {}", request.isPublished());
+
 
         ObjectMapper mapper = new ObjectMapper();
         String attachmentUriJson = "";
@@ -197,6 +208,11 @@ public class NoticeService_v2 {
             departmentId = 0L;
         }
 
+        boolean publishedYN = false;
+        if (request.getScheduledAt() == null) {
+            publishedYN = true;
+        }
+
         Notice notice = Notice.builder()
                 .title(request.getTitle())
                 .content(request.getContent())
@@ -205,9 +221,11 @@ public class NoticeService_v2 {
                 .departmentId(departmentId)
                 .boardStatus(true)
                 .createdAt(LocalDateTime.now())
+                .published(publishedYN)
+                .scheduledAt(request.getScheduledAt())
                 .attachmentUri(attachmentUriJson) // ✅ JSON 배열 형태로 저장
                 .build();
-        notice.setPosition(Position.valueOf(request.getPosition()));
+        notice.setPosition(Position.valueOf(request.getPosition()).ordinal());
 
         noticeRepository.save(notice);
     }
@@ -227,10 +245,18 @@ public class NoticeService_v2 {
             departmentId = 0L;
         }
 
+        boolean publishedYN = false;
+        if (request.getScheduledAt() == null) {
+            publishedYN = true;
+        }
+
         notice.setTitle(request.getTitle());
         notice.setContent(request.getContent());
         notice.setDepartmentId(departmentId);
-
+        notice.setScheduledAt(request.getScheduledAt());
+        notice.setPublished(publishedYN);
+        notice.setUpdatedAt(LocalDateTime.now());
+        notice.setPosition(Position.valueOf(request.getPosition()).ordinal());
         ObjectMapper mapper = new ObjectMapper();
 
         try {
@@ -246,11 +272,12 @@ public class NoticeService_v2 {
             throw new RuntimeException("첨부파일 저장 중 오류가 발생했습니다.");
         }
         // updatedAt은 @PreUpdate로 자동 설정
+        noticeRepository.save(notice);
     }
 
     // 공지글/게시글 삭제
     @Transactional
-    public void deletePost(Long noticeId, Long currentUserId) {
+    public void deletePost(Long noticeId, Long currentUserId) throws JsonProcessingException {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new EntityNotFoundException("게시글이 존재하지 않습니다."));
 
@@ -259,11 +286,14 @@ public class NoticeService_v2 {
         }
 
         if (notice.getAttachmentUri() != null) {
-            List<String> urls = Arrays.asList(notice.getAttachmentUri().split(","));
+//            List<String> urls = Arrays.asList(notice.getAttachmentUri().split(","));
+            ObjectMapper mapper = new ObjectMapper();
+            List<String> urls = mapper.readValue(notice.getAttachmentUri(), new TypeReference<List<String>>() {});
             s3Service.deleteFiles(urls);
         }
 
         notice.setBoardStatus(false); // 삭제 대신 게시글 비활성화
+        noticeRepository.save(notice);
 
     }
 
