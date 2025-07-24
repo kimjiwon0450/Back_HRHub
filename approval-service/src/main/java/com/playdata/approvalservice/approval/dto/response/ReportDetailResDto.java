@@ -25,6 +25,8 @@ public class ReportDetailResDto {
     private Map<String, Object> template;
     private Map<String, Object> formData;
 
+    private Long templateId;
+
     @Getter @Setter @ToString
     @NoArgsConstructor
     @AllArgsConstructor @Builder
