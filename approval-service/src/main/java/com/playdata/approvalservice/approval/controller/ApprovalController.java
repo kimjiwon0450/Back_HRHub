@@ -79,7 +79,7 @@ public class ApprovalController {
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
     ) {
-
+        log.info("[/approval/save] DTO 수신. templateId: {}", req.getTemplateId());
         Long writerId = getCurrentUserId(userInfo);
         ReportCreateResDto res = approvalService.createReport(req, writerId, files);
         return ResponseEntity.status(HttpStatus.CREATED)

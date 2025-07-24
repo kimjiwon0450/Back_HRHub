@@ -565,6 +565,7 @@ public class ApprovalService {
                 .currentApprover(currentApprover)
                 .template(templateStructure)
                 .formData(formData)
+                .templateId(report.getReportTemplateId())
                 .build();
 
         if (!resultDto.getApprovalLine().isEmpty()) {
