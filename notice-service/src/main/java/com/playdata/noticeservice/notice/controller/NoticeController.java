@@ -1,5 +1,6 @@
 package com.playdata.noticeservice.notice.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.global.dto.AlertResponse;
@@ -13,6 +14,7 @@ import com.playdata.noticeservice.notice.dto.*;
 import com.playdata.noticeservice.notice.entity.Notice;
 import com.playdata.noticeservice.notice.entity.Position;
 
+import com.playdata.noticeservice.notice.repository.NoticeRepository;
 import com.playdata.noticeservice.notice.service.NoticeService_v2;
 import com.playdata.noticeservice.notice.service.S3Service;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,11 +31,13 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -52,6 +56,7 @@ public class NoticeController {
     private final DepartmentClient departmentClient;
     private final ObjectMapper objectMapper;
     private final S3Service s3Service;
+    private final NoticeRepository noticeRepository;
 
 
     // ---------------------- 공지사항 API (직급별 필터링) ----------------------
@@ -155,6 +160,30 @@ public class NoticeController {
         return ResponseEntity.ok(response);
     }
 
+    // 예약한 글 조회(공지글)
+    @GetMapping("/schedule")
+    public ResponseEntity<Map<String, Object>> getMyScheduledNotice(
+            @AuthenticationPrincipal TokenUserInfo userInfo,
+            HttpServletRequest request) {
+        List<Notice> notices = noticeService.getMyScheduledNotice(userInfo.getEmployeeId());
+
+        String token = request.getHeader("Authorization");
+
+        Map<Long, HrUserResponse> userMap = hrUserClient.getUserInfoBulk(
+                notices.stream().map(Notice::getEmployeeId).collect(Collectors.toSet())
+                , token).stream().collect(Collectors.toMap(HrUserResponse::getEmployeeId, Function.identity()));
+
+        Map<String, Object> response = new HashMap<>();
+
+        response.put("myschedule", notices.stream()
+                .map(n -> {
+                    HrUserResponse user = userMap.get(n.getEmployeeId());
+                    int commentCount = noticeService.getCommentCountByNoticeId(n.getNoticeId()); // ✅ 댓글 수
+                    return NoticeResponse.fromEntity(n, user, commentCount); // ✅ 댓글 수 포함
+                }).toList());
+        return ResponseEntity.ok(response);
+    }
+
 
     // 글 상세 화면 조회
     @GetMapping("/{noticeId:\\d+}")
@@ -174,7 +203,6 @@ public class NoticeController {
     ) throws IOException {
         Long employeeId = userInfo.getEmployeeId();
         HrUserResponse user = hrUserClient.getUserInfo(employeeId);
-
         // ✅ attachmentUri를 List<String>으로 변환
         List<String> attachmentUri = Collections.emptyList();
         if (request.getAttachmentUri() != null && !request.getAttachmentUri().isBlank()) {
@@ -221,7 +249,7 @@ public class NoticeController {
     // 글 삭제
     @DeleteMapping("/delete/{noticeId:\\d+}")
     public ResponseEntity<AlertResponse> deleteNotice(@PathVariable Long noticeId,
-                                           @AuthenticationPrincipal TokenUserInfo userInfo) {
+                                           @AuthenticationPrincipal TokenUserInfo userInfo) throws JsonProcessingException {
         noticeService.deletePost(noticeId, userInfo.getEmployeeId());
 //        return ResponseEntity.noContent().build();
         return ResponseEntity.ok(new AlertResponse(AlertMessage.NOTICE_DELETE_SUCCESS.getMessage(), "success"));
@@ -235,6 +263,18 @@ public class NoticeController {
         log.info("userInfo: {}", userInfo);
         noticeService.markAsRead(userInfo.getEmployeeId(), noticeId);
         return ResponseEntity.ok().build();
+    }
+
+    @Scheduled(fixedRate = 60000) // 1분마다 실행
+    public void publishScheduledNotices() {
+        List<Notice> notices = noticeRepository.findByPublishedFalseAndScheduledAtBefore(LocalDateTime.now());
+
+        for (Notice notice : notices) {
+            notice.setPublished(true);
+            // createdAt을 예약 시간으로 바꿀 수도 있음 (선택)
+            notice.setCreatedAt(notice.getScheduledAt());
+            noticeRepository.save(notice);
+        }
     }
 
 

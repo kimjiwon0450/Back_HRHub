@@ -28,6 +28,10 @@ public class NoticeResponse {
     private boolean general;
     private String attachmentUri;
     private boolean boardStatus;
+
+    private boolean published = false; // 게시 여부
+    private LocalDateTime scheduledAt;   // 예약 시간
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private int viewCount;
@@ -49,6 +53,8 @@ public class NoticeResponse {
                 .createdAt(notice.getCreatedAt())
                 .updatedAt(notice.getUpdatedAt())
                 .viewCount(notice.getViewCount())
+                .published(notice.isPublished())
+                .scheduledAt(notice.getScheduledAt())
                 .build();
     }
 
@@ -64,6 +70,8 @@ public class NoticeResponse {
         dto.employeeId = notice.getEmployeeId();
         dto.attachmentUri = notice.getAttachmentUri();
         dto.boardStatus = notice.isBoardStatus();
+        dto.published = notice.isPublished();
+        dto.scheduledAt = notice.getScheduledAt();
         dto.createdAt = notice.getCreatedAt();
         dto.updatedAt = notice.getUpdatedAt();
         dto.viewCount = notice.getViewCount();
@@ -84,6 +92,8 @@ public class NoticeResponse {
         dto.employeeId = notice.getEmployeeId();
         dto.attachmentUri = notice.getAttachmentUri();
         dto.boardStatus = notice.isBoardStatus();
+        dto.published = notice.isPublished();
+        dto.scheduledAt = notice.getScheduledAt();
         dto.createdAt = notice.getCreatedAt();
         dto.updatedAt = notice.getUpdatedAt();
         dto.viewCount = notice.getViewCount();
