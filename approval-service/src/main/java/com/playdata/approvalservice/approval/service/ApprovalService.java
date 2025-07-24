@@ -749,6 +749,11 @@ public class ApprovalService {
                     req.getAttachments()
             );
 
+            newReport.applyResubmitTemplateInfo(
+                    originalReport.getReportTemplateId(), // 원본의 템플릿 종류
+                    req.getReportTemplateData() != null ? req.getReportTemplateData() : originalReport.getReportTemplateData() // 사용자가 새로 입력한 데이터 (없으면 원본 데이터)
+            );
+
             // 2) attachments/references 덮어쓰기
             Map<String, Object> detailMap = new HashMap<>();
             if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
