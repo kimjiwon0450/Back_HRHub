@@ -1,9 +1,8 @@
 package com.playdata.noticeservice.notice.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
-import jakarta.validation.groups.Default;
 import lombok.*;
-import org.bouncycastle.jcajce.provider.drbg.DRBG;
 
 import java.time.LocalDateTime;
 
@@ -26,6 +25,11 @@ public class Notice {
     private String content;
     private Long employeeId;
     private Long departmentId;
+
+    private boolean published = false; // 게시 여부
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private LocalDateTime scheduledAt;   // 예약 시간
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String attachmentUri;
@@ -36,8 +40,8 @@ public class Notice {
 
 
     // Setter with enum
-    public void setPosition(Position position) {
-        this.position = position.ordinal();
+    public void setPosition(int position) {
+        this.position = position;
     }
 
     // Getter with enum
