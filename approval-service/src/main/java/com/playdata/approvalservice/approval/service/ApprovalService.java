@@ -749,6 +749,11 @@ public class ApprovalService {
                     req.getAttachments()
             );
 
+            newReport.applyResubmitTemplateInfo(
+                    originalReport.getReportTemplateId(), // 원본의 템플릿 종류
+                    req.getReportTemplateData() != null ? req.getReportTemplateData() : originalReport.getReportTemplateData() // 사용자가 새로 입력한 데이터 (없으면 원본 데이터)
+            );
+
             // 2) attachments/references 덮어쓰기
             Map<String, Object> detailMap = new HashMap<>();
             if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
@@ -805,22 +810,49 @@ public class ApprovalService {
         }
 
 
-        /**
-         * 참조자 추가 처리
-         */
-        @Transactional
-        public ReferenceResDto addReference (Long reportId, Long writerId, ReferenceReqDto req){
-            Reports report = reportsRepository.findById(reportId)
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
+    @Transactional
+    public ReferenceResDto addReference(Long reportId, Long writerId, ReferenceReqDto req) {
+        Reports report = reportsRepository.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
 
-            if(!report.getWriterId().equals(writerId)) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 추가 권한이 없습니다.");
-            }
-            ReportReferences saveRef = report.addReference(req.getEmployeeId());
-
-            return ReferenceResDto.fromReportReferences(saveRef);
+        if (!report.getWriterId().equals(writerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 추가 권한이 없습니다.");
         }
+
+        try {
+            // 1. 기존 detail JSON을 Map으로 파싱
+            Map<String, Object> detailMap;
+            if (report.getDetail() != null && !report.getDetail().isBlank()) {
+                detailMap = objectMapper.readValue(report.getDetail(), new TypeReference<>() {});
+            } else {
+                detailMap = new HashMap<>();
+            }
+
+            // 2. references 리스트를 가져오거나 새로 생성
+            List<Map<String, Long>> references = (List<Map<String, Long>>) detailMap.getOrDefault("references", new ArrayList<>());
+
+            // 3. 이미 존재하는 참조자인지 확인 (중복 추가 방지)
+            boolean exists = references.stream().anyMatch(ref -> req.getEmployeeId().equals(ref.get("employeeId")));
+            if (!exists) {
+                references.add(Map.of("employeeId", req.getEmployeeId()));
+            }
+
+            // 4. 수정된 references 리스트를 다시 detailMap에 넣기
+            detailMap.put("references", references);
+
+            // 5. Map을 다시 JSON 문자열로 변환하여 report에 저장
+            report.setDetail(objectMapper.writeValueAsString(detailMap));
+
+            // Response DTO는 상황에 맞게 생성하여 반환 (이 부분은 단순 예시)
+            return ReferenceResDto.builder()
+                    .reportId(reportId)
+                    .employeeId(req.getEmployeeId())
+                    .build();
+
+        } catch (JsonProcessingException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "참조자 정보 처리 중 오류가 발생했습니다.", e);
+        }
+    }
 
         /**
          * 참조자 제거 처리

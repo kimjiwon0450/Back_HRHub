@@ -329,5 +329,16 @@ public class Reports extends BaseTimeEntity {
         this.reportReferences.add(newRef);
         return newRef;
     }
+
+    /**
+     * 재상신 시 원본 문서의 템플릿 정보를 새로운 문서에 복사합니다.
+     * 이 메소드는 오직 재상신 로직에서만 사용되어야 합니다.
+     * @param originalTemplateId 원본 문서의 템플릿 ID
+     * @param newTemplateData 사용자가 새로 입력한 템플릿 데이터
+     */
+    public void applyResubmitTemplateInfo(Long originalTemplateId, String newTemplateData) {
+        this.reportTemplateId = originalTemplateId;
+        this.reportTemplateData = newTemplateData;
+    }
 }
 

@@ -42,17 +42,34 @@ public class ReportSpecifications {
                     predicate = criteriaBuilder.and(predicate, criteriaBuilder.equal(approvalLineJoin.get("employeeId"), userId));
                     break;
                 case "reference":
-                    Join<Reports, ReportReferences> referencesJoin = root.join("reportReferences");
-                    predicate = criteriaBuilder.and(predicate, criteriaBuilder.equal(referencesJoin.get("employeeId"), userId));
-                    break;
+                    // [수정] DB의 JSON_CONTAINS 함수를 사용하여 정확하게 검색
+                    // 이 코드는 MySQL/MariaDB 기준입니다.
+
+                    // 1. 우리가 찾고 싶은 JSON 객체 형태를 문자열로 만듭니다. 예: {"employeeId": 33}
+                    String jsonObjectToFind = String.format("{\"employeeId\": %d}", userId);
+
+                    // 2. criteriaBuilder.function()을 사용하여 JSON_CONTAINS 함수를 호출합니다.
+                    //    JSON_CONTAINS(json_document, value_to_find, path)
+                    //    '$.references'는 detail JSON의 'references' 배열 안에서 찾으라는 의미입니다.
+                    Predicate jsonContainsPredicate = criteriaBuilder.equal(
+                            criteriaBuilder.function(
+                                    "JSON_CONTAINS",
+                                    Boolean.class,
+                                    root.get("detail"),               // 검색 대상 JSON 컬럼
+                                    criteriaBuilder.literal(jsonObjectToFind), // 찾을 값
+                                    criteriaBuilder.literal("$.references")    // JSON 내부 경로
+                            ),
+                            true
+                    );
                 case "all":
                     Join<Reports, ApprovalLine> joinForApprover = root.join("approvalLines");
-                    Join<Reports, ReportReferences> joinForReference = root.join("reportReferences"); // 참조자 조인 추가
+                    // 참조자 검색도 JOIN이 아닌 LIKE 검색으로 변경합니다.
+                    String patternForAll = "\"employeeId\":" + userId;
 
                     Predicate allConditions = criteriaBuilder.or(
                             criteriaBuilder.equal(root.get("writerId"), userId),
                             criteriaBuilder.equal(joinForApprover.get("employeeId"), userId),
-                            criteriaBuilder.equal(joinForReference.get("employeeId"), userId) // LIKE 대신 EQUAL 사용
+                            criteriaBuilder.like(root.get("detail"), "%" + patternForAll + "%")
                     );
                     predicate = criteriaBuilder.and(predicate, allConditions);
                     break;
