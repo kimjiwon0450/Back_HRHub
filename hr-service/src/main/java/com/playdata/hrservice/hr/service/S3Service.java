@@ -2,6 +2,9 @@ package com.playdata.hrservice.hr.service;
 
 import com.playdata.hrservice.common.auth.Role;
 import com.playdata.hrservice.common.config.AwsS3Config;
+
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.net.URLEncoder; // 추가
 import java.nio.charset.StandardCharsets; // 추가
 import com.playdata.hrservice.hr.entity.Employee;
@@ -10,9 +13,11 @@ import com.playdata.hrservice.hr.repository.EmployeeRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
 import java.util.UUID;
 
 @Service
@@ -38,7 +43,19 @@ public class S3Service {
 
         //2) 새 파일 업로드
         String uniqueFileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-        String imageUrl = awsS3Config.uploadToS3Bucket(file.getBytes(), uniqueFileName);
+        awsS3Config.uploadToS3Bucket(file.getBytes(), uniqueFileName, false); // 원본파일 업로드
+
+        BufferedImage image = ImageIO.read(file.getInputStream());
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        Thumbnails.of(image)
+                .size(300, 300)
+                .outputFormat("jpg")
+                .toOutputStream(baos);
+        byte[] thumbnailBytes = baos.toByteArray();
+
+        String imageUrl = awsS3Config.uploadToS3Bucket(thumbnailBytes, uniqueFileName, true); // Thumbnail용
+
+
 
         employee.updateProfileImageUri(imageUrl);
         employeeRepository.save(employee);
