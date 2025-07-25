@@ -34,6 +34,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -246,13 +247,33 @@ public class NoticeController {
     }
 
 
-    // 글 삭제
+    // 글 삭제 (board_status = false)
     @DeleteMapping("/delete/{noticeId:\\d+}")
     public ResponseEntity<AlertResponse> deleteNotice(@PathVariable Long noticeId,
                                            @AuthenticationPrincipal TokenUserInfo userInfo) throws JsonProcessingException {
         noticeService.deletePost(noticeId, userInfo.getEmployeeId());
 //        return ResponseEntity.noContent().build();
         return ResponseEntity.ok(new AlertResponse(AlertMessage.NOTICE_DELETE_SUCCESS.getMessage(), "success"));
+    }
+
+    // 예약 목록은 실제로 db에서 삭제
+    @DeleteMapping("/schedule/{noticeId:\\d+}")
+    public ResponseEntity<?> deleteScheduledNotice(@PathVariable Long noticeId, @AuthenticationPrincipal TokenUserInfo userInfo) {
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "게시글 없음"));
+
+        // 작성자 또는 관리자 권한 확인
+        if (!userInfo.getEmployeeId().equals(notice.getEmployeeId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // 아직 발행되지 않은 글만 삭제 가능
+        if (notice.isPublished()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("이미 게시된 글은 삭제할 수 없습니다.");
+        }
+
+        noticeRepository.delete(notice);
+        return ResponseEntity.ok("삭제 완료");
     }
 
     // ✅ 공지글 읽음 처리
