@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -101,7 +103,14 @@ public class ApprovalController {
                 .body(new CommonResDto(HttpStatus.CREATED, "보고서가 상신 되었습니다.", res));
     }
 
-
+    /**
+     * 보고서 수정
+     * @param reportId
+     * @param req
+     * @param newFiles
+     * @param userInfo
+     * @return
+     */
     @PutMapping(value = "/reports/{reportId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> updateReport(
             @PathVariable Long reportId,
@@ -117,6 +126,34 @@ public class ApprovalController {
         ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId, newFiles);
 
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 수정 완료", res));
+    }
+
+
+    /**
+     * 보고서 생성 (SCHEDULED - 예약 상신)
+     * @param req 예약 시간(scheduledAt)이 포함된 요청 DTO
+     * @param files 첨부 파일
+     * @param userInfo 현재 사용자 정보
+     * @return 생성된 보고서 정보
+     */
+    @PostMapping(value = "/schedule", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CommonResDto> scheduleReport(
+            @RequestPart @Valid ReportScheduleReqDto req, // ★ 예약 전용 DTO 사용
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            @AuthenticationPrincipal TokenUserInfo userInfo
+    ) {
+        Long writerId = getCurrentUserId(userInfo);
+
+        // ZonedDateTime을 사용하여 시간대까지 고려하여 비교
+        if (req.getScheduledAt() == null || req.getScheduledAt().isBefore(ZonedDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "예약 시간은 현재 시간 이후여야 합니다.");
+        }
+
+        // 서비스 호출 (서비스 메소드도 ZonedDateTime을 받도록 수정 필요)
+        ReportCreateResDto res = approvalService.scheduleReport(req, writerId, files);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new CommonResDto(HttpStatus.CREATED, "보고서가 예약되었습니다.", res));
     }
 
     /**
@@ -144,6 +181,21 @@ public class ApprovalController {
                 role, statusEnum, keyword, page, size, writerId, sortBy, sortOrder);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 목록 조회", res));
     }
+
+    /**
+     * 내가 작성한 예약 문서 목록을 조회합니다.
+     */
+    @GetMapping("/reports/list/scheduled")
+    public ResponseEntity<CommonResDto> getMyScheduledReports(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @AuthenticationPrincipal TokenUserInfo userInfo
+    ) {
+        Long writerId = getCurrentUserId(userInfo);
+        ReportListResDto res = approvalService.getScheduledReports(writerId, page, size);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "예약 문서 목록 조회 성공", res));
+    }
+
 
     /**
      * 보고서 상세 조회
@@ -206,21 +258,6 @@ public class ApprovalController {
 
         ReportRecallResDto res = approvalService.recallReport(reportId, writerId);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 회수 완료", res));
-    }
-
-    /**
-     * 리마인드 전송 처리
-     */
-    @PostMapping("/reports/{reportId}/remind")
-    public ResponseEntity<CommonResDto> remindReport(
-            @PathVariable Long reportId,
-            @AuthenticationPrincipal TokenUserInfo userInfo
-    ) {
-
-        Long writerId = getCurrentUserId(userInfo);
-
-        ReportRemindResDto res = approvalService.remindReport(reportId, writerId);
-        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "리마인드 알림 완료", res));
     }
 
     /**
