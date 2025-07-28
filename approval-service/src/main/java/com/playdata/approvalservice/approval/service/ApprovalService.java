@@ -12,6 +12,7 @@ import com.playdata.approvalservice.approval.entity.*;
 import com.playdata.approvalservice.approval.feign.EmployeeFeignClient;
 import com.playdata.approvalservice.approval.repository.*;
 import com.playdata.approvalservice.common.config.AwsS3Config;
+import com.playdata.approvalservice.common.dto.EmployeeResDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,9 +29,12 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import org.springframework.transaction.annotation.Transactional;
+
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -127,8 +131,6 @@ public class ApprovalService {
                     .returnAt(saved.getReturnAt()) // 반려된 날짜
                     .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
                     .approvalId(firstApprovalId) // 하나의 전자결재 고유 ID
-                    .reminderCount(saved.getReminderCount()) // 리마인드 카운터
-                    .remindedAt(saved.getRemindedAt()) // 리마인드 시각
                     .build();
         }
 
@@ -242,11 +244,135 @@ public class ApprovalService {
                 .returnAt(saved.getReturnAt()) // 반려된 날짜
                 .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
                 .approvalId(firstApprovalId) // 하나의 전자결재 고유 ID
-                .reminderCount(saved.getReminderCount()) // 리마인드 카운터
-                .remindedAt(saved.getRemindedAt()) // 리마인드 시각
                 .build();
         }
 
+    /**
+     * 보고서 생성과 동시에 예약 상신 (SCHEDULED)
+     * @param req 예약 정보가 포함된 요청 DTO
+     * @param writerId 작성자 ID
+     * @param files 첨부 파일
+     * @return 생성된 보고서 정보
+     */
+    @Transactional
+    public ReportCreateResDto scheduleReport(
+            ReportScheduleReqDto req, // ★ 새로운 DTO를 사용하는 것이 좋습니다. (아래 설명 참고)
+            Long writerId,
+            List<MultipartFile> files
+    ) {
+        // 1. DTO를 Reports 엔티티로 변환 (예약용 fromDto 메소드 필요)
+        Reports report = Reports.fromDtoForScheduled(req, writerId);
+
+        // 2. 첨부 파일 처리 로직 (progressReport 메소드와 동일)
+        List<AttachmentJsonReqDto> attachments = new ArrayList<>();
+        if (files != null) {
+            for (MultipartFile file : files) {
+                try {
+                    String key = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                    byte[] data = file.getBytes();
+                    String url = awsS3Config.uploadToS3Bucket(data, key);
+                    attachments.add(new AttachmentJsonReqDto(file.getOriginalFilename(), url));
+                } catch (IOException e) {
+                    log.error("S3 업로드 실패: {}", file.getOriginalFilename(), e);
+                    throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "파일 업로드 실패: " + file.getOriginalFilename());
+                }
+            }
+        }
+
+        // 3. detail JSON 처리 로직 (progressReport 메소드와 동일)
+        Map<String, Object> detailMap = new HashMap<>();
+        if (!attachments.isEmpty()) {
+            detailMap.put("attachments", attachments);
+        }
+        if (req.getReferences() != null && !req.getReferences().isEmpty()) {
+            detailMap.put("references", req.getReferences());
+        }
+        if (!detailMap.isEmpty()) {
+            try {
+                report.setDetail(objectMapper.writeValueAsString(detailMap));
+            } catch (JsonProcessingException e) {
+                log.error("detail JSON 생성 실패", e);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 생성 실패");
+            }
+        }
+
+        // 4. 예약 정보 설정 (가장 중요한 부분)
+        report.schedule(req.getScheduledAt());
+
+        // ★★★ 중요 ★★★
+        // 예약 상신이므로 첫 결재자를 IN_PROGRESS로 바꾸는 로직을 호출하지 않습니다.
+        // 결재선(ApprovalLine)의 모든 결재자는 기본 상태인 PENDING으로만 저장됩니다.
+
+        // 5. DB에 저장
+        Reports saved = reportsRepository.save(report);
+
+        // 6. 응답 DTO 생성 (progressReport 메소드와 동일)
+        ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
+        Long firstApprovalId = firstLine != null ? firstLine.getId() : null;
+        ApprovalStatus firstStatus = firstLine != null ? firstLine.getApprovalStatus() : null;
+
+        return ReportCreateResDto.builder()
+                .id(saved.getId())
+                .writerId(saved.getWriterId())
+                .reportStatus(saved.getReportStatus())
+                .title(saved.getTitle())
+                .content(saved.getContent())
+                .approvalStatus(firstStatus) // PENDING 상태가 반환될 것
+                .reportCreateAt(saved.getReportCreatedAt())
+                .submittedAt(saved.getSubmittedAt()) // null 이거나 예약시간이 될 것
+                .returnAt(saved.getReturnAt())
+                .completedAt(saved.getCompletedAt())
+                .approvalId(firstApprovalId)
+                .build();
+    }
+
+    // ApprovalService.java 파일에 포함될 전체 메소드
+
+    /**
+     * 특정 사용자가 작성한 '예약된' 문서 목록을 조회합니다. (Feign Client 호출 제거 버전)
+     * @param writerId 조회할 사용자의 ID
+     * @param page 페이지 번호
+     * @param size 페이지 당 항목 수
+     * @return 페이징 처리된 예약 문서 목록
+     */
+    public ReportListResDto getScheduledReports(Long writerId, int page, int size) {
+        // 1. 정렬 기준 설정: 'scheduledAt' 기준 오름차순 (곧 실행될 예약이 위로)
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "scheduledAt"));
+
+        // 2. Repository를 호출하여 데이터 조회
+        Page<Reports> scheduledReportsPage = reportsRepository.findByWriterIdAndReportStatus(
+                writerId,
+                ReportStatus.SCHEDULED,
+                pageable
+        );
+
+        // 4. 조회된 엔티티 목록을 DTO로 변환합니다.
+        List<ReportListResDto.ReportSimpleDto> reportDtos = scheduledReportsPage.getContent().stream()
+                .map(report -> {
+                    String scheduledAtInfo = "시간 정보 없음";
+                    if (report.getScheduledAt() != null) {
+                        scheduledAtInfo = report.getScheduledAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")) + " 예약";
+                    }
+
+                    return ReportListResDto.ReportSimpleDto.builder()
+                            .id(report.getId())
+                            .title(report.getTitle())
+                            .reportCreatedAt(report.getReportCreatedAt() != null ? report.getReportCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null)
+                            .reportStatus(report.getReportStatus())
+                            .currentApprover(scheduledAtInfo) // 예약 시간 정보는 유용하므로 유지
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        // 5. 최종적으로 페이징 정보와 함께 ReportListResDto를 만들어 반환합니다.
+        return ReportListResDto.builder()
+                .reports(reportDtos)
+                .totalPages(scheduledReportsPage.getTotalPages())
+                .totalElements(scheduledReportsPage.getTotalElements())
+                .size(scheduledReportsPage.getSize())
+                .number(scheduledReportsPage.getNumber())
+                .build();
+    }
 
     /**
      * 템플릿 기반 결재 문서 생성 및 상신
@@ -786,28 +912,6 @@ public class ApprovalService {
                     .build();
         }
 
-        /**
-         * 리마인드 전송 처리
-         */
-        @Transactional
-        public ReportRemindResDto remindReport (Long reportId, Long writerId){
-            Reports report = reportsRepository.findById(reportId)
-                    .orElseThrow(() -> new ResponseStatusException(
-                            HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다. id=" + reportId));
-            if (!report.getCurrentApproverId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "리마인드 권한이 없습니다.");
-            }
-
-            report.remind();
-            Reports updated = reportsRepository.save(report);
-
-            return ReportRemindResDto.builder()
-                    .reportId(updated.getId())
-                    .remindedAt(updated.getRemindedAt())
-                    .reminderCount(updated.getReminderCount())
-                    .message("리마인더가 전송되었습니다.")
-                    .build();
-        }
 
 
     @Transactional

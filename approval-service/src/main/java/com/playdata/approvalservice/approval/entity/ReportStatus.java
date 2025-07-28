@@ -1,7 +1,7 @@
 package com.playdata.approvalservice.approval.entity;
 
 public enum ReportStatus {
-    DRAFT, IN_PROGRESS, APPROVED, REJECTED, RECALLED
+    DRAFT, IN_PROGRESS, APPROVED, REJECTED, RECALLED, SCHEDULED
 
     /*
         DRAFT: 임시 저장
@@ -9,5 +9,6 @@ public enum ReportStatus {
         APPROVED: 최종 승인
         REJECTED: 반려
         RECALLED: 상신 후 회수
+        SCHEDULED: 예약됨
     * */
 }
