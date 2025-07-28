@@ -41,7 +41,7 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
             "/**/swagger-ui.html",
             "/**/swagger-ui/**",
             "/**/v3/api-docs/**",
-//            "/notice",
+            "/notice/spellcheck",
 //            "/notice/noticeboard", "/notice/noticeboard/*",
 //            "/notice/noticeboard/write", "/notice/noticeboard/department/**",
             "/notice/reviews/user/*", "/hr/user/*",

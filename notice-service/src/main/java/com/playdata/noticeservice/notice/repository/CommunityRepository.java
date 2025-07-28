@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface CommunityRepository extends JpaRepository<Community, Long> {
@@ -50,6 +51,8 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
     @Modifying
     @Query("UPDATE Community c SET c.viewCount = c.viewCount + 1 WHERE c.communityId = :id")
     void incrementViewCount(@Param("id") Long id);
+
+    Optional<Community> findByCommunityIdAndBoardStatusTrue(Long communityId);
 
 }
 

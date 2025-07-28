@@ -27,6 +27,7 @@ public class Community {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String attachmentUri;
-    private boolean boardStatus;
+    private boolean hidden = false;  // 비공개 여부
+    private boolean boardStatus;   // 삭제 여부
     private int viewCount = 0;
 }

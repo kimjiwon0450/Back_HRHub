@@ -2,7 +2,9 @@ package com.playdata.noticeservice.notice.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.util.UriUtils;
 import com.playdata.global.dto.AlertResponse;
 import com.playdata.global.enums.AlertMessage;
 import com.playdata.noticeservice.common.auth.TokenUserInfo;
@@ -22,6 +24,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Element;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -36,7 +40,13 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.jsoup.nodes.Document;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -44,7 +54,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-
+//@CrossOrigin(origins = "http://localhost:5173")
 @RestController
 @RequestMapping("/notice")
 @RequiredArgsConstructor
@@ -369,5 +379,68 @@ public class NoticeController {
         int count = noticeService.getCommentCountByNoticeId(noticeId);
         return ResponseEntity.ok(CommonResDto.success("댓글 수 조회 성공", Map.of("commentCount", count)));
     }
+
+    // 맞춤법 검사
+    @PostMapping("/spellcheck")
+    public ResponseEntity<Map<String, Object>> spellCheck(@RequestBody Map<String, String> body) throws IOException {
+        String text1 = body.get("text1");
+        System.out.println("Received text1: " + text1);
+
+        if (text1 == null || text1.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "text1 파라미터가 비어 있습니다."));
+        }
+
+        String encoded = UriUtils.encode(text1, StandardCharsets.UTF_8);
+        String urlStr = "https://m.search.naver.com/p/csearch/ocontent/util/SpellerProxy?where=nexearch&color_blindness=0&q=" + encoded;
+        System.out.println("Request URL: " + urlStr);
+
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        conn.setRequestMethod("GET");
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+
+        try (Scanner scanner = new Scanner(conn.getInputStream())) {
+            StringBuilder result = new StringBuilder();
+            while (scanner.hasNextLine()) {
+                result.append(scanner.nextLine());
+            }
+
+            String jsonStr = result.toString();
+            System.out.println("Raw response: " + jsonStr);
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode root = objectMapper.readTree(jsonStr);
+            JsonNode resultNode = root.path("message").path("result");
+
+            String orgStr = resultNode.path("orgStr").asText();
+            System.out.println("Original string from response: " + orgStr);
+
+            List<Map<String, Object>> errors = new ArrayList<>();
+            for (JsonNode err : resultNode.path("errInfo")) {
+                Map<String, Object> errorItem = new HashMap<>();
+                errorItem.put("incorrect", err.path("orgStr").asText());
+                errorItem.put("suggestion", err.path("candWord").asText());
+                errorItem.put("start", err.path("start").asInt());
+                errorItem.put("end", err.path("end").asInt());
+                errorItem.put("help", err.path("help").asText());
+                errors.add(errorItem);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("original", orgStr);
+            response.put("errors", errors);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
+
+
+
+
 
 }
