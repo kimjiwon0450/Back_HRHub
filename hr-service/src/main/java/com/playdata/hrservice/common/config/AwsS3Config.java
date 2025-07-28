@@ -54,11 +54,15 @@ public class AwsS3Config {
      * @param fileName   - 업로드 할 파일명
      * @return - 버킷에 업로드 된 버킷 경로(url)
      */
-    public String uploadToS3Bucket(byte[] uploadFile, String fileName) {
+    public String uploadToS3Bucket(byte[] uploadFile, String fileName, boolean isThumbnail) {
+
+        String prefix = isThumbnail ? "thumb/" : "org/";
+        String key = "profile/" + prefix + fileName;
+
         // 업로드 할 파일을 S3 오브젝트로 생성
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucketName) // 버킷 이름
-                .key(fileName) // 저장될 파일명
+                .key(key) // 저장될 파일명
                 .build();
 
         // 오브젝트를 버킷에 업로드
@@ -67,7 +71,7 @@ public class AwsS3Config {
 
         // 업로드 되는 파일의 url을 리턴 -> DB에 저장.
         return s3Client.utilities()
-                .getUrl(b -> b.bucket(bucketName).key(fileName))
+                .getUrl(b -> b.bucket(bucketName).key(key))
                 .toString();
 
     }
