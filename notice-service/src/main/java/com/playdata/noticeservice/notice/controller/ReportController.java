@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,9 +36,17 @@ public class ReportController {
     @PostMapping("/{communityId:\\d+}")
     public ResponseEntity<?> reportCommunity(
             @RequestBody ReportRequest request) {
-        log.info("request : {}", request);
-        reportService.reportCommunity(request.getCommunityId() , request.getReporterId(), request.getReason());
-        return ResponseEntity.ok("신고가 접수되었습니다.");
+        try {
+            log.info("request : {}", request);
+            reportService.reportCommunity(request.getCommunityId(), request.getReporterId(), request.getReason());
+            return ResponseEntity.ok("신고가 접수되었습니다.");
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage()); // 중복 신고
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage()); // 게시글 없음 등
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("신고 처리 중 오류 발생");
+        }
     }
 
     @GetMapping("/admin/list")

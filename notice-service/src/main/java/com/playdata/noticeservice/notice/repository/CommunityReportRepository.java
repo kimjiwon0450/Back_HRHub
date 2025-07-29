@@ -12,6 +12,7 @@ import java.util.List;
 public interface CommunityReportRepository extends JpaRepository<CommunityReport, Long> {
     Page<CommunityReport> findByResolvedFalse(Pageable pageable); // 미처리된 신고 목록
     List<CommunityReport> findAllByCommunityId(Long communityId);
-    boolean existsByCommunityIdAndReporterIdAndResolvedFalse(Long communityId, Long reporterId);
+    boolean existsByCommunityIdAndReporterId(Long communityId, Long reporterId);
+
 
 }
