@@ -160,7 +160,7 @@ public class NoticeService_v2 {
         }
 
         int position_num =  position.ordinal();
-        return noticeRepository.findFilteredNotices(position_num, keyword, fromDateTime, toDateTime, pageable);
+        return noticeRepository.findFilteredNotices(position_num, departmentId, keyword, fromDateTime, toDateTime, pageable);
     }
 
     /**

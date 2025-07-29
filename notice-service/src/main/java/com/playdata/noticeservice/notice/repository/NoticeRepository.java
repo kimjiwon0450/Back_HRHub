@@ -74,6 +74,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
             "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR n.createdAt <= :toDate)")
     Page<Notice> findFilteredNotices(@Param("position") int position,
+                                     Long departmentId,
                                      @Param("keyword") String keyword,
                                      @Param("fromDate") LocalDateTime fromDate,
                                      @Param("toDate") LocalDateTime toDate,
