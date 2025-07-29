@@ -75,7 +75,7 @@ public class EmployeeController {
         String refreshToken
                 = jwtTokenProvider.createRefreshToken(employeeDto.getEmployeeId(), employeeDto.getEmail(), employeeDto.getRole().toString(), employeeDto.getDepartmentId());
 
-        redisTemplate.opsForValue().set("user:refresh:" + employeeDto.getEmployeeId(), refreshToken, 30, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set("user:refresh:" + employeeDto.getEmployeeId(), refreshToken, 180, TimeUnit.MINUTES);
 
         Map<String, Object> loginInfo = new HashMap<>();
         loginInfo.put("token", token);
