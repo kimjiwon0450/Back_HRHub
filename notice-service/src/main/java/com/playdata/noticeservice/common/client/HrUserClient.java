@@ -55,6 +55,7 @@ public class HrUserClient {
         CommonResDto body = exchange.getBody();
         log.info("body: {}", body);
         LinkedHashMap<String, Object> resultMap = (LinkedHashMap<String, Object>) body.getResult();
+        log.info("resultMap: {}", resultMap);
         HrUserResponse response = objectMapper.convertValue(resultMap, HrUserResponse.class);
 
 

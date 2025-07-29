@@ -51,6 +51,14 @@ spring:
           filters:
             - AuthorizationHeaderFilter
 
+        - id: report
+          uri: lb://NOTICE
+          #          uri: http://user-service.default.svc.cluster.local:8081
+          predicates:
+            - Path=/report/**
+          filters:
+            - AuthorizationHeaderFilter
+
         - id: approval
           uri: lb://APPROVAL
           #          uri: http://user-service.default.svc.cluster.local:8081
@@ -58,3 +66,4 @@ spring:
             - Path=/approval/**
           filters:
             - AuthorizationHeaderFilter
+

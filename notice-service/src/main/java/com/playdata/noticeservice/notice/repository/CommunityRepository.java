@@ -17,12 +17,13 @@ import java.util.Optional;
 public interface CommunityRepository extends JpaRepository<Community, Long> {
 
     // 일반게시글전체
-    @Query("SELECT c FROM Community c WHERE  c.boardStatus = true")
+    @Query("SELECT c FROM Community c WHERE  c.boardStatus = true AND c.hidden = false ")
     Page<Community> findAllPosts(Pageable pageable);
 
     // 일반게시글필터
     @Query("SELECT c FROM Community c WHERE " +
             "c.boardStatus = true AND " +
+            "c.hidden = false AND " +
             "(:keyword IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR c.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR c.createdAt <= :toDate)")
@@ -34,6 +35,7 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
     // 일반게시글 내부서
     @Query("SELECT c FROM Community c WHERE " +
             "c.boardStatus = true AND " +
+            "c.hidden = false AND " +
             "(:keyword IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(:fromDate IS NULL OR c.createdAt >= :fromDate) AND " +
             "(:toDate IS NULL OR c.createdAt <= :toDate) AND " +
@@ -44,7 +46,7 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
                                        Long departmentId);
 
     // 일반게시글 내가쓴글
-    List<Community> findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(Long employeeId);
+    List<Community> findByEmployeeIdAndBoardStatusTrueAndHiddenFalseOrderByCreatedAtDesc(Long employeeId);
 
 
     // 직접 DB 연산으로 조회수 증가

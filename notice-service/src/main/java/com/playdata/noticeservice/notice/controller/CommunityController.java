@@ -123,7 +123,7 @@ public class CommunityController {
 
 
     // 일반게시글 나의 부서글 조회()
-    @GetMapping("/community/mydepartment")
+    @GetMapping("/mydepartment")
     public ResponseEntity<Map<String, Object>> getDepartmentPosts(
             @RequestParam(defaultValue = "") String keyword,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
