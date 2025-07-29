@@ -15,7 +15,6 @@ public class HrUserResponse {
     private String name;
     private String email;
     private Long departmentId;
-    private String departmentName;
     private String status;
     private Position position;
 }

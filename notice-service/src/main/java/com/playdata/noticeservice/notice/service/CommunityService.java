@@ -108,7 +108,7 @@ public class CommunityService {
      */
     @Transactional(readOnly = true)
     public List<Community> getMyPosts(Long employeeId) {
-        return communityRepository.findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(employeeId);
+        return communityRepository.findByEmployeeIdAndBoardStatusTrueAndHiddenFalseOrderByCreatedAtDesc(employeeId);
     }
 
 

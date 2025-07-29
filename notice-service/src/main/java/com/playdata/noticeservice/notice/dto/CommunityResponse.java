@@ -34,7 +34,7 @@ public class CommunityResponse {
 
 
     // 엔티티 -> DTO 변환 정적 메서드
-    public static CommunityResponse fromEntity(Community community) {
+    public static CommunityResponse fromEntity(Community community, HrUserResponse user) {
         return CommunityResponse.builder()
                 .communityId(community.getCommunityId())
                 .title(community.getTitle())
@@ -44,6 +44,7 @@ public class CommunityResponse {
                 .createdAt(community.getCreatedAt())
                 .updatedAt(community.getUpdatedAt())
                 .viewCount(community.getViewCount())
+                .name(user.getName())
                 .build();
     }
 
