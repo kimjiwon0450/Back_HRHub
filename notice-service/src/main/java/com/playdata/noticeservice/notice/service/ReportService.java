@@ -26,6 +26,12 @@ public class ReportService {
 
     @Transactional
     public void reportCommunity(Long communityId, Long reporterId, String reason) {
+        // ✅ 중복 신고 확인
+        boolean alreadyReported = reportRepository.existsByCommunityIdAndReporterId(communityId, reporterId);
+        if (alreadyReported) {
+            throw new IllegalStateException("이미 신고한 게시글입니다.");
+        }
+
         Community community = communityRepository.findByCommunityIdAndBoardStatusTrue(communityId)
                 .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
         log.info("community : {}", community);
