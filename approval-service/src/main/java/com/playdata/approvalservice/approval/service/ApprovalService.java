@@ -1128,4 +1128,29 @@ public class ApprovalService {
         }
         return false;
     }
+
+    public ReportCountResDto getReportCounts(Long userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용자 ID가 필요합니다.");
+        }
+
+        // 1. Repository로부터 Object 배열을 받습니다.
+        Object[] counts = reportsRepository.countAllByUserId(userId);
+
+        // 2. 결과가 비어있거나 유효하지 않은 경우를 대비한 방어 코드
+        if (counts == null || counts.length == 0 || counts[0] == null) {
+            // 결과가 없을 경우 모든 카운트를 0으로 초기화하여 반환
+            return new ReportCountResDto(0L, 0L, 0L, 0L, 0L, 0L);
+        }
+
+        // 3. Object 배열의 각 요소를 Long 타입으로 변환하여 DTO를 생성합니다.
+        return new ReportCountResDto(
+                (Long) counts[0], // pending
+                (Long) counts[1], // inProgress
+                (Long) counts[2], // rejected
+                (Long) counts[3], // drafts
+                (Long) counts[4], // scheduled
+                (Long) counts[5]  // reference (cc)
+        );
+    }
 }

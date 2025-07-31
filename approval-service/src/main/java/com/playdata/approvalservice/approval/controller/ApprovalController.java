@@ -357,4 +357,14 @@ public class ApprovalController {
         // CommonResDto로 감싸서 반환하도록 수정
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "결재 양식 조회 성공", res));
     }
+
+    /**
+     * 사용자와 관련된 모든 문서함의 개수를 조회합니다.
+     */
+    @GetMapping("/reports/counts")
+    public ResponseEntity<CommonResDto> getReportCounts(@AuthenticationPrincipal TokenUserInfo userInfo) {
+        Long userId = getCurrentUserId(userInfo); // 기존에 만들어둔 메소드 재활용
+        ReportCountResDto res = approvalService.getReportCounts(userId);
+        return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "문서함별 개수 조회 성공", res));
+    }
 }
