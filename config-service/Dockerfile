@@ -1,17 +1,18 @@
-
-FROM openjdk:17-jdk-slim AS build
-
+# ─── 빌드 스테이지 ───────────────────────────
+FROM eclipse-temurin:17-jdk-jammy AS build
 WORKDIR /app
+
 COPY . .
+RUN chmod +x ./gradlew \
+ && ./gradlew clean build -x test
 
-RUN chmod +x ./gradlew
-RUN ./gradlew clean build -x test
+# ─── 런타임 스테이지 ─────────────────────────
+FROM bellsoft/liberica-openjdk-alpine:17
+WORKDIR /app
 
-FROM openjdk:17-jdk-slim
+# curl 설치
+RUN apk add --no-cache curl
 
+# 빌드된 JAR 복사 및 실행
 COPY --from=build /app/build/libs/*.jar app.jar
-# 여기에 curl 설치 추가!
-RUN apt-get update && apt-get install -y curl
-
 ENTRYPOINT ["java", "-jar", "app.jar"]
-
