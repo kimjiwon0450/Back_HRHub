@@ -28,6 +28,7 @@ public class CommunityResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private int viewCount;
+    private boolean hidden;
 
     // 댓글 수
     private int commentCount;
@@ -45,6 +46,7 @@ public class CommunityResponse {
                 .updatedAt(community.getUpdatedAt())
                 .viewCount(community.getViewCount())
                 .name(user.getName())
+                .hidden(community.isHidden())
                 .build();
     }
 
@@ -64,6 +66,7 @@ public class CommunityResponse {
         dto.updatedAt = community.getUpdatedAt();
         dto.viewCount = community.getViewCount();
         dto.commentCount = commentCount;
+        dto.hidden = community.isHidden();
         return dto;
     }
 
@@ -82,6 +85,7 @@ public class CommunityResponse {
         dto.createdAt = community.getCreatedAt();
         dto.updatedAt = community.getUpdatedAt();
         dto.viewCount = community.getViewCount();
+        dto.hidden = community.isHidden();
         return dto;
     }
 
