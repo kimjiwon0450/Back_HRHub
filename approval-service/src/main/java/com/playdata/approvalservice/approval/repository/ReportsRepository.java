@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.repository;
 
+import com.playdata.approvalservice.approval.dto.response.ReportCountResDto;
 import com.playdata.approvalservice.approval.entity.Reports;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
 
@@ -89,4 +90,14 @@ public interface ReportsRepository extends JpaRepository<Reports, Long> , JpaSpe
     // NoticeRepository.java
     List<Reports> findByPublishedFalseAndScheduledAtBefore(ZonedDateTime time);
 
+
+    @Query("SELECT " +
+            "   COUNT(CASE WHEN r.reportStatus = 'IN_PROGRESS' AND r.currentApproverId = :userId THEN 1 END), " +
+            "   COUNT(CASE WHEN r.reportStatus = 'IN_PROGRESS' AND r.writerId = :userId THEN 1 END), " +
+            "   COUNT(CASE WHEN r.reportStatus = 'REJECTED' AND r.writerId = :userId THEN 1 END), " +
+            "   COUNT(CASE WHEN r.reportStatus = 'DRAFT' AND r.writerId = :userId THEN 1 END), " +
+            "   COUNT(CASE WHEN r.reportStatus = 'SCHEDULED' AND r.writerId = :userId THEN 1 END), " +
+            "   (SELECT COUNT(rr) FROM ReportReferences rr WHERE rr.reports.id IN (SELECT r.id FROM Reports r WHERE rr.employeeId = :userId)) " +
+            "FROM Reports r")
+    Object[] countAllByUserId(@Param("userId") Long userId);
 }
