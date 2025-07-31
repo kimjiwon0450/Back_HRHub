@@ -236,6 +236,9 @@ public class EmployeeService {
         Employee employee = employeeRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("Employee not found!")
         );
+        if (employee.getStatus().equals(EmployeeStatus.INACTIVE)) {
+            throw new RuntimeException("퇴사한 직원 정보는 수정할 수 없습니다.");
+        }
         if (role.equals(Role.ADMIN) || role.equals(Role.HR_MANAGER)) {
             employee.updateRoleAndPosition(Role.valueOf(dto.getRole()), Position.valueOf(dto.getPosition()));
             employee.updateDepartment(departmentService.getDepartmentEntity(dto.getDepartmentId()));
