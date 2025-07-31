@@ -4,6 +4,7 @@ import com.playdata.approvalservice.approval.entity.ApprovalStatus;
 import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @Getter
@@ -19,8 +20,12 @@ public class ReportListResDto {
     private int size;
     private int number;
 
-    @Getter @Setter @ToString
-    @NoArgsConstructor @AllArgsConstructor @Builder
+    @Getter
+    @Setter
+    @ToString
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
     public static class ReportSimpleDto {
         private Long id;
         private String title;
@@ -30,10 +35,14 @@ public class ReportListResDto {
         private String currentApprover;
 
         private List<ApprovalLineSimpleDto> approvalLine;
+        private ZonedDateTime scheduledAt;
     }
 
-    @Getter @Setter @ToString
-    @NoArgsConstructor @AllArgsConstructor
+    @Getter
+    @Setter
+    @ToString
+    @NoArgsConstructor
+    @AllArgsConstructor
     @Builder
     public static class ApprovalLineSimpleDto {
         private Long employeeId;

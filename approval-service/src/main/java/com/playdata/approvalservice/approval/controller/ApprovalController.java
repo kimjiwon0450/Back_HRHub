@@ -138,7 +138,7 @@ public class ApprovalController {
      */
     @PostMapping(value = "/schedule", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CommonResDto> scheduleReport(
-            @RequestPart @Valid ReportScheduleReqDto req, // ★ 예약 전용 DTO 사용
+            @RequestPart @Valid ReportCreateReqDto req, // ★ 예약 전용 DTO 사용
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) {

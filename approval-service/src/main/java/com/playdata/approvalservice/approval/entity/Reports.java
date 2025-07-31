@@ -1,18 +1,15 @@
 package com.playdata.approvalservice.approval.entity;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 @NoArgsConstructor
@@ -119,7 +116,6 @@ public class Reports extends BaseTimeEntity {
     /**
      * 예약 시간
      */
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private ZonedDateTime scheduledAt;   // 예약 발행 시간 (null이면 즉시 발행)
 
     @Builder.Default
@@ -132,7 +128,7 @@ public class Reports extends BaseTimeEntity {
     private List<ReportReferences> reportReferences = new ArrayList<>();
 
     /**
-     * 요청 DTO를 엔티티로 변환하는 팩토리 메서드 (최종 수정안)
+     * 요청 DTO를 엔티티로 변환하는 팩토리 메서scheduled드 (최종 수정안)
      */
     public static Reports fromDto(ReportSaveReqDto dto, Long userId) {
         Reports report = Reports.builder()
@@ -158,11 +154,12 @@ public class Reports extends BaseTimeEntity {
 
     /**
      * 예약 상신 fromDto
+     *
      * @param dto
      * @param writerId
      * @return
      */
-    public static Reports fromDtoForScheduled(ReportScheduleReqDto dto, Long writerId) {
+    public static Reports fromDtoForScheduled(@Valid ReportCreateReqDto dto, Long writerId) {
         // new Reports() 대신 빌더를 사용하여 필수 필드를 명시적으로 초기화합니다.
         Reports report = Reports.builder()
                 .writerId(writerId)
@@ -175,13 +172,11 @@ public class Reports extends BaseTimeEntity {
                 .build();
 
         // 결재 라인 설정
-        if (dto.getApprovalLine() != null && !dto.getApprovalLine().isEmpty()) {
+        if (dto.getApprovalLine() != null) {
             report.replaceApprovalLines(dto.getApprovalLine());
-        }
-
-        // 참조자 설정 (1번 해결방안 적용 시)
-        if (dto.getReferences() != null && !dto.getReferences().isEmpty()) {
-            dto.getReferences().forEach(refDto -> report.addReference(refDto.getEmployeeId()));
+            if (!report.getApprovalLines().isEmpty()) {
+                report.setCurrentApproverId(report.getApprovalLines().get(0).getEmployeeId());
+            }
         }
 
         return report;
@@ -191,13 +186,13 @@ public class Reports extends BaseTimeEntity {
     /**
      * 보고서를 '예약(SCHEDULED)' 상태로 설정합니다.
      * 이 행위는 보고서 상태, 발행 여부, 예약 시간을 하나의 논리적 단위로 묶어 처리합니다.
+     *
      * @param scheduledTime 사용자가 지정한 예약 시간
      */
     public void schedule(ZonedDateTime scheduledTime) {
         this.reportStatus = ReportStatus.SCHEDULED;
         this.published = false;
         this.scheduledAt = scheduledTime;
-
         // 예약 시에는 currentApproverId를 null로 유지합니다.
         this.currentApproverId = null;
     }
@@ -269,6 +264,7 @@ public class Reports extends BaseTimeEntity {
             }
         }
     }
+
     /**
      * 연관관계 편의 메서드
      * Reports의 approvalLines에 자식을 추가하고,
@@ -287,7 +283,7 @@ public class Reports extends BaseTimeEntity {
 
         approvalLines.clear();
 
-        if(dtoList != null) {
+        if (dtoList != null) {
             dtoList.forEach(dto -> {
                 ApprovalLine line = ApprovalLine.builder()
                         .employeeId(dto.getEmployeeId())
@@ -392,8 +388,9 @@ public class Reports extends BaseTimeEntity {
     /**
      * 재상신 시 원본 문서의 템플릿 정보를 새로운 문서에 복사합니다.
      * 이 메소드는 오직 재상신 로직에서만 사용되어야 합니다.
+     *
      * @param originalTemplateId 원본 문서의 템플릿 ID
-     * @param newTemplateData 사용자가 새로 입력한 템플릿 데이터
+     * @param newTemplateData    사용자가 새로 입력한 템플릿 데이터
      */
     public void applyResubmitTemplateInfo(Long originalTemplateId, String newTemplateData) {
         this.reportTemplateId = originalTemplateId;
