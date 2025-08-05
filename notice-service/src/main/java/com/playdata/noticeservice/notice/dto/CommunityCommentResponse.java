@@ -3,6 +3,7 @@ package com.playdata.noticeservice.notice.dto;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 // 댓글 응답용 DTO
 @Getter
@@ -16,4 +17,5 @@ public class CommunityCommentResponse {
     private String content;
     private String writerName;
     private LocalDateTime createdAt;
+    private List<CommunityCommentResponse> children; // ✅ 추가
 }

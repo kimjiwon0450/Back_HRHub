@@ -45,7 +45,13 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
                                        Pageable pageable);
 
     // 일반게시글 내가쓴글
-    List<Community> findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(
+    @Query("SELECT c FROM Community c WHERE " +
+            "c.boardStatus = true AND " +
+            "(:keyword IS NULL OR LOWER(c.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(:fromDate IS NULL OR c.createdAt >= :fromDate) AND " +
+            "(:toDate IS NULL OR c.createdAt <= :toDate) AND " +
+            "c.employeeId = :employeeId")
+    List<Community> findMyPosts(
             @Param("keyword") String keyword,
             @Param("fromDate") LocalDateTime fromDate,
             @Param("toDate") LocalDateTime toDate,

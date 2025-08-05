@@ -124,7 +124,7 @@ public class CommunityService {
             toDateTime = toDate.atTime(23, 59, 59);
         }
 
-        return communityRepository.findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(keyword, fromDateTime, toDateTime, employeeId, pageable);
+        return communityRepository.findMyPosts(keyword, fromDateTime, toDateTime, employeeId, pageable);
     }
 
 
@@ -253,6 +253,13 @@ public class CommunityService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        // ✅ 대댓글일 경우 부모 설정
+        if (request.getParentId() != null) {
+            CommunityComment parent = communityCommentRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new RuntimeException("부모 댓글이 존재하지 않습니다."));
+            comment.setParent(parent);
+        }
+
         communityCommentRepository.save(comment);
     }
 
@@ -260,14 +267,42 @@ public class CommunityService {
     public List<CommunityCommentResponse> getComments(Long communityId) {
         List<CommunityComment> comments = communityCommentRepository.findByCommunityIdAndCommentStatusIsTrueOrderByCreatedAtAsc(communityId);
 
-        return comments.stream()
-                .map(comment -> CommunityCommentResponse.builder()
-                        .CommunityComentId(comment.getCommunityCommentId())
-                        .content(comment.getContent())
-                        .writerName(comment.getWriterName())
-                        .createdAt(comment.getCreatedAt())
-                        .build())
-                .toList();
+//        return comments.stream()
+//                .map(comment -> CommunityCommentResponse.builder()
+//                        .CommunityComentId(comment.getCommunityCommentId())
+//                        .content(comment.getContent())
+//                        .writerName(comment.getWriterName())
+//                        .createdAt(comment.getCreatedAt())
+//                        .build())
+//                .toList();
+        // ID -> 엔티티 맵
+        Map<Long, CommunityCommentResponse> map = new HashMap<>();
+
+        List<CommunityCommentResponse> rootComments = new ArrayList<>();
+
+        for (CommunityComment comment : comments) {
+            CommunityCommentResponse response = CommunityCommentResponse.builder()
+                    .CommunityComentId(comment.getCommunityCommentId())
+                    .content(comment.getContent())
+                    .writerName(comment.getWriterName())
+                    .createdAt(comment.getCreatedAt())
+                    .children(new ArrayList<>())
+                    .build();
+
+            map.put(comment.getCommunityCommentId(), response);
+
+            // 부모가 없는 경우 (최상위 댓글)
+            if (comment.getParent() == null) {
+                rootComments.add(response);
+            } else {
+                CommunityCommentResponse parentResponse = map.get(comment.getParent().getCommunityCommentId());
+                if (parentResponse != null) {
+                    parentResponse.getChildren().add(response);
+                }
+            }
+        }
+
+        return rootComments;
     }
 
     // ✅ 댓글 수정

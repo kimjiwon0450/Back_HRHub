@@ -13,4 +13,6 @@ public class CommentCreateRequest {
     private String content;
     private Long writerId;
     private String writerName;
+    private Long parentId; // ✅ 추가
 }
+

@@ -412,6 +412,13 @@ public class NoticeService_v2 {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        // ✅ 대댓글일 경우 부모 설정
+        if (request.getParentId() != null) {
+            NoticeComment parent = noticeCommentRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new RuntimeException("부모 댓글이 존재하지 않습니다."));
+            comment.setParent(parent);
+        }
+
         noticeCommentRepository.save(comment);
     }
 
@@ -419,14 +426,42 @@ public class NoticeService_v2 {
     public List<NoticeCommentResponse> getComments(Long noticeId) {
         List<NoticeComment> comments = noticeCommentRepository.findByNoticeIdAndCommentStatusIsTrueOrderByCreatedAtAsc(noticeId);
 
-        return comments.stream()
-                .map(comment -> NoticeCommentResponse.builder()
-                        .noticeCommentId(comment.getNoticeCommentId())
-                        .content(comment.getContent())
-                        .writerName(comment.getWriterName())
-                        .createdAt(comment.getCreatedAt())
-                        .build())
-                .toList();
+//        return comments.stream()
+//                .map(comment -> NoticeCommentResponse.builder()
+//                        .noticeCommentId(comment.getNoticeCommentId())
+//                        .content(comment.getContent())
+//                        .writerName(comment.getWriterName())
+//                        .createdAt(comment.getCreatedAt())
+//                        .build())
+//                .toList();
+        // ID -> 엔티티 맵
+        Map<Long, NoticeCommentResponse> map = new HashMap<>();
+
+        List<NoticeCommentResponse> rootComments = new ArrayList<>();
+
+        for (NoticeComment comment : comments) {
+            NoticeCommentResponse response = NoticeCommentResponse.builder()
+                    .noticeCommentId(comment.getNoticeCommentId())
+                    .content(comment.getContent())
+                    .writerName(comment.getWriterName())
+                    .createdAt(comment.getCreatedAt())
+                    .children(new ArrayList<>())
+                    .build();
+
+            map.put(comment.getNoticeCommentId(), response);
+
+            // 부모가 없는 경우 (최상위 댓글)
+            if (comment.getParent() == null) {
+                rootComments.add(response);
+            } else {
+                NoticeCommentResponse parentResponse = map.get(comment.getParent().getNoticeCommentId());
+                if (parentResponse != null) {
+                    parentResponse.getChildren().add(response);
+                }
+            }
+        }
+
+        return rootComments;
     }
 
     // ✅ 댓글 수정
