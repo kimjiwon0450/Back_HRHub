@@ -65,8 +65,8 @@ public class TemplateCategoryService {
             }
             category.setCategoryName(req.getCategoryName());
         }
-        if (req.getDescription() != null) {
-            category.setCategoryDescription(req.getDescription());
+        if (req.getCategoryDescription() != null) {
+            category.setCategoryDescription(req.getCategoryDescription());
         }
 
 

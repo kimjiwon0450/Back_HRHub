@@ -6,5 +6,5 @@ import lombok.Getter;
 public class CategoryUpdateReqDto {
 
     private String categoryName;
-    private String description;
+    private String categoryDescription;
 }
