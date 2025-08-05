@@ -16,4 +16,6 @@ public interface ReferenceRepository extends JpaRepository<ReportReferences, Lon
     Optional<ReportReferences> findByReportsIdAndEmployeeId(Long reportsId, Long employeeId);
 
     void deleteByReportsIdAndEmployeeId(Long reportsId, Long employeeId);
+
+    long countByEmployeeId(Long employeeId);
 }

@@ -1129,28 +1129,37 @@ public class ApprovalService {
         return false;
     }
 
+    /**
+     * 문서 카운트 서비스
+     * @param userId
+     * @return
+     */
+    @Transactional(readOnly = true) // 읽기 전용 트랜잭션 명시
     public ReportCountResDto getReportCounts(Long userId) {
         if (userId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용자 ID가 필요합니다.");
         }
 
-        // 1. Repository로부터 Object 배열을 받습니다.
-        Object[] counts = reportsRepository.countAllByUserId(userId);
+        // 1. 내가 결재할 문서 (결재 대기)
+        long pendingCount = reportsRepository.countByCurrentApproverIdAndReportStatus(userId, ReportStatus.IN_PROGRESS);
 
-        // 2. 결과가 비어있거나 유효하지 않은 경우를 대비한 방어 코드
-        if (counts == null || counts.length == 0 || counts[0] == null) {
-            // 결과가 없을 경우 모든 카운트를 0으로 초기화하여 반환
-            return new ReportCountResDto(0L, 0L, 0L, 0L, 0L, 0L);
-        }
+        // 2. 내가 올린 문서 (상태별)
+        long inProgressCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.IN_PROGRESS);
+        long rejectedCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.REJECTED);
+        long draftsCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.DRAFT);
+        long scheduledCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.SCHEDULED);
 
-        // 3. Object 배열의 각 요소를 Long 타입으로 변환하여 DTO를 생성합니다.
+        // 3. 내가 참조된 문서
+        long referenceCount = referenceRepository.countByEmployeeId(userId);
+
+        // 4. 조회된 결과를 DTO에 담아 반환
         return new ReportCountResDto(
-                (Long) counts[0], // pending
-                (Long) counts[1], // inProgress
-                (Long) counts[2], // rejected
-                (Long) counts[3], // drafts
-                (Long) counts[4], // scheduled
-                (Long) counts[5]  // reference (cc)
+                pendingCount,
+                inProgressCount,
+                rejectedCount,
+                draftsCount,
+                scheduledCount,
+                referenceCount
         );
     }
 }
