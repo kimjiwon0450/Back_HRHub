@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -16,18 +17,22 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ReportsRepository extends JpaRepository<Reports, Long> , JpaSpecificationExecutor<Reports> {
+public interface ReportsRepository extends JpaRepository<Reports, Long>, JpaSpecificationExecutor<Reports> {
 
     Page<Reports> findByWriterIdAndReportStatus(Long writerId, ReportStatus reportStatus, Pageable pageable);
 
     Optional<Reports> findByIdAndReportStatus(Long id, ReportStatus reportStatus);
 
     long countByCurrentApproverIdAndReportStatus(Long userId, ReportStatus status); // 결재할 문서
-    long countByWriterIdAndReportStatus(Long writerId, ReportStatus status);      // 내가 쓴 문서 (상태별)
+
+    long countByWriterIdAndReportStatus(Long writerId, ReportStatus status);
+
+    long countByWriterIdAndReportStatusIn(Long writerId, List<ReportStatus> statuses);    // 내가 쓴 문서 (상태별)
 
     /**
      * 특정 보고서 ID를 시작으로 재상신 체인을 역추적하여, 재상신된 횟수(체인의 깊이)를 계산합니다.
      * MySQL 8.0 이상에서 지원하는 재귀적 CTE를 사용합니다.
+     *
      * @param reportId 재상신 횟수를 계산할 기준 보고서의 ID
      * @return 재상신 횟수 (자기 자신을 포함한 체인의 총 문서 개수 - 1)
      */
