@@ -41,10 +41,16 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
     List<Community> findMyDepartmentPosts(@Param("keyword") String keyword,
                                        @Param("fromDate") LocalDateTime fromDate,
                                        @Param("toDate") LocalDateTime toDate,
-                                       Long departmentId);
+                                       Long departmentId,
+                                       Pageable pageable);
 
     // 일반게시글 내가쓴글
-    List<Community> findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(Long employeeId);
+    List<Community> findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(
+            @Param("keyword") String keyword,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
+            Long employeeId,
+            Pageable pageable);
 
 
     // 직접 DB 연산으로 조회수 증가

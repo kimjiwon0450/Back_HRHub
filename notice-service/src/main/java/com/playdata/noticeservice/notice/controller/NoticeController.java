@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriUtils;
 import com.playdata.global.dto.AlertResponse;
 import com.playdata.global.enums.AlertMessage;
@@ -151,8 +152,15 @@ public class NoticeController {
     @GetMapping("/my")
     public ResponseEntity<Map<String, Object>> getMyNotice(
             @AuthenticationPrincipal TokenUserInfo userInfo,
+            @RequestParam(defaultValue = "") String keyword,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int pageSize,
             HttpServletRequest request) {
-        List<Notice> notices = noticeService.getMyNotices(userInfo.getEmployeeId());
+        List<Notice> notices = noticeService.getMyNotices(userInfo.getEmployeeId(), keyword, fromDate, toDate, page, pageSize, sortBy, sortDir);
 
         String token = request.getHeader("Authorization");
 
@@ -175,8 +183,15 @@ public class NoticeController {
     @GetMapping("/schedule")
     public ResponseEntity<Map<String, Object>> getMyScheduledNotice(
             @AuthenticationPrincipal TokenUserInfo userInfo,
+            @RequestParam(defaultValue = "") String keyword,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int pageSize,
             HttpServletRequest request) {
-        List<Notice> notices = noticeService.getMyScheduledNotice(userInfo.getEmployeeId());
+        List<Notice> notices = noticeService.getMyScheduledNotice(userInfo.getEmployeeId(), keyword, fromDate, toDate, page, pageSize, sortBy, sortDir);
 
         String token = request.getHeader("Authorization");
 
@@ -294,18 +309,6 @@ public class NoticeController {
         log.info("userInfo: {}", userInfo);
         noticeService.markAsRead(userInfo.getEmployeeId(), noticeId);
         return ResponseEntity.ok().build();
-    }
-
-    @Scheduled(fixedRate = 60000) // 1분마다 실행
-    public void publishScheduledNotices() {
-        List<Notice> notices = noticeRepository.findByPublishedFalseAndScheduledAtBefore(LocalDateTime.now());
-
-        for (Notice notice : notices) {
-            notice.setPublished(true);
-            // createdAt을 예약 시간으로 바꿀 수도 있음 (선택)
-            notice.setCreatedAt(notice.getScheduledAt());
-            noticeRepository.save(notice);
-        }
     }
 
 

@@ -100,15 +100,31 @@ public class CommunityService {
             toDateTime = toDate.atTime(23, 59, 59);
         }
 
-        return communityRepository.findMyDepartmentPosts(keyword, fromDateTime, toDateTime, departmentId);
+        return communityRepository.findMyDepartmentPosts(keyword, fromDateTime, toDateTime, departmentId, pageable);
     }
 
     /**
      * 내가 쓴 일반 게시글
      */
     @Transactional(readOnly = true)
-    public List<Community> getMyPosts(Long employeeId) {
-        return communityRepository.findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(employeeId);
+    public List<Community> getMyPosts(String keyword, LocalDate fromDate, LocalDate toDate, Long employeeId, Pageable pageable) {
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
+        // 날짜 기본값 처리
+        if (fromDate == null) {
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = fromDate.atStartOfDay();
+        }
+
+        if (toDate == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = toDate.atTime(23, 59, 59);
+        }
+
+        return communityRepository.findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(keyword, fromDateTime, toDateTime, employeeId, pageable);
     }
 
 

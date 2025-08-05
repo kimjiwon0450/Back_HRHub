@@ -18,6 +18,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -167,14 +168,54 @@ public class NoticeService_v2 {
      * 내가 쓴 공지글
      */
     @Transactional(readOnly = true)
-    public List<Notice> getMyNotices(Long employeeId) {
-        return noticeRepository.findMyNotices(employeeId);
+    public List<Notice> getMyNotices(Long employeeId,  String keyword, LocalDate fromDate, LocalDate toDate, int page, int size, String sortBy, String sortDir) {
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size,
+                Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy));
+
+        // 날짜 기본값 처리
+        if (fromDate == null) {
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = fromDate.atStartOfDay();
+        }
+
+        if (toDate == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = toDate.atTime(23, 59, 59);
+        }
+
+        return noticeRepository.findMyNotices(employeeId, keyword, fromDateTime, toDateTime, pageable);
     }
 
     // 예약한 공지글
     @Transactional(readOnly = true)
-    public List<Notice> getMyScheduledNotice(Long employeeId) {
-        return noticeRepository.findMyScheduledNotices(employeeId);
+    public List<Notice> getMyScheduledNotice(Long employeeId, String keyword, LocalDate fromDate, LocalDate toDate, int page, int size, String sortBy, String sortDir) {
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size,
+                Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy));
+
+        // 날짜 기본값 처리
+        if (fromDate == null) {
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = fromDate.atStartOfDay();
+        }
+
+        if (toDate == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = toDate.atTime(23, 59, 59);
+        }
+
+        return noticeRepository.findMyScheduledNotices(employeeId, keyword, fromDateTime, toDateTime, pageable);
     }
 
 
@@ -420,4 +461,17 @@ public class NoticeService_v2 {
     public int getCommentCountByNoticeId(Long noticeId) {
         return noticeCommentRepository.countByNoticeIdAndCommentStatusTrue(noticeId);
     }
+
+    @Scheduled(fixedRate = 60000) // 1분마다 실행
+    public void publishScheduledNotices() {
+        List<Notice> notices = noticeRepository.findByPublishedFalseAndScheduledAtBefore(LocalDateTime.now());
+
+        for (Notice notice : notices) {
+            notice.setPublished(true);
+            // createdAt을 예약 시간으로 바꿀 수도 있음 (선택)
+//            notice.setCreatedAt(notice.getScheduledAt());
+            noticeRepository.save(notice);
+        }
+    }
+
 }

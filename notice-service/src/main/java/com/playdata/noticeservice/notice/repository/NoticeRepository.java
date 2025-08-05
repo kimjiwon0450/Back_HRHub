@@ -84,8 +84,15 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     @Query("SELECT n FROM Notice n WHERE " +
             "n.boardStatus = true AND " +
             "n.published = true AND " +
-            "n.employeeId = :employeeId")
-    List<Notice> findMyNotices(Long employeeId);
+            "n.employeeId = :employeeId AND" +
+            "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
+            "(:toDate IS NULL OR n.createdAt <= :toDate)")
+    List<Notice> findMyNotices(Long employeeId,
+                               @Param("keyword") String keyword,
+                               @Param("fromDate") LocalDateTime fromDate,
+                               @Param("toDate") LocalDateTime toDate,
+                               Pageable pageable);
 
     // NoticeRepository.java
     List<Notice> findByPublishedFalseAndScheduledAtBefore(LocalDateTime time);
@@ -94,8 +101,15 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     @Query("SELECT n FROM Notice n WHERE " +
             "n.boardStatus = true AND " +
             "n.published = false AND " +
-            "n.employeeId = :employeeId")
-    List<Notice> findMyScheduledNotices(Long employeeId);
+            "n.employeeId = :employeeId AND" +
+            "(:keyword IS NULL OR LOWER(n.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
+            "(:fromDate IS NULL OR n.createdAt >= :fromDate) AND " +
+            "(:toDate IS NULL OR n.createdAt <= :toDate)")
+    List<Notice> findMyScheduledNotices(Long employeeId,
+                                        @Param("keyword") String keyword,
+                                        @Param("fromDate") LocalDateTime fromDate,
+                                        @Param("toDate") LocalDateTime toDate,
+                                        Pageable pageable);
 
     // 직접 DB 연산으로 조회수 증가
     @Modifying

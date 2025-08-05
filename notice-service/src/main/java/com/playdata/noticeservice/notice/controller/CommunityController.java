@@ -101,8 +101,17 @@ public class CommunityController {
     @GetMapping("/my")
     public ResponseEntity<Map<String, Object>> getMyPosts(
             @AuthenticationPrincipal TokenUserInfo userInfo,
+            @RequestParam(defaultValue = "") String keyword,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate toDate,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
             HttpServletRequest request) {
-        List<Community> community = communityService.getMyPosts(userInfo.getEmployeeId());
+        Pageable pageable = PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+        List<Community> community = communityService.getMyPosts(keyword, fromDate, toDate, userInfo.getEmployeeId(),pageable);
 
         String token = request.getHeader("Authorization");
 
