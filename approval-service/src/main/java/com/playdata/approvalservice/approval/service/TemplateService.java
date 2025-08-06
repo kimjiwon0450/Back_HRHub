@@ -31,6 +31,7 @@ public class TemplateService {
 
     /**
      * 템플릿 생성
+     *
      * @param req
      * @return
      */
@@ -64,6 +65,7 @@ public class TemplateService {
 
     /**
      * 템플릿 목록 조회
+     *
      * @param templateId
      * @return
      */
@@ -82,7 +84,7 @@ public class TemplateService {
         ReportTemplate template = findTemplateById(templateId);
 
         try {
-            if(req.getTemplate() != null) {
+            if (req.getTemplate() != null) {
                 String updatedJson = objectMapper.writeValueAsString(req.getTemplate());
                 template.setTemplate(updatedJson);
             }
@@ -153,6 +155,7 @@ public class TemplateService {
 
     /**
      * 모든 템플릿 조회
+     *
      * @return
      */
     public List<TemplateResDto> getAllTemplates() {

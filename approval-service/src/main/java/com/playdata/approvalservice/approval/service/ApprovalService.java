@@ -496,7 +496,6 @@ public class ApprovalService {
         // 3. 동적 검색 조건(Specification) 생성
         // ReportSpecifications 클래스의 정적 메소드를 호출하여 조건을 조합합니다.
         Specification<Reports> spec = ReportSpecifications.withDynamicQuery(role, status, keyword, writerId);
-
         // 4. Repository의 findAll 메소드를 단 한 번만 호출하여 데이터 조회
         // JpaSpecificationExecutor를 상속받았기 때문에 이 메소드를 사용할 수 있습니다.
         Page<Reports> pr = reportsRepository.findAll(spec, pageable);
@@ -526,8 +525,6 @@ public class ApprovalService {
         final Map<Long, String> finalEmployeeNamesMap = employeeNamesMap;
 
         List<ReportListResDto.ReportSimpleDto> simples = pr.getContent().stream()
-                .filter(r -> keyword == null || r.getTitle().contains(keyword)
-                        || r.getContent().contains(keyword))
                 .map(r -> {
                     String writerName = finalEmployeeNamesMap.getOrDefault(r.getWriterId(), "알 수 없는 사용자");
                     String approverName = r.getCurrentApproverId() != null
@@ -860,7 +857,7 @@ public class ApprovalService {
         System.out.println("보고서 엔티티의 작성자 ID: " + report.getWriterId());
         System.out.println("보고서 현재 상태: " + report.getReportStatus());
 
-        if (!report.getWriterId().equals(writerId) || report.getReportStatus() != ReportStatus.IN_PROGRESS) {
+        if (!report.getWriterId().equals(writerId) && report.getReportStatus() != ReportStatus.IN_PROGRESS || report.getReportStatus() != ReportStatus.SCHEDULED) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
         }
         report.recall();
@@ -1129,28 +1126,54 @@ public class ApprovalService {
         return false;
     }
 
+    // ApprovalService.java
+
+    /**
+     * 문서 카운트 서비스 (실제 목록 조회 로직과 100% 일치하도록 수정)
+     *
+     * @param userId 현재 사용자의 ID
+     * @return 각 문서함별 개수가 담긴 DTO
+     */
+    @Transactional(readOnly = true)
     public ReportCountResDto getReportCounts(Long userId) {
         if (userId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용자 ID가 필요합니다.");
         }
 
-        // 1. Repository로부터 Object 배열을 받습니다.
-        Object[] counts = reportsRepository.countAllByUserId(userId);
+        // Specification을 사용하여 각 조건에 맞는 문서 개수를 정확하게 카운트합니다.
 
-        // 2. 결과가 비어있거나 유효하지 않은 경우를 대비한 방어 코드
-        if (counts == null || counts.length == 0 || counts[0] == null) {
-            // 결과가 없을 경우 모든 카운트를 0으로 초기화하여 반환
-            return new ReportCountResDto(0L, 0L, 0L, 0L, 0L, 0L);
-        }
+        // 1. 내가 결재할 문서 (결재 대기)
+        // role='approver'는 현재 결재자(currentApproverId)를 기준으로 하므로, 별도 count 메소드가 더 정확하고 빠릅니다.
+        long pendingCount = reportsRepository.countByCurrentApproverIdAndReportStatus(userId, ReportStatus.IN_PROGRESS);
 
-        // 3. Object 배열의 각 요소를 Long 타입으로 변환하여 DTO를 생성합니다.
+        // 2. 내가 올린 문서 (상태별)
+        long inProgressCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.IN_PROGRESS);
+        long rejectedCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.REJECTED);
+        long draftsCount = reportsRepository.countByWriterIdAndReportStatusIn(
+                userId,
+                List.of(ReportStatus.DRAFT, ReportStatus.RECALLED)
+        );
+        long scheduledCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.SCHEDULED);
+
+        // ★★★ 핵심 수정 부분: 참조 문서 개수 ★★★
+        // 3. 내가 참조된 문서
+        // 목록 조회와 동일한 Specification을 사용하여 개수를 셉니다.
+        Specification<Reports> referenceSpec = ReportSpecifications.withDynamicQuery("reference", null, null, userId);
+        long referenceCount = reportsRepository.count(referenceSpec);
+
+        // ★★★ 핵심 수정 부분: 결재 완료 문서 개수 ★★★
+        // 프론트엔드 요청에 따라, '내가 기안한(writer)' 완료 문서만 카운트합니다.
+        long completedCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.APPROVED);
+
+        // 4. 조회된 결과를 DTO에 담아 반환
         return new ReportCountResDto(
-                (Long) counts[0], // pending
-                (Long) counts[1], // inProgress
-                (Long) counts[2], // rejected
-                (Long) counts[3], // drafts
-                (Long) counts[4], // scheduled
-                (Long) counts[5]  // reference (cc)
+                pendingCount,
+                inProgressCount,
+                rejectedCount,
+                draftsCount,
+                scheduledCount,
+                referenceCount,
+                completedCount // ReportCountResDto에 completed 필드 추가 필요
         );
     }
 }

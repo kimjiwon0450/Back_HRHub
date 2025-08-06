@@ -359,7 +359,7 @@ public class ApprovalController {
     }
 
     /**
-     * 사용자와 관련된 모든 문서함의 개수를 조회합니다.
+     * 사용자와 관련된 모든 문서의 개수를 조회합니다.
      */
     @GetMapping("/reports/counts")
     public ResponseEntity<CommonResDto> getReportCounts(@AuthenticationPrincipal TokenUserInfo userInfo) {

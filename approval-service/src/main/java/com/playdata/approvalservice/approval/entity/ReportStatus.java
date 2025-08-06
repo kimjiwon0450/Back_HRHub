@@ -8,7 +8,7 @@ public enum ReportStatus {
         IN_PROGRESS: 결재 진행 중 (상신 후)
         APPROVED: 최종 승인
         REJECTED: 반려
-        RECALLED: 상신 후 회수
+        RECALLED: 회수
         SCHEDULED: 예약됨
     * */
 }
