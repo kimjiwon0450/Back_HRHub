@@ -7,10 +7,8 @@ import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.client.HrUserClient;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.*;
-import com.playdata.noticeservice.notice.entity.NoticeComment;
-import com.playdata.noticeservice.notice.entity.Notice;
-import com.playdata.noticeservice.notice.entity.NoticeRead;
-import com.playdata.noticeservice.notice.entity.Position;
+import com.playdata.noticeservice.notice.entity.*;
+import com.playdata.noticeservice.notice.repository.FavoriteNoticeRepository;
 import com.playdata.noticeservice.notice.repository.NoticeCommentRepository;
 import com.playdata.noticeservice.notice.repository.NoticeReadRepository;
 import com.playdata.noticeservice.notice.repository.NoticeRepository;
@@ -39,6 +37,7 @@ public class NoticeService_v2 {
     private final S3Service s3Service;
     private final HrUserClient hrUserClient;
     private final DepartmentClient departmentClient;
+    private final FavoriteNoticeRepository favoriteRepo;
 
     private Comparator<Notice> getDynamicComparator(String sortBy, Sort.Direction direction) {
         Comparator<Notice> comparator = switch (sortBy) {
@@ -508,5 +507,28 @@ public class NoticeService_v2 {
             noticeRepository.save(notice);
         }
     }
+
+    public void toggleFavorite(Long userId, Long noticeId) {
+        Optional<FavoriteNotice> existing = favoriteRepo.findByUserIdAndNoticeId(userId, noticeId);
+        if (existing.isPresent()) {
+            favoriteRepo.delete(existing.get());
+        } else {
+            FavoriteNotice favorite = new FavoriteNotice();
+            favorite.setUserId(userId);
+            favorite.setNoticeId(noticeId);
+            favoriteRepo.save(favorite);
+        }
+    }
+
+    public boolean isFavorite(Long userId, Long noticeId) {
+        return favoriteRepo.findByUserIdAndNoticeId(userId, noticeId).isPresent();
+    }
+
+    public List<Long> getFavoriteNoticeIds(Long userId) {
+        return favoriteRepo.findAllByUserId(userId).stream()
+                .map(FavoriteNotice::getNoticeId)
+                .toList();
+    }
+
 
 }
