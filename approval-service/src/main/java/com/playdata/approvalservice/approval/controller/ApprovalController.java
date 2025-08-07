@@ -293,34 +293,13 @@ public class ApprovalController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "참조자 추가 완료", res));
     }
-
     /**
-     * 참조자 제거 처리
+     * 카테고리 추가
+     * @param req
+     * @param files
+     * @param userInfo
+     * @return
      */
-    @Transactional
-    public ReportReferencesResDto deleteReferences(Long reportId, Long writerId, Long employeeIdToDelete) {
-        Reports report = reportsRepository.findById(reportId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
-
-        if (!report.getWriterId().equals(writerId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "참조자 삭제 권한이 없습니다.");
-        }
-
-        // 1. ReportReferences 리스트에서 해당 참조자를 찾는다.
-        ReportReferences referenceToRemove = report.getReportReferences().stream()
-                .filter(ref -> ref.getEmployeeId().equals(employeeIdToDelete))
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "삭제할 참조자를 찾을 수 없습니다."));
-
-        // 2. 리스트에서 제거한다. (orphanRemoval=true 덕분에 DB에서도 삭제됨)
-        report.getReportReferences().remove(referenceToRemove);
-
-        return ReportReferencesResDto.builder()
-                .reportId(reportId)
-                .employeeId(employeeIdToDelete)
-                .build();
-    }
-
     @PostMapping("/reports/category")
     public ResponseEntity<CommonResDto> ReportCategory(
             @RequestPart("req") @Valid ReportFromTemplateReqDto req,
