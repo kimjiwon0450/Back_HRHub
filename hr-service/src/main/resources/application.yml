@@ -12,7 +12,8 @@ p6spy:
 
 weather:
   api:
-    key: ZXtHl7IjyIssn+uPYkhLiyHlbIyxO1Zj89v0YwTWPGkSka2+/t47TsClb/2z8sfd5pLYfRfGmyVC6aMM4UgrZg==
+#    key: ZXtHl7IjyIssn+uPYkhLiyHlbIyxO1Zj89v0YwTWPGkSka2+/t47TsClb/2z8sfd5pLYfRfGmyVC6aMM4UgrZg==
+    key: ZXtHl7IjyIssn%2BuPYkhLiyHlbIyxO1Zj89v0YwTWPGkSka2%2B%2Ft47TsClb%2F2z8sfd5pLYfRfGmyVC6aMM4UgrZg%3D%3D
     base-url: http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0
 #  profiles:
 #    active: local
