@@ -23,6 +23,7 @@ public class WeatherService {
         for (Map.Entry<String, String> entry : params.entrySet()) {
             builder.queryParam(entry.getKey(), entry.getValue());
         }
+        System.out.println("apiKey: " + apiKey);
         System.out.println("기상청 호출 URL: " + builder.toUriString());
 
         RestTemplate restTemplate = new RestTemplate();
