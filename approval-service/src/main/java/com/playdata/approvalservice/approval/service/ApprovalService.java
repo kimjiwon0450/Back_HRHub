@@ -139,11 +139,10 @@ public class ApprovalService {
      * @param reportId 수정할 문서 ID
      * @param req      수정할 내용 및 목표 상태(status)가 담긴 DTO
      * @param writerId 현재 사용자 ID (권한 확인용)
-     * @param newFiles 새로 추가할 파일 목록
      * @return 수정된 문서의 전체 상세 정보
      */
     @Transactional
-    public ReportDetailResDto updateReport(Long reportId, ReportUpdateReqDto req, Long writerId, List<MultipartFile> newFiles) {
+    public ReportDetailResDto updateReport(Long reportId, ReportUpdateReqDto req, Long writerId) {
 
         // 1. ID로 문서를 먼저 찾습니다. 상태 조건 없이 ID로만 조회합니다.
         Reports report = reportsRepository.findById(reportId)
@@ -446,7 +445,6 @@ public class ApprovalService {
             String writerEmail,
             List<MultipartFile> files
     ) {
-        // ... (1~3번 로직은 동일) ...
         // 1. 템플릿 조회
         ReportTemplate template = templateRepository.findById(req.getTemplateId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "템플릿을 찾을 수 없습니다."));
