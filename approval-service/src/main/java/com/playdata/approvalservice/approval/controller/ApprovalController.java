@@ -123,7 +123,7 @@ public class ApprovalController {
         Long writerId = getCurrentUserId(userInfo);
 
         // 4. 서비스 호출 시 newFiles도 전달하도록 수정 (ApprovalService도 함께 수정 필요)
-        ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId, newFiles);
+        ReportDetailResDto res = approvalService.updateReport(reportId, req, writerId);
 
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 수정 완료", res));
     }
