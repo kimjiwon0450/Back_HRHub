@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @Service
@@ -20,9 +23,10 @@ public class WeatherService {
     @Value("${weather.api.key}")
     private String apiKey;
 
-    public String getVilageFcst(Map<String, String> params) {
+    public String getVilageFcst(Map<String, String> params) throws UnsupportedEncodingException {
+        String encodedApiKey = URLEncoder.encode(apiKey, StandardCharsets.UTF_8.toString());
         UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/getVilageFcst")
-                .queryParam("serviceKey", apiKey);
+                .queryParam("serviceKey", encodedApiKey);
         for (Map.Entry<String, String> entry : params.entrySet()) {
             builder.queryParam(entry.getKey(), entry.getValue());
         }
