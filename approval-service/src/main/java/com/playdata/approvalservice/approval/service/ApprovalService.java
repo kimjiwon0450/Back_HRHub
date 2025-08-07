@@ -890,7 +890,7 @@ public class ApprovalService {
         System.out.println("보고서 엔티티의 작성자 ID: " + report.getWriterId());
         System.out.println("보고서 현재 상태: " + report.getReportStatus());
 
-        if (!report.getWriterId().equals(writerId) && report.getReportStatus() != ReportStatus.IN_PROGRESS || report.getReportStatus() != ReportStatus.SCHEDULED) {
+        if (!report.getWriterId().equals(writerId) && report.getReportStatus() != ReportStatus.IN_PROGRESS && report.getReportStatus() != ReportStatus.SCHEDULED) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회수 권한이 없습니다.");
         }
         report.recall();
