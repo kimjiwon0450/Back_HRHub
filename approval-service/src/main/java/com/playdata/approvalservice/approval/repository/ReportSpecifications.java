@@ -73,7 +73,7 @@ public class ReportSpecifications {
                                     "approvalLines",
                                     key -> root.join(key, JoinType.LEFT)
                             );
-                            rolePredicates.add(criteriaBuilder.equal(approvalLineJoin.get("employeeId"), userId));
+                            rolePredicates.add(criteriaBuilder.equal(root.get("currentApproverId"), userId));
                             break;
 
                         case "reference":
