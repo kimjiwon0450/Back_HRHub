@@ -3,6 +3,8 @@ package com.playdata.noticeservice.notice.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -35,5 +37,12 @@ public class NoticeComment {
     private Long employeeId;
 
     private boolean commentStatus;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private NoticeComment parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    private List<NoticeComment> children = new ArrayList<>();
 
 }

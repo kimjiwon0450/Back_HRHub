@@ -7,10 +7,8 @@ import com.playdata.noticeservice.common.client.DepartmentClient;
 import com.playdata.noticeservice.common.client.HrUserClient;
 import com.playdata.noticeservice.common.dto.HrUserResponse;
 import com.playdata.noticeservice.notice.dto.*;
-import com.playdata.noticeservice.notice.entity.NoticeComment;
-import com.playdata.noticeservice.notice.entity.Notice;
-import com.playdata.noticeservice.notice.entity.NoticeRead;
-import com.playdata.noticeservice.notice.entity.Position;
+import com.playdata.noticeservice.notice.entity.*;
+import com.playdata.noticeservice.notice.repository.FavoriteNoticeRepository;
 import com.playdata.noticeservice.notice.repository.NoticeCommentRepository;
 import com.playdata.noticeservice.notice.repository.NoticeReadRepository;
 import com.playdata.noticeservice.notice.repository.NoticeRepository;
@@ -18,6 +16,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +37,7 @@ public class NoticeService_v2 {
     private final S3Service s3Service;
     private final HrUserClient hrUserClient;
     private final DepartmentClient departmentClient;
+    private final FavoriteNoticeRepository favoriteRepo;
 
     private Comparator<Notice> getDynamicComparator(String sortBy, Sort.Direction direction) {
         Comparator<Notice> comparator = switch (sortBy) {
@@ -167,14 +167,54 @@ public class NoticeService_v2 {
      * 내가 쓴 공지글
      */
     @Transactional(readOnly = true)
-    public List<Notice> getMyNotices(Long employeeId) {
-        return noticeRepository.findMyNotices(employeeId);
+    public List<Notice> getMyNotices(Long employeeId,  String keyword, LocalDate fromDate, LocalDate toDate, int page, int size, String sortBy, String sortDir) {
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size,
+                Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy));
+
+        // 날짜 기본값 처리
+        if (fromDate == null) {
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = fromDate.atStartOfDay();
+        }
+
+        if (toDate == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = toDate.atTime(23, 59, 59);
+        }
+
+        return noticeRepository.findMyNotices(employeeId, keyword, fromDateTime, toDateTime, pageable);
     }
 
     // 예약한 공지글
     @Transactional(readOnly = true)
-    public List<Notice> getMyScheduledNotice(Long employeeId) {
-        return noticeRepository.findMyScheduledNotices(employeeId);
+    public List<Notice> getMyScheduledNotice(Long employeeId, String keyword, LocalDate fromDate, LocalDate toDate, int page, int size, String sortBy, String sortDir) {
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
+        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size,
+                Sort.by(sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC, sortBy));
+
+        // 날짜 기본값 처리
+        if (fromDate == null) {
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = fromDate.atStartOfDay();
+        }
+
+        if (toDate == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = toDate.atTime(23, 59, 59);
+        }
+
+        return noticeRepository.findMyScheduledNotices(employeeId, keyword, fromDateTime, toDateTime, pageable);
     }
 
 
@@ -371,6 +411,13 @@ public class NoticeService_v2 {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        // ✅ 대댓글일 경우 부모 설정
+        if (request.getParentId() != null) {
+            NoticeComment parent = noticeCommentRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new RuntimeException("부모 댓글이 존재하지 않습니다."));
+            comment.setParent(parent);
+        }
+
         noticeCommentRepository.save(comment);
     }
 
@@ -378,14 +425,42 @@ public class NoticeService_v2 {
     public List<NoticeCommentResponse> getComments(Long noticeId) {
         List<NoticeComment> comments = noticeCommentRepository.findByNoticeIdAndCommentStatusIsTrueOrderByCreatedAtAsc(noticeId);
 
-        return comments.stream()
-                .map(comment -> NoticeCommentResponse.builder()
-                        .noticeCommentId(comment.getNoticeCommentId())
-                        .content(comment.getContent())
-                        .writerName(comment.getWriterName())
-                        .createdAt(comment.getCreatedAt())
-                        .build())
-                .toList();
+//        return comments.stream()
+//                .map(comment -> NoticeCommentResponse.builder()
+//                        .noticeCommentId(comment.getNoticeCommentId())
+//                        .content(comment.getContent())
+//                        .writerName(comment.getWriterName())
+//                        .createdAt(comment.getCreatedAt())
+//                        .build())
+//                .toList();
+        // ID -> 엔티티 맵
+        Map<Long, NoticeCommentResponse> map = new HashMap<>();
+
+        List<NoticeCommentResponse> rootComments = new ArrayList<>();
+
+        for (NoticeComment comment : comments) {
+            NoticeCommentResponse response = NoticeCommentResponse.builder()
+                    .noticeCommentId(comment.getNoticeCommentId())
+                    .content(comment.getContent())
+                    .writerName(comment.getWriterName())
+                    .createdAt(comment.getCreatedAt())
+                    .children(new ArrayList<>())
+                    .build();
+
+            map.put(comment.getNoticeCommentId(), response);
+
+            // 부모가 없는 경우 (최상위 댓글)
+            if (comment.getParent() == null) {
+                rootComments.add(response);
+            } else {
+                NoticeCommentResponse parentResponse = map.get(comment.getParent().getNoticeCommentId());
+                if (parentResponse != null) {
+                    parentResponse.getChildren().add(response);
+                }
+            }
+        }
+
+        return rootComments;
     }
 
     // ✅ 댓글 수정
@@ -420,4 +495,40 @@ public class NoticeService_v2 {
     public int getCommentCountByNoticeId(Long noticeId) {
         return noticeCommentRepository.countByNoticeIdAndCommentStatusTrue(noticeId);
     }
+
+    @Scheduled(fixedRate = 60000) // 1분마다 실행
+    public void publishScheduledNotices() {
+        List<Notice> notices = noticeRepository.findByPublishedFalseAndScheduledAtBefore(LocalDateTime.now());
+
+        for (Notice notice : notices) {
+            notice.setPublished(true);
+            // createdAt을 예약 시간으로 바꿀 수도 있음 (선택)
+//            notice.setCreatedAt(notice.getScheduledAt());
+            noticeRepository.save(notice);
+        }
+    }
+
+    public void toggleFavorite(Long userId, Long noticeId) {
+        Optional<FavoriteNotice> existing = favoriteRepo.findByUserIdAndNoticeId(userId, noticeId);
+        if (existing.isPresent()) {
+            favoriteRepo.delete(existing.get());
+        } else {
+            FavoriteNotice favorite = new FavoriteNotice();
+            favorite.setUserId(userId);
+            favorite.setNoticeId(noticeId);
+            favoriteRepo.save(favorite);
+        }
+    }
+
+    public boolean isFavorite(Long userId, Long noticeId) {
+        return favoriteRepo.findByUserIdAndNoticeId(userId, noticeId).isPresent();
+    }
+
+    public List<Long> getFavoriteNoticeIds(Long userId) {
+        return favoriteRepo.findAllByUserId(userId).stream()
+                .map(FavoriteNotice::getNoticeId)
+                .toList();
+    }
+
+
 }

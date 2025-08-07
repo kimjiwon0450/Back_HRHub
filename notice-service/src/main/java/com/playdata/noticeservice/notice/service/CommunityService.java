@@ -100,15 +100,31 @@ public class CommunityService {
             toDateTime = toDate.atTime(23, 59, 59);
         }
 
-        return communityRepository.findMyDepartmentPosts(keyword, fromDateTime, toDateTime, departmentId);
+        return communityRepository.findMyDepartmentPosts(keyword, fromDateTime, toDateTime, departmentId, pageable);
     }
 
     /**
      * 내가 쓴 일반 게시글
      */
     @Transactional(readOnly = true)
-    public List<Community> getMyPosts(Long employeeId) {
-        return communityRepository.findByEmployeeIdAndBoardStatusTrueOrderByCreatedAtDesc(employeeId);
+    public List<Community> getMyPosts(String keyword, LocalDate fromDate, LocalDate toDate, Long employeeId, Pageable pageable) {
+        LocalDateTime fromDateTime;
+        LocalDateTime toDateTime;
+
+        // 날짜 기본값 처리
+        if (fromDate == null) {
+            fromDateTime = LocalDateTime.of(2000, 1, 1, 0, 0);  // 아주 예전 날짜
+        } else {
+            fromDateTime = fromDate.atStartOfDay();
+        }
+
+        if (toDate == null) {
+            toDateTime = LocalDateTime.now().plusDays(1);  // 오늘 포함
+        } else {
+            toDateTime = toDate.atTime(23, 59, 59);
+        }
+
+        return communityRepository.findMyPosts(keyword, fromDateTime, toDateTime, employeeId, pageable);
     }
 
 
@@ -237,6 +253,13 @@ public class CommunityService {
                 .createdAt(LocalDateTime.now())
                 .build();
 
+        // ✅ 대댓글일 경우 부모 설정
+        if (request.getParentId() != null) {
+            CommunityComment parent = communityCommentRepository.findById(request.getParentId())
+                    .orElseThrow(() -> new RuntimeException("부모 댓글이 존재하지 않습니다."));
+            comment.setParent(parent);
+        }
+
         communityCommentRepository.save(comment);
     }
 
@@ -244,14 +267,42 @@ public class CommunityService {
     public List<CommunityCommentResponse> getComments(Long communityId) {
         List<CommunityComment> comments = communityCommentRepository.findByCommunityIdAndCommentStatusIsTrueOrderByCreatedAtAsc(communityId);
 
-        return comments.stream()
-                .map(comment -> CommunityCommentResponse.builder()
-                        .CommunityComentId(comment.getCommunityCommentId())
-                        .content(comment.getContent())
-                        .writerName(comment.getWriterName())
-                        .createdAt(comment.getCreatedAt())
-                        .build())
-                .toList();
+//        return comments.stream()
+//                .map(comment -> CommunityCommentResponse.builder()
+//                        .CommunityComentId(comment.getCommunityCommentId())
+//                        .content(comment.getContent())
+//                        .writerName(comment.getWriterName())
+//                        .createdAt(comment.getCreatedAt())
+//                        .build())
+//                .toList();
+        // ID -> 엔티티 맵
+        Map<Long, CommunityCommentResponse> map = new HashMap<>();
+
+        List<CommunityCommentResponse> rootComments = new ArrayList<>();
+
+        for (CommunityComment comment : comments) {
+            CommunityCommentResponse response = CommunityCommentResponse.builder()
+                    .CommunityComentId(comment.getCommunityCommentId())
+                    .content(comment.getContent())
+                    .writerName(comment.getWriterName())
+                    .createdAt(comment.getCreatedAt())
+                    .children(new ArrayList<>())
+                    .build();
+
+            map.put(comment.getCommunityCommentId(), response);
+
+            // 부모가 없는 경우 (최상위 댓글)
+            if (comment.getParent() == null) {
+                rootComments.add(response);
+            } else {
+                CommunityCommentResponse parentResponse = map.get(comment.getParent().getCommunityCommentId());
+                if (parentResponse != null) {
+                    parentResponse.getChildren().add(response);
+                }
+            }
+        }
+
+        return rootComments;
     }
 
     // ✅ 댓글 수정
