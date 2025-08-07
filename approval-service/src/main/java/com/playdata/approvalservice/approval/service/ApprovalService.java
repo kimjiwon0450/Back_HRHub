@@ -134,29 +134,45 @@ public class ApprovalService {
     }
 
     /**
-     * 보고서 수정 (Draft 상태)
+     * 임시 저장(DRAFT) 또는 회수(RECALLED) 상태의 문서를 수정하거나 상신(IN_PROGRESS)합니다.
+     *
+     * @param reportId 수정할 문서 ID
+     * @param req      수정할 내용 및 목표 상태(status)가 담긴 DTO
+     * @param writerId 현재 사용자 ID (권한 확인용)
+     * @param newFiles 새로 추가할 파일 목록
+     * @return 수정된 문서의 전체 상세 정보
      */
     @Transactional
     public ReportDetailResDto updateReport(Long reportId, ReportUpdateReqDto req, Long writerId, List<MultipartFile> newFiles) {
-        Reports report = reportsRepository.findByIdAndReportStatus(reportId, ReportStatus.DRAFT)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Draft 보고서를 찾을 수 없습니다. id=" + reportId));
 
+        // 1. ID로 문서를 먼저 찾습니다. 상태 조건 없이 ID로만 조회합니다.
+        Reports report = reportsRepository.findById(reportId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "문서를 찾을 수 없습니다. id=" + reportId));
+
+        // 2. 수정 권한을 확인합니다. (작성자 본인만 가능)
         if (!report.getWriterId().equals(writerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
         }
-        // 제목
+
+        // 3. 수정 가능한 상태인지 확인합니다. (DRAFT 또는 RECALLED 상태만 허용)
+        if (report.getReportStatus() != ReportStatus.DRAFT && report.getReportStatus() != ReportStatus.RECALLED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "임시 저장 또는 회수/예약취소 상태의 문서만 수정 또는 상신할 수 있습니다.");
+        }
+
+        // 4. 엔티티의 내용을 DTO로부터 업데이트합니다. (이때 상태 전이도 함께 처리됩니다)
         report.updateFromDto(req);
 
-        // detail 에 attachments, references 담기
+        // 5. 첨부파일 및 참조자 정보를 detail JSON에 업데이트합니다.
+        // (이 로직은 기존과 동일하나, newFiles 처리 로직이 추가될 수 있습니다)
         Map<String, Object> detailMap = new HashMap<>();
-
         if (req.getAttachments() != null) {
             detailMap.put("attachments", req.getAttachments());
         }
         if (req.getReferences() != null) {
             detailMap.put("references", req.getReferences());
         }
+        // TODO: newFiles에 대한 업로드 및 detailMap에 추가하는 로직이 필요하다면 여기에 구현합니다.
         if (!detailMap.isEmpty()) {
             try {
                 report.setDetail(objectMapper.writeValueAsString(detailMap));
@@ -165,9 +181,26 @@ public class ApprovalService {
             }
         }
 
-        // 수정된 보고서 저장
+        // 6. 변경된 내용을 데이터베이스에 저장합니다.
         Reports updated = reportsRepository.save(report);
 
+        // 7. 만약 상태가 'IN_PROGRESS'(상신)로 변경되었다면, 관련자들에게 알림을 보냅니다.
+        if (updated.getReportStatus() == ReportStatus.IN_PROGRESS) {
+            Set<Long> usersToNotify = new HashSet<>();
+            usersToNotify.add(writerId); // 기안자
+            if (updated.getCurrentApproverId() != null) {
+                usersToNotify.add(updated.getCurrentApproverId()); // 첫 결재자
+            }
+            if (req.getReferences() != null) {
+                req.getReferences().forEach(ref -> usersToNotify.add(ref.getEmployeeId())); // 참조자
+            }
+
+            // NotificationService가 주입되어 있다는 가정 하에, 아래 주석을 해제하여 사용합니다.
+            // usersToNotify.forEach(notificationService::notifyUser);
+            log.info("문서 ID {}가 상신되었습니다. 알림 대상: {}", updated.getId(), usersToNotify);
+        }
+
+        // 8. 수정된 문서의 최신 상세 정보를 반환합니다.
         return getReportDetail(updated.getId(), writerId);
     }
 

@@ -263,138 +263,148 @@ public class Reports extends BaseTimeEntity {
                 this.currentApproverId = null; // 결재선이 비워졌을 경우
             }
         }
-    }
 
-    /**
-     * 연관관계 편의 메서드
-     * Reports의 approvalLines에 자식을 추가하고,
-     * ApprovalLine에는 부모(this)를 설정합니다.
-     */
-    public void addApprovalLine(ApprovalLine approvalLine) {
-        this.approvalLines.add(approvalLine);
-        approvalLine.setReports(this);
-    }
-
-
-    /**
-     * 결재 라인을 DTO 목록으로 교체
-     */
-    public void replaceApprovalLines(List<ApprovalLineReqDto> dtoList) {
-
-        approvalLines.clear();
-
-        if (dtoList != null) {
-            dtoList.forEach(dto -> {
-                ApprovalLine line = ApprovalLine.builder()
-                        .employeeId(dto.getEmployeeId())
-                        .approvalContext(dto.getApprovalContext())
-                        .approvalStatus(ApprovalStatus.PENDING)
-                        .approvalDateTime(LocalDateTime.now())
-                        .build();
-
-                this.addApprovalLine(line);
-            });
+        // ★★★ 상태 전이 로직 추가 ★★★
+        if (dto.getStatus() != null && this.reportStatus != dto.getStatus()) {
+            // DRAFT -updateReport> IN_PROGRESS 로의 상태 변경만 허용 (안전장치)
+            if (this.reportStatus == ReportStatus.DRAFT && dto.getStatus() == ReportStatus.IN_PROGRESS) {
+                this.reportStatus = ReportStatus.IN_PROGRESS;
+                this.submittedAt = LocalDateTime.now(); // 상신일시 기록
+            }
         }
     }
 
-    /**
-     * 보고서 회수 처리 (결재 대기 → 회수)
-     */
-    public void recall() {
-        this.reportStatus = ReportStatus.RECALLED;
-        this.returnAt = LocalDateTime.now();
-        this.currentApproverId = null;
-    }
-
-    // ② 결재 처리 후 호출
-    public void moveToNextOrComplete(ApprovalLine line) {
-        if (line.getApprovalStatus() == ApprovalStatus.REJECTED) {
-            // 반려
-            this.reportStatus = ReportStatus.REJECTED;
-            this.returnAt = line.getApprovalDateTime();
-            this.currentApproverId = null;
-            return;
+        /**
+         * 연관관계 편의 메서드
+         * Reports의 approvalLines에 자식을 추가하고,
+         * ApprovalLine에는 부모(this)를 설정합니다.
+         */
+        public void addApprovalLine (ApprovalLine approvalLine){
+            this.approvalLines.add(approvalLine);
+            approvalLine.setReports(this);
         }
 
-        // 승인된 경우, 다음 결재자 찾기
-        Optional<ApprovalLine> next = this.approvalLines.stream()
-                .filter(l -> l.getApprovalStatus() == ApprovalStatus.PENDING)
-                .min(Comparator.comparing(ApprovalLine::getApprovalContext));
 
-        // 3. PENDING 상태인 결재자가 남아있는지 확인
-        if (next.isPresent()) {
-            // 아직 결재할 사람이 남았으므로 IN_PROGRESS 유지
-            this.reportStatus = ReportStatus.IN_PROGRESS;
-            this.currentApproverId = next.get().getEmployeeId();
-        } else {
-            // PENDING 상태인 결재자가 더 이상 없으면 최종 승인
-            this.reportStatus = ReportStatus.APPROVED;
-            this.completedAt = line.getApprovalDateTime();
+        /**
+         * 결재 라인을 DTO 목록으로 교체
+         */
+        public void replaceApprovalLines (List < ApprovalLineReqDto > dtoList) {
+
+            approvalLines.clear();
+
+            if (dtoList != null) {
+                dtoList.forEach(dto -> {
+                    ApprovalLine line = ApprovalLine.builder()
+                            .employeeId(dto.getEmployeeId())
+                            .approvalContext(dto.getApprovalContext())
+                            .approvalStatus(ApprovalStatus.PENDING)
+                            .approvalDateTime(LocalDateTime.now())
+                            .build();
+
+                    this.addApprovalLine(line);
+                });
+            }
+        }
+
+        /**
+         * 보고서 회수 처리 (결재 대기 → 회수)
+         */
+        public void recall () {
+            this.reportStatus = ReportStatus.RECALLED;
+            this.returnAt = LocalDateTime.now();
             this.currentApproverId = null;
         }
-    }
 
-    /**
-     * 현재 보고서의 정보를 바탕으로 재상신할 새로운 보고서를 생성합니다.
-     *
-     * @param newTitle    새로운 제목
-     * @param newContent  새로운 내용
-     * @param newLinesDto 새로운 결재 라인 정보
-     * @param attachments
-     * @return 재상신된 새로운 Reports 객체
-     */
-    public Reports resubmit(String newTitle, String newContent, List<ApprovalLineReqDto> newLinesDto, List<AttachmentJsonReqDto> attachments) {
-        // 1. 새로운 Reports 객체 생성
-        Reports newReport = Reports.builder()
-                .writerId(this.writerId)
-                .reportTemplateId(this.reportTemplateId)
-                .reportTemplateData(this.reportTemplateData)
-                .title(newTitle)
-                .content(newContent)
-                .reportStatus(ReportStatus.DRAFT)
-                .reportCreatedAt(LocalDateTime.now())
-                .submittedAt(LocalDateTime.now())
-                .previousReportId(this.id)
-                .build();
+        // ② 결재 처리 후 호출
+        public void moveToNextOrComplete (ApprovalLine line){
+            if (line.getApprovalStatus() == ApprovalStatus.REJECTED) {
+                // 반려
+                this.reportStatus = ReportStatus.REJECTED;
+                this.returnAt = line.getApprovalDateTime();
+                this.currentApproverId = null;
+                return;
+            }
 
-        // 2. 새로운 결재 라인 설정
-        newReport.replaceApprovalLines(newLinesDto); // 기존 메소드 재활용
-        if (!newReport.getApprovalLines().isEmpty()) {
-            newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
+            // 승인된 경우, 다음 결재자 찾기
+            Optional<ApprovalLine> next = this.approvalLines.stream()
+                    .filter(l -> l.getApprovalStatus() == ApprovalStatus.PENDING)
+                    .min(Comparator.comparing(ApprovalLine::getApprovalContext));
+
+            // 3. PENDING 상태인 결재자가 남아있는지 확인
+            if (next.isPresent()) {
+                // 아직 결재할 사람이 남았으므로 IN_PROGRESS 유지
+                this.reportStatus = ReportStatus.IN_PROGRESS;
+                this.currentApproverId = next.get().getEmployeeId();
+            } else {
+                // PENDING 상태인 결재자가 더 이상 없으면 최종 승인
+                this.reportStatus = ReportStatus.APPROVED;
+                this.completedAt = line.getApprovalDateTime();
+                this.currentApproverId = null;
+            }
         }
 
-        newReport.setDetail(this.getDetail());
+        /**
+         * 현재 보고서의 정보를 바탕으로 재상신할 새로운 보고서를 생성합니다.
+         *
+         * @param newTitle    새로운 제목
+         * @param newContent  새로운 내용
+         * @param newLinesDto 새로운 결재 라인 정보
+         * @param attachments
+         * @return 재상신된 새로운 Reports 객체
+         */
+        public Reports resubmit (String newTitle, String
+        newContent, List < ApprovalLineReqDto > newLinesDto, List < AttachmentJsonReqDto > attachments){
+            // 1. 새로운 Reports 객체 생성
+            Reports newReport = Reports.builder()
+                    .writerId(this.writerId)
+                    .reportTemplateId(this.reportTemplateId)
+                    .reportTemplateData(this.reportTemplateData)
+                    .title(newTitle)
+                    .content(newContent)
+                    .reportStatus(ReportStatus.DRAFT)
+                    .reportCreatedAt(LocalDateTime.now())
+                    .submittedAt(LocalDateTime.now())
+                    .previousReportId(this.id)
+                    .build();
 
-        return newReport;
+            // 2. 새로운 결재 라인 설정
+            newReport.replaceApprovalLines(newLinesDto); // 기존 메소드 재활용
+            if (!newReport.getApprovalLines().isEmpty()) {
+                newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
+            }
+
+            newReport.setDetail(this.getDetail());
+
+            return newReport;
+        }
+
+        // 기존 보고서의 상태를 변경하는 메소드
+        public void markAsResubmitted () {
+            this.reportStatus = ReportStatus.RECALLED; // 또는 'RESUBMITTED' 같은 새로운 상태
+            this.returnAt = LocalDateTime.now();
+            this.currentApproverId = null;
+        }
+
+
+        public ReportReferences addReference (@NotNull(message = "참조자 ID를 입력해주세요.") Long employeeId){
+            ReportReferences newRef = ReportReferences.builder()
+                    .reports(this)
+                    .employeeId(employeeId)
+                    .build();
+            this.reportReferences.add(newRef);
+            return newRef;
+        }
+
+        /**
+         * 재상신 시 원본 문서의 템플릿 정보를 새로운 문서에 복사합니다.
+         * 이 메소드는 오직 재상신 로직에서만 사용되어야 합니다.
+         *
+         * @param originalTemplateId 원본 문서의 템플릿 ID
+         * @param newTemplateData    사용자가 새로 입력한 템플릿 데이터
+         */
+        public void applyResubmitTemplateInfo (Long originalTemplateId, String newTemplateData){
+            this.reportTemplateId = originalTemplateId;
+            this.reportTemplateData = newTemplateData;
+        }
     }
-
-    // 기존 보고서의 상태를 변경하는 메소드
-    public void markAsResubmitted() {
-        this.reportStatus = ReportStatus.RECALLED; // 또는 'RESUBMITTED' 같은 새로운 상태
-        this.returnAt = LocalDateTime.now();
-        this.currentApproverId = null;
-    }
-
-
-    public ReportReferences addReference(@NotNull(message = "참조자 ID를 입력해주세요.") Long employeeId) {
-        ReportReferences newRef = ReportReferences.builder()
-                .reports(this)
-                .employeeId(employeeId)
-                .build();
-        this.reportReferences.add(newRef);
-        return newRef;
-    }
-
-    /**
-     * 재상신 시 원본 문서의 템플릿 정보를 새로운 문서에 복사합니다.
-     * 이 메소드는 오직 재상신 로직에서만 사용되어야 합니다.
-     *
-     * @param originalTemplateId 원본 문서의 템플릿 ID
-     * @param newTemplateData    사용자가 새로 입력한 템플릿 데이터
-     */
-    public void applyResubmitTemplateInfo(Long originalTemplateId, String newTemplateData) {
-        this.reportTemplateId = originalTemplateId;
-        this.reportTemplateData = newTemplateData;
-    }
-}
 
