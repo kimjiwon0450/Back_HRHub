@@ -1,6 +1,10 @@
 package com.playdata.hrservice.hr.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -17,16 +21,23 @@ public class WeatherService {
     private String apiKey;
 
     public String getVilageFcst(Map<String, String> params) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/getVilageFcst");
-        // 항상 API 키를 파라미터로 붙임
-        builder.queryParam("serviceKey", apiKey);
+        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(baseUrl + "/getVilageFcst")
+                .queryParam("serviceKey", apiKey);
         for (Map.Entry<String, String> entry : params.entrySet()) {
             builder.queryParam(entry.getKey(), entry.getValue());
         }
-        System.out.println("apiKey: " + apiKey);
-        System.out.println("기상청 호출 URL: " + builder.toUriString());
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Accept", "application/json");
+        HttpEntity<String> entity = new HttpEntity<>(headers);
 
         RestTemplate restTemplate = new RestTemplate();
-        return restTemplate.getForObject(builder.toUriString(), String.class);
+        ResponseEntity<String> response = restTemplate.exchange(
+                builder.toUriString(),
+                HttpMethod.GET,
+                entity,
+                String.class
+        );
+        return response.getBody();
     }
 }
