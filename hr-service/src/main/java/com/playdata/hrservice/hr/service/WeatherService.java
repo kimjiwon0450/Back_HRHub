@@ -38,6 +38,10 @@ public class WeatherService {
                 entity,
                 String.class
         );
+        System.out.println("apiKey: " + apiKey);
+        // 2. 결과 URL 로그 꼭 찍어서 확인
+        System.out.println("기상청 호출 URL: " + builder.toUriString());
+
         return response.getBody();
     }
 }
