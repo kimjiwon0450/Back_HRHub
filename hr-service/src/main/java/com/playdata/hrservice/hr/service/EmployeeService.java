@@ -61,7 +61,7 @@ public class EmployeeService {
     public void createUser(EmployeeReqDto dto) throws JsonProcessingException {
         // 1. 이메일 중복 확인 (신규 가입에만 해당)
         if (employeeRepository.findByEmail(dto.getEmail()).isPresent()) {
-            throw new IllegalArgumentException("이미 존재하는 이메일 입니다!");
+            throw new IllegalArgumentException("이미 존재하는 이메일 입니다.");
         }
 
 
@@ -322,7 +322,7 @@ public class EmployeeService {
     public HrTransferHistoryResDto getTransferHistory(Long employeeId, TokenUserInfo tokenUserInfo) throws JsonProcessingException {
         if (!tokenUserInfo.getEmployeeId().equals(employeeId)) {
             if (!tokenUserInfo.getRole().equals(Role.ADMIN) && !tokenUserInfo.getRole().equals(Role.HR_MANAGER)) {
-                throw new RuntimeException("권한이 없습니다!");
+                throw new RuntimeException("권한이 없습니다.");
             }
         }
 
