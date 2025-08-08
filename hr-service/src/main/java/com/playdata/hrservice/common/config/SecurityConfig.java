@@ -38,6 +38,7 @@ public class SecurityConfig {
                             "/hr/employees/*",
                             "/hr/employees/names",
                             "/hr/employees/login",
+                            "/hr/employees/email/verification/*",
                             "/hr/employees/password",
                             "/hr/departments", "/hr/departments/*",
                             "/hr/verify",
