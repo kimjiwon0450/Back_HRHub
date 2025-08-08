@@ -112,7 +112,7 @@ public class EmployeeService {
 
     public Employee findById(Long id) {
         return employeeRepository.findById(id).orElseThrow(
-                () -> new EntityNotFoundException("Employee not found by id")
+                () -> new EntityNotFoundException("계정을 찾을 수 없습니다.")
         );
     }
 
@@ -122,7 +122,7 @@ public class EmployeeService {
         }
 
         Employee employee = employeeRepository.findByEmail(dto.getEmail()).orElseThrow(
-                () -> new EntityNotFoundException("Employee not found!")
+                () -> new EntityNotFoundException("계정을 찾을 수 없습니다.")
         );
 
         // F2-25
@@ -220,13 +220,13 @@ public class EmployeeService {
 
     public EmployeeResDto getEmployee(Long id) {
         return employeeRepository.findById(id).orElseThrow(
-                () -> new EntityNotFoundException("해당 직원은 존재하지 않습니다.")
+                () -> new EntityNotFoundException("조회되지 않는 사용자 입니다.")
         ).toDto();
     }
 
     public EmployeeResDto getEmployeeByEmail(String email) {
         return employeeRepository.findByEmail(email).orElseThrow(
-                () -> new EntityNotFoundException("해당 직원은 존재하지 않습니다.")
+                () -> new EntityNotFoundException("조회되지 않는 사용자 입니다.")
         ).toDto();
     }
 
@@ -234,7 +234,7 @@ public class EmployeeService {
     @Transactional
     public EmployeeResDto modifyEmployeeInfo(Long id, EmployeeReqDto dto, Role role) throws JsonProcessingException {
         Employee employee = employeeRepository.findById(id).orElseThrow(
-                () -> new EntityNotFoundException("Employee not found!")
+                () -> new EntityNotFoundException("조회되지 않는 사용자 입니다.")
         );
         if (employee.getStatus().equals(EmployeeStatus.INACTIVE)) {
             throw new RuntimeException("퇴사한 직원 정보는 수정할 수 없습니다.");
@@ -292,18 +292,18 @@ public class EmployeeService {
 
     public String getEmployeeName(Long id) {
         return employeeRepository.findById(id).orElseThrow(
-                () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")).getName();
+                () -> new EntityNotFoundException("조회되지 않는 사용자 입니다.")).getName();
     }
 
     public String getDepartmentNameOfEmployee(Long id) {
         return employeeRepository.findById(id).orElseThrow(
-                () -> new EntityNotFoundException("해당 직원이 존재하지 않습니다.")).getDepartment().getName();
+                () -> new EntityNotFoundException("조회되지 않는 사용자 입니다.")).getDepartment().getName();
     }
 
     // 직원삭제
     public void deleteEmployee(Long id) {
         Employee employee = employeeRepository.findByEmployeeId(id).orElseThrow(
-                () -> new EntityNotFoundException("조회되지 않는 사용자 입니다!")
+                () -> new EntityNotFoundException("조회되지 않는 사용자 입니다.")
         );
         employee.updateStatus(EmployeeStatus.INACTIVE);
         employeeRepository.save(employee);
