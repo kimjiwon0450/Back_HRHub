@@ -285,4 +285,20 @@ public class CommunityController {
         int count = communityService.getCommentCountByCommunityId(communityId);
         return ResponseEntity.ok(CommonResDto.success("댓글 수 조회 성공", Map.of("commentCount", count)));
     }
+
+    // ✅ 즐겨 찾기 ===============================================
+    @PostMapping("/favorites/{communityId}")
+    public ResponseEntity<?> toggleFavorite(@PathVariable Long communityId,
+                                            @AuthenticationPrincipal TokenUserInfo userInfo) {
+        Long userId = userInfo.getEmployeeId();
+        communityService.toggleFavorite(userId, communityId);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/favorites")
+    public ResponseEntity<List<Long>> getFavorites(@AuthenticationPrincipal TokenUserInfo userInfo) {
+        Long userId = userInfo.getEmployeeId();
+        List<Long> favorites = communityService.getFavoriteCommunityIds(userId);
+        return ResponseEntity.ok(favorites);
+    }
 }
