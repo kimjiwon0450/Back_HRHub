@@ -213,7 +213,13 @@ public class NoticeController {
 
     // 글 상세 화면 조회
     @GetMapping("/{noticeId:\\d+}")
-    public ResponseEntity<NoticeResponse> getGeneralPost(@PathVariable Long noticeId) {
+    public ResponseEntity<NoticeResponse> getGeneralPost(
+            @PathVariable Long noticeId,
+            @AuthenticationPrincipal TokenUserInfo userInfo,
+            HttpServletRequest request
+            ) {
+        String token = request.getHeader("Authorization");  // 토큰 꺼내기
+
         Notice notice = noticeService.findPostById(noticeId);
         HrUserResponse user = hrUserClient.getUserInfo(notice.getEmployeeId());
         DepResponse dep = departmentClient.getDepInfo(notice.getDepartmentId());
