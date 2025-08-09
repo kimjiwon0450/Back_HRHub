@@ -963,16 +963,20 @@ public class ApprovalService {
                 req.getAttachments()
         );
 
-        newReport.applyResubmitTemplateInfo(
-                originalReport.getReportTemplateId(),
-                req.getReportTemplateData() != null
-                        ? req.getReportTemplateData()
-                        : originalReport.getReportTemplateData()
-        );
+        Long originalTemplateId = originalReport.getReportTemplateId();
+        String templateDataToApply = req.getReportTemplateData() != null
+                ? req.getReportTemplateData()
+                : originalReport.getReportTemplateData();
 
         log.info("[DEBUG] originalReport.templateId={}, templateData={}",
-                originalReport.getReportTemplateId(),
+                originalTemplateId,
                 originalReport.getReportTemplateData());
+
+        log.info("[DEBUG] applying templateId={}, templateData={} to new report", originalTemplateId, templateDataToApply);
+        newReport.applyResubmitTemplateInfo(originalTemplateId, templateDataToApply);
+        log.info("[DEBUG] after apply: newReport.templateId={}, templateData={}",
+                newReport.getReportTemplateId(),
+                newReport.getReportTemplateData());
 
         // 1) 기존 detail JSON 파싱
         Map<String, Object> detailMap = new HashMap<>();
@@ -997,17 +1001,43 @@ public class ApprovalService {
         }
         // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
         Reports savedNewReport = reportsRepository.save(newReport);
-
+        log.info("[DEBUG] savedNewReport.templateId={}, templateData={}",
+                savedNewReport.getReportTemplateId(),
+                savedNewReport.getReportTemplateData());
 
         // 4. 원본 보고서의 상태를 변경하여 더 이상 유효하지 않음을 표시합니다.
         originalReport.markAsResubmitted();
         reportsRepository.save(originalReport);
 
-        // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
+        // 5. 템플릿 및 폼 데이터 파싱
+        Map<String, Object> templateMap = new HashMap<>();
+        Map<String, Object> formDataMap = new HashMap<>();
+        try {
+            if (savedNewReport.getReportTemplateId() != null) {
+                ReportTemplate template = templateRepository.findById(savedNewReport.getReportTemplateId())
+                        .orElse(null);
+                if (template != null && template.getTemplate() != null) {
+                    templateMap = objectMapper.readValue(template.getTemplate(), new TypeReference<>() {
+                    });
+                }
+            }
+
+            if (savedNewReport.getReportTemplateData() != null && !savedNewReport.getReportTemplateData().isBlank()) {
+                formDataMap = objectMapper.readValue(savedNewReport.getReportTemplateData(), new TypeReference<>() {
+                });
+            }
+        } catch (JsonProcessingException e) {
+            log.error("템플릿 또는 폼 데이터 파싱 실패: reportId={}", savedNewReport.getId(), e);
+        }
+
+        // 6. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
         return ResubmitResDto.builder()
                 .reportId(savedNewReport.getId()) // 새로 생성된 ID
                 .reportStatus(savedNewReport.getReportStatus())
                 .resubmittedAt(savedNewReport.getSubmittedAt())
+                .template(templateMap)
+                .formData(formDataMap)
+                .templateId(savedNewReport.getReportTemplateId())
                 .build();
     }
 
