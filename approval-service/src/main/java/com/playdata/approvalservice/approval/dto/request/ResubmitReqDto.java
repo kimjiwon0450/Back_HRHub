@@ -27,4 +27,5 @@ public class ResubmitReqDto {
 
     private String reportTemplateData;
 
+
 }

@@ -5,6 +5,7 @@ import com.playdata.approvalservice.approval.entity.ReportStatus;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Getter
 @ToString
@@ -15,4 +16,8 @@ public class ResubmitResDto {
     private Long reportId;
     private ReportStatus reportStatus;
     private LocalDateTime resubmittedAt;
+
+    private Map<String, Object> template;
+    private Map<String, Object> formData;
+
 }

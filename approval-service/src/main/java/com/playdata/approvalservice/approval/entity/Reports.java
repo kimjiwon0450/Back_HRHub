@@ -232,6 +232,7 @@ public class Reports extends BaseTimeEntity {
                 .reportCreatedAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now()) // ★ 제출일시도 바로 기록
                 .reportTemplateId(dto.getTemplateId())
+                .reportTemplateData(dto.getReportTemplateData())
                 .build();
 
         // 결재 라인 설정 (기존 로직과 동일)
@@ -375,6 +376,7 @@ public class Reports extends BaseTimeEntity {
         }
 
         newReport.setDetail(this.getDetail());
+
 
         return newReport;
     }
