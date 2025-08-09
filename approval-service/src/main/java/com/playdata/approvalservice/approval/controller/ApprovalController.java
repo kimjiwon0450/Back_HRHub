@@ -272,12 +272,13 @@ public class ApprovalController {
     public ResponseEntity<CommonResDto> resubmitReport(
             @PathVariable Long reportId,
             @RequestBody(required = false) ResubmitReqDto req,
+            @RequestParam(name="submit", defaultValue="false") boolean submit,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) throws JsonProcessingException {
 
         Long writerId = getCurrentUserId(userInfo);
 
-        ResubmitResDto res = approvalService.resubmit(reportId, writerId, req);
+        ResubmitResDto res = approvalService.resubmit(reportId, writerId, req, submit);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 재상신 완료", res));
     }
 

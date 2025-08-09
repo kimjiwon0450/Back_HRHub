@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -258,21 +259,23 @@ public class ApprovalService {
             }
         }
 
-        Map<String,Object> templateMap = Collections.emptyMap();
+        Map<String, Object> templateMap = Collections.emptyMap();
         if (req.getTemplateId() != null) {
             ReportTemplate tpl = templateRepository.findById(req.getTemplateId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "양식이 없습니다."));
             templateMap = objectMapper.readValue(
                     tpl.getTemplate(),
-                    new TypeReference<>() {}
+                    new TypeReference<>() {
+                    }
             );
         }
         // 3) 폼 데이터 파싱
-        Map<String,Object> formDataMap = Collections.emptyMap();
+        Map<String, Object> formDataMap = Collections.emptyMap();
         if (req.getReportTemplateData() != null && !req.getReportTemplateData().isBlank()) {
             formDataMap = objectMapper.readValue(
                     req.getReportTemplateData(),
-                    new TypeReference<>() {}
+                    new TypeReference<>() {
+                    }
             );
         }
 
@@ -927,7 +930,7 @@ public class ApprovalService {
      * 보고서 재상신
      */
     @Transactional
-    public ResubmitResDto resubmit(Long originalReportId, Long writerId, ResubmitReqDto req) throws JsonProcessingException {
+    public ResubmitResDto resubmit(Long originalReportId, Long writerId, ResubmitReqDto req, boolean submit) throws JsonProcessingException {
 
         // 1. 원본 보고서를 찾고, 권한을 확인합니다. (반려 상태의 보고서만 재상신 가능)
         Reports originalReport = reportsRepository.findById(originalReportId)
@@ -970,6 +973,7 @@ public class ApprovalService {
                         : originalReport.getReportTemplateData()
         );
 
+
         log.info("[DEBUG] originalReport.templateId={}, templateData={}",
                 originalReport.getReportTemplateId(),
                 originalReport.getReportTemplateData());
@@ -991,6 +995,17 @@ public class ApprovalService {
         if (req.getReferences() != null && !req.getReferences().isEmpty()) {
             detailMap.put("references", req.getReferences());
         }
+
+        Long templateId = req.getTemplateId() != null ? req.getTemplateId() : originalReport.getReportTemplateId();
+        String templateData = req.getReportTemplateData() != null ? req.getReportTemplateData() : originalReport.getReportTemplateData();
+        newReport.applyResubmitTemplateInfo(templateId, templateData);
+
+        if (submit) {
+            newReport.markInProgressNow();
+        } else {
+            newReport.markDraft();
+        }
+
 
         if (!detailMap.isEmpty()) {
             newReport.setDetail(objectMapper.writeValueAsString(detailMap));
@@ -1025,7 +1040,6 @@ public class ApprovalService {
         }
 
 
-
         // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
         return ResubmitResDto.builder()
                 .reportId(savedNewReport.getId()) // 새로 생성된 ID
@@ -1036,6 +1050,7 @@ public class ApprovalService {
                 .templateId(savedNewReport.getReportTemplateId())
                 .build();
     }
+
 
 
     @Transactional

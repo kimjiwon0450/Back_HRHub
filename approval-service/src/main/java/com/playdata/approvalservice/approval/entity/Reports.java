@@ -363,7 +363,6 @@ public class Reports extends BaseTimeEntity {
                 .reportTemplateData(this.reportTemplateData)
                 .title(newTitle)
                 .content(newContent)
-                .reportStatus(ReportStatus.DRAFT)
                 .reportCreatedAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now())
                 .previousReportId(this.id)
@@ -408,6 +407,26 @@ public class Reports extends BaseTimeEntity {
     public void applyResubmitTemplateInfo(Long originalTemplateId, String newTemplateData) {
         this.reportTemplateId = originalTemplateId;
         this.reportTemplateData = newTemplateData;
+    }
+
+    /**
+     * 상신 마크
+     */
+    public void markInProgressNow() {
+        this.reportStatus = ReportStatus.IN_PROGRESS;
+        this.submittedAt = LocalDateTime.now();
+        if (this.approvalLines != null && !this.approvalLines.isEmpty()) {
+            this.currentApproverId = this.approvalLines.get(0).getEmployeeId();
+        }
+    }
+
+    /**
+     * 임시 저장 마크
+     */
+    public void markDraft() {
+        this.reportStatus = ReportStatus.DRAFT;
+        this.submittedAt = null;
+        this.currentApproverId = null; // 드래프트에선 현재 결재자 없음
     }
 }
 
