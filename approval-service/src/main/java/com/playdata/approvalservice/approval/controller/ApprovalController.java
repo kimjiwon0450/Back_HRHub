@@ -275,6 +275,7 @@ public class ApprovalController {
             @RequestParam(name="submit", defaultValue="false") boolean submit,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) throws JsonProcessingException {
+        log.info("[RESUBMIT] reportId={}, submit={}", reportId, submit);
 
         Long writerId = getCurrentUserId(userInfo);
 

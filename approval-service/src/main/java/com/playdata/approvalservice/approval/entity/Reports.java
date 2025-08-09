@@ -364,15 +364,15 @@ public class Reports extends BaseTimeEntity {
                 .title(newTitle)
                 .content(newContent)
                 .reportCreatedAt(LocalDateTime.now())
-                .submittedAt(LocalDateTime.now())
+                .reportStatus(ReportStatus.DRAFT)
                 .previousReportId(this.id)
                 .build();
 
         // 2. 새로운 결재 라인 설정
         newReport.replaceApprovalLines(newLinesDto); // 기존 메소드 재활용
-        if (!newReport.getApprovalLines().isEmpty()) {
-            newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
-        }
+//        if (!newReport.getApprovalLines().isEmpty()) {
+//            newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
+//        }
 
         newReport.setDetail(this.getDetail());
 
