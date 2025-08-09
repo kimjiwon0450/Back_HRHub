@@ -1003,11 +1003,37 @@ public class ApprovalService {
         originalReport.markAsResubmitted();
         reportsRepository.save(originalReport);
 
+        // 5. 템플릿 및 폼 데이터 파싱
+        Map<String, Object> templateMap = new HashMap<>();
+        Map<String, Object> formDataMap = new HashMap<>();
+        try {
+            if (savedNewReport.getReportTemplateId() != null) {
+                ReportTemplate template = templateRepository.findById(savedNewReport.getReportTemplateId())
+                        .orElse(null);
+                if (template != null && template.getTemplate() != null) {
+                    templateMap = objectMapper.readValue(template.getTemplate(), new TypeReference<>() {
+                    });
+                }
+            }
+
+            if (savedNewReport.getReportTemplateData() != null && !savedNewReport.getReportTemplateData().isBlank()) {
+                formDataMap = objectMapper.readValue(savedNewReport.getReportTemplateData(), new TypeReference<>() {
+                });
+            }
+        } catch (JsonProcessingException e) {
+            log.error("템플릿 또는 폼 데이터 파싱 실패: reportId={}", savedNewReport.getId(), e);
+        }
+
+
+
         // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
         return ResubmitResDto.builder()
                 .reportId(savedNewReport.getId()) // 새로 생성된 ID
                 .reportStatus(savedNewReport.getReportStatus())
                 .resubmittedAt(savedNewReport.getSubmittedAt())
+                .template(templateMap)
+                .formData(formDataMap)
+                .templateId(savedNewReport.getReportTemplateId())
                 .build();
     }
 
