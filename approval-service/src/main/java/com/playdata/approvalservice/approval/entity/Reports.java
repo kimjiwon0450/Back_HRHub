@@ -263,6 +263,16 @@ public class Reports extends BaseTimeEntity {
                 this.currentApproverId = null; // 결재선이 비워졌을 경우
             }
         }
+
+        // ★★★ 상태 전이 로직 추가 ★★★
+        if (dto.getStatus() != null && this.reportStatus != dto.getStatus()) {
+            // DRAFT -updateReport> IN_PROGRESS 로의 상태 변경만 허용 (안전장치)
+            if (this.reportStatus == ReportStatus.DRAFT || this.reportStatus == ReportStatus.RECALLED
+                    && dto.getStatus() == ReportStatus.IN_PROGRESS) {
+                this.reportStatus = ReportStatus.IN_PROGRESS;
+                this.submittedAt = LocalDateTime.now(); // 상신일시 기록
+            }
+        }
     }
 
     /**
@@ -343,7 +353,8 @@ public class Reports extends BaseTimeEntity {
      * @param attachments
      * @return 재상신된 새로운 Reports 객체
      */
-    public Reports resubmit(String newTitle, String newContent, List<ApprovalLineReqDto> newLinesDto, List<AttachmentJsonReqDto> attachments) {
+    public Reports resubmit(String newTitle, String
+            newContent, List<ApprovalLineReqDto> newLinesDto, List<AttachmentJsonReqDto> attachments) {
         // 1. 새로운 Reports 객체 생성
         Reports newReport = Reports.builder()
                 .writerId(this.writerId)
