@@ -80,6 +80,14 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                      @Param("toDate") LocalDateTime toDate,
                                      Pageable pageable);
 
+    // 상세공지페이지
+    @Query("SELECT n FROM Notice n " +
+            "WHERE n.boardStatus = true " +
+            "AND n.published = true " +
+            "AND n.noticeId = :noticeId")
+    Optional<Notice> findNoticeById(@Param("noticeId") Long noticeId);
+
+
     // 부서공지글 내가쓴글
     @Query("SELECT n FROM Notice n WHERE " +
             "n.boardStatus = true AND " +
@@ -115,6 +123,24 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
     @Modifying
     @Query("UPDATE Notice n SET n.viewCount = n.viewCount + 1 WHERE n.noticeId = :id")
     void incrementViewCount(@Param("id") Long id);
+
+    // 1) departmentId로 최신 N개의 noticeId를 가져옴 (Pageable로 limit 제어)
+    @Query("SELECT n.noticeId FROM Notice n " +
+            "WHERE n.departmentId = :departmentId " +
+            "ORDER BY n.createdAt DESC")
+    List<Long> findTopNoticeIdsByDepartmentId(@Param("departmentId") Long departmentId, Pageable pageable);
+
+    // 2) 제외할 ID들을 받아서 결과 조회 (excludedIds가 null이면 제외조건 무시)
+    @Query("SELECT n FROM Notice n " +
+            "WHERE (n.departmentId = :departmentId OR n.departmentId = 0) " +
+            "  AND n.position <= :position " +
+            "  AND (:excludedIds IS NULL OR n.noticeId NOT IN :excludedIds) " +
+            "ORDER BY n.createdAt DESC")
+    Page<Notice> findAllExcludingIds(@Param("position") int position,
+                                     @Param("departmentId") Long departmentId,
+                                     @Param("excludedIds") List<Long> excludedIds,
+                                     Pageable pageable);
+
 
 }
 

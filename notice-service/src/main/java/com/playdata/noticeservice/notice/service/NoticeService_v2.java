@@ -107,29 +107,47 @@ public class NoticeService_v2 {
     /**
      * 내 부서 공지글 조회(기본)
      */
+//    @Transactional(readOnly = true)
+//    public Page<Notice> getMyDepartmentNotices(Position position, Long departmentId,
+//                                               int page, int size, String sortBy, String sortDir) {
+//        Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
+//        Sort sort = Sort.by(direction, sortBy);
+//        Pageable pageable = PageRequest.of(page, size, sort);
+//        int position_num = position.ordinal();
+//
+//        // 상단 고정용 상위 5개 전체공지글 (createdAt 고정)
+//        List<Notice> top5GeneralNotices =
+//                noticeRepository.findAllGeneralNotices(
+//                        position_num, PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt")));
+//        Set<Long> top5GeneralIds = top5GeneralNotices.stream().map(Notice::getNoticeId).collect(Collectors.toSet());
+//
+//        // 나머지 전체공지글 (정렬 기준 반영)
+//        List<Notice> sortedGeneralNotices =
+//                noticeRepository.findAllGeneralNotices(
+//                        position_num,PageRequest.of(0, 1000, sort)); // 충분히 크게
+//        List<Notice> overflowGenetalNotices = sortedGeneralNotices.stream()
+//                .filter(n -> !top5GeneralIds.contains(n.getNoticeId()))
+//                .toList();
+//
+//        return noticeRepository.findAllNotices(position_num, departmentId, pageable);
+//    }
+
     @Transactional(readOnly = true)
     public Page<Notice> getMyDepartmentNotices(Position position, Long departmentId,
                                                int page, int size, String sortBy, String sortDir) {
         Sort.Direction direction = sortDir.equalsIgnoreCase("asc") ? Sort.Direction.ASC : Sort.Direction.DESC;
-        Sort sort = Sort.by(direction, sortBy);
-        Pageable pageable = PageRequest.of(page, size, sort);
-        int position_num = position.ordinal();
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
 
-        // 상단 고정용 상위 5개 전체공지글 (createdAt 고정)
-        List<Notice> top5GeneralNotices =
-                noticeRepository.findAllGeneralNotices(
-                        position_num, PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "createdAt")));
-        Set<Long> top5GeneralIds = top5GeneralNotices.stream().map(Notice::getNoticeId).collect(Collectors.toSet());
+        int positionNum = position.ordinal();
 
-        // 나머지 전체공지글 (정렬 기준 반영)
-        List<Notice> sortedGeneralNotices =
-                noticeRepository.findAllGeneralNotices(
-                        position_num,PageRequest.of(0, 1000, sort)); // 충분히 크게
-        List<Notice> overflowGenetalNotices = sortedGeneralNotices.stream()
-                .filter(n -> !top5GeneralIds.contains(n.getNoticeId()))
-                .toList();
+        // 1) departmentId = 0 인 최신 5개 ID 조회
+        List<Long> top5Dept0Ids = noticeRepository.findTopNoticeIdsByDepartmentId(0L, PageRequest.of(0, 5));
 
-        return noticeRepository.findAllNotices(position_num, departmentId, pageable);
+        // 2) 빈 리스트면 null로 바꿔서 전달 (JPQL 안전성)
+        List<Long> excludedIds = (top5Dept0Ids == null || top5Dept0Ids.isEmpty()) ? null : top5Dept0Ids;
+
+        // 3) 제외하고 페이징 조회
+        return noticeRepository.findAllExcludingIds(positionNum, departmentId, excludedIds, pageable);
     }
 
     /**
@@ -220,7 +238,10 @@ public class NoticeService_v2 {
 
     // 상세 페이지 조회
     public Notice findPostById(Long noticeId) {
-        return noticeRepository.findById(noticeId).orElseThrow(() -> new RuntimeException("Post not found"));
+        return noticeRepository.findNoticeById(noticeId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "해당 공지를 찾을 수 없습니다. ID: " + noticeId
+                ));
     }
 
     // 공지글 작성

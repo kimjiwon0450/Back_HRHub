@@ -36,6 +36,7 @@ public class CommunityService {
     private final S3Service s3Service;
     private final HrUserClient hrUserClient;
     private final DepartmentClient departmentClient;
+    private final FavoriteCommunityRepository favoriteRepo;
 
 
     /**
@@ -336,5 +337,27 @@ public class CommunityService {
     // ✅ 댓글 수 조회
     public int getCommentCountByCommunityId(Long communityId) {
         return communityCommentRepository.countByCommunityIdAndCommentStatusTrue(communityId);
+    }
+
+    public void toggleFavorite(Long userId, Long communityId) {
+        Optional<FavoriteCommunity> existing = favoriteRepo.findByUserIdAndCommunityId(userId, communityId);
+        if (existing.isPresent()) {
+            favoriteRepo.delete(existing.get());
+        } else {
+            FavoriteCommunity favorite = new FavoriteCommunity();
+            favorite.setUserId(userId);
+            favorite.setCommunityId(communityId);
+            favoriteRepo.save(favorite);
+        }
+    }
+
+    public boolean isFavorite(Long userId, Long communityId) {
+        return favoriteRepo.findByUserIdAndCommunityId(userId, communityId).isPresent();
+    }
+
+    public List<Long> getFavoriteCommunityIds(Long userId) {
+        return favoriteRepo.findAllByUserId(userId).stream()
+                .map(FavoriteCommunity::getCommunityId)
+                .toList();
     }
 }
