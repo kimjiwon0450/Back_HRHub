@@ -232,6 +232,7 @@ public class Reports extends BaseTimeEntity {
                 .reportCreatedAt(LocalDateTime.now())
                 .submittedAt(LocalDateTime.now()) // ★ 제출일시도 바로 기록
                 .reportTemplateId(dto.getTemplateId())
+                .reportTemplateData(dto.getReportTemplateData())
                 .build();
 
         // 결재 라인 설정 (기존 로직과 동일)
@@ -362,19 +363,19 @@ public class Reports extends BaseTimeEntity {
                 .reportTemplateData(this.reportTemplateData)
                 .title(newTitle)
                 .content(newContent)
-                .reportStatus(ReportStatus.DRAFT)
                 .reportCreatedAt(LocalDateTime.now())
-                .submittedAt(LocalDateTime.now())
+                .reportStatus(ReportStatus.DRAFT)
                 .previousReportId(this.id)
                 .build();
 
         // 2. 새로운 결재 라인 설정
         newReport.replaceApprovalLines(newLinesDto); // 기존 메소드 재활용
-        if (!newReport.getApprovalLines().isEmpty()) {
-            newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
-        }
+//        if (!newReport.getApprovalLines().isEmpty()) {
+//            newReport.setCurrentApproverId(newReport.getApprovalLines().get(0).getEmployeeId());
+//        }
 
         newReport.setDetail(this.getDetail());
+
 
         return newReport;
     }
@@ -406,6 +407,26 @@ public class Reports extends BaseTimeEntity {
     public void applyResubmitTemplateInfo(Long originalTemplateId, String newTemplateData) {
         this.reportTemplateId = originalTemplateId;
         this.reportTemplateData = newTemplateData;
+    }
+
+    /**
+     * 상신 마크
+     */
+    public void markInProgressNow() {
+        this.reportStatus = ReportStatus.IN_PROGRESS;
+        this.submittedAt = LocalDateTime.now();
+        if (this.approvalLines != null && !this.approvalLines.isEmpty()) {
+            this.currentApproverId = this.approvalLines.get(0).getEmployeeId();
+        }
+    }
+
+    /**
+     * 임시 저장 마크
+     */
+    public void markDraft() {
+        this.reportStatus = ReportStatus.DRAFT;
+        this.submittedAt = null;
+        this.currentApproverId = null; // 드래프트에선 현재 결재자 없음
     }
 }
 

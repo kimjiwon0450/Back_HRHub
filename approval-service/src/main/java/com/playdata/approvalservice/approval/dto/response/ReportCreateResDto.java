@@ -6,6 +6,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -27,5 +28,8 @@ public class ReportCreateResDto {
     private Long approvalId;
     private int reminderCount;
     private LocalDateTime remindedAt;
+
+    private Map<String, Object> template;
+    private Map<String, Object> formData;
 
 }

@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 
 import java.io.IOException;
 import java.net.URL;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -216,7 +217,7 @@ public class ApprovalService {
             ReportCreateReqDto req,
             Long writerId,
             List<MultipartFile> files
-    ) {
+    ) throws JsonProcessingException {
         Reports report = Reports.fromDtoForInProgress(req, writerId);
         List<AttachmentJsonReqDto> attachments = new ArrayList<>();
 
@@ -258,6 +259,26 @@ public class ApprovalService {
             }
         }
 
+        Map<String, Object> templateMap = Collections.emptyMap();
+        if (req.getTemplateId() != null) {
+            ReportTemplate tpl = templateRepository.findById(req.getTemplateId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "양식이 없습니다."));
+            templateMap = objectMapper.readValue(
+                    tpl.getTemplate(),
+                    new TypeReference<>() {
+                    }
+            );
+        }
+        // 3) 폼 데이터 파싱
+        Map<String, Object> formDataMap = Collections.emptyMap();
+        if (req.getReportTemplateData() != null && !req.getReportTemplateData().isBlank()) {
+            formDataMap = objectMapper.readValue(
+                    req.getReportTemplateData(),
+                    new TypeReference<>() {
+                    }
+            );
+        }
+
         Reports saved = reportsRepository.save(report);
 
         ApprovalLine firstLine = saved.getApprovalLines().stream().findFirst().orElse(null);
@@ -276,6 +297,8 @@ public class ApprovalService {
                 .returnAt(saved.getReturnAt()) // 반려된 날짜
                 .completedAt(saved.getCompletedAt()) // 전자 결재 완료 날짜
                 .approvalId(firstApprovalId) // 하나의 전자결재 고유 ID
+                .template(templateMap)
+                .formData(formDataMap)
                 .build();
     }
 
@@ -444,7 +467,7 @@ public class ApprovalService {
             ReportFromTemplateReqDto req,
             String writerEmail,
             List<MultipartFile> files
-    ) {
+    ) throws JsonProcessingException {
         // 1. 템플릿 조회
         ReportTemplate template = templateRepository.findById(req.getTemplateId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "템플릿을 찾을 수 없습니다."));
@@ -460,6 +483,9 @@ public class ApprovalService {
         newProgressReq.setReferences(req.getReferences());
 
         Long writerId;
+        newProgressReq.setTemplateId(req.getTemplateId());
+        newProgressReq.setReportTemplateData(objectMapper.writeValueAsString(req.getValues()));
+
         try {
             // (수정) 올바른 메소드 호출: `findIdByEmail`에 `writerEmail`을 파라미터로 전달
             ResponseEntity<Long> response = employeeFeignClient.findIdByEmail(writerEmail);
@@ -904,11 +930,13 @@ public class ApprovalService {
      * 보고서 재상신
      */
     @Transactional
-    public ResubmitResDto resubmit(Long originalReportId, Long writerId, ResubmitReqDto req) {
+    public ResubmitResDto resubmit(Long originalReportId, Long writerId, ResubmitReqDto req, boolean submit) throws JsonProcessingException {
 
         // 1. 원본 보고서를 찾고, 권한을 확인합니다. (반려 상태의 보고서만 재상신 가능)
         Reports originalReport = reportsRepository.findById(originalReportId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보고서를 찾을 수 없습니다."));
+
+        log.error("orginal report:====================================================================================================== {}", originalReport);
 
         if (!originalReport.getWriterId().equals(writerId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "재상신 권한이 없습니다.");
@@ -938,42 +966,97 @@ public class ApprovalService {
                 req.getAttachments()
         );
 
-        newReport.applyResubmitTemplateInfo(
-                originalReport.getReportTemplateId(), // 원본의 템플릿 종류
-                req.getReportTemplateData() != null ? req.getReportTemplateData() : originalReport.getReportTemplateData() // 사용자가 새로 입력한 데이터 (없으면 원본 데이터)
-        );
+        Long originalTemplateId = originalReport.getReportTemplateId();
+        String templateDataToApply = req.getReportTemplateData() != null
+                ? req.getReportTemplateData()
+                : originalReport.getReportTemplateData();
 
-        // 2) attachments/references 덮어쓰기
+
+        log.info("[DEBUG] originalReport.templateId={}, templateData={}",
+                originalTemplateId,
+                originalReport.getReportTemplateData());
+
+        log.info("[DEBUG] applying templateId={}, templateData={} to new report", originalTemplateId, templateDataToApply);
+        newReport.applyResubmitTemplateInfo(originalTemplateId, templateDataToApply);
+        log.info("[DEBUG] after apply: newReport.templateId={}, templateData={}",
+                newReport.getReportTemplateId(),
+                newReport.getReportTemplateData());
+
+        // 1) 기존 detail JSON 파싱
         Map<String, Object> detailMap = new HashMap<>();
+        if (originalReport.getDetail() != null && !originalReport.getDetail().isBlank()) {
+            detailMap = objectMapper.readValue(
+                    originalReport.getDetail(),
+                    new TypeReference<>() {
+                    }
+            );
+        }
+
+        // 2) 요청에 포함된 새로운 attachments/references 덮어쓰기
         if (req.getAttachments() != null && !req.getAttachments().isEmpty()) {
             detailMap.put("attachments", req.getAttachments());
         }
         if (req.getReferences() != null && !req.getReferences().isEmpty()) {
             detailMap.put("references", req.getReferences());
         }
-        if (!detailMap.isEmpty()) {
-            try {
-                newReport.setDetail(objectMapper.writeValueAsString(detailMap));
-            } catch (JsonProcessingException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "detail JSON 직렬화 실패", e);
-            }
+
+        Long templateId = req.getTemplateId() != null ? req.getTemplateId() : originalReport.getReportTemplateId();
+        String templateData = req.getReportTemplateData() != null ? req.getReportTemplateData() : originalReport.getReportTemplateData();
+        newReport.applyResubmitTemplateInfo(templateId, templateData);
+
+        if (submit) {
+            newReport.markInProgressNow();
+        } else {
+            newReport.markDraft();
         }
 
 
+        if (!detailMap.isEmpty()) {
+            newReport.setDetail(objectMapper.writeValueAsString(detailMap));
+        }
         // 3. 새로운 보고서를 저장합니다. (cascade 설정으로 결재라인도 함께 저장됨)
         Reports savedNewReport = reportsRepository.save(newReport);
+        log.info("[DEBUG] savedNewReport.templateId={}, templateData={}",
+                savedNewReport.getReportTemplateId(),
+                savedNewReport.getReportTemplateData());
 
         // 4. 원본 보고서의 상태를 변경하여 더 이상 유효하지 않음을 표시합니다.
         originalReport.markAsResubmitted();
         reportsRepository.save(originalReport);
+
+        // 5. 템플릿 및 폼 데이터 파싱
+        Map<String, Object> templateMap = new HashMap<>();
+        Map<String, Object> formDataMap = new HashMap<>();
+        try {
+            if (savedNewReport.getReportTemplateId() != null) {
+                ReportTemplate template = templateRepository.findById(savedNewReport.getReportTemplateId())
+                        .orElse(null);
+                if (template != null && template.getTemplate() != null) {
+                    templateMap = objectMapper.readValue(template.getTemplate(), new TypeReference<>() {
+                    });
+                }
+            }
+
+            if (savedNewReport.getReportTemplateData() != null && !savedNewReport.getReportTemplateData().isBlank()) {
+                formDataMap = objectMapper.readValue(savedNewReport.getReportTemplateData(), new TypeReference<>() {
+                });
+            }
+        } catch (JsonProcessingException e) {
+            log.error("템플릿 또는 폼 데이터 파싱 실패: reportId={}", savedNewReport.getId(), e);
+        }
+
 
         // 5. 응답 DTO를 반환합니다. (새로 생성된 reportId를 반환)
         return ResubmitResDto.builder()
                 .reportId(savedNewReport.getId()) // 새로 생성된 ID
                 .reportStatus(savedNewReport.getReportStatus())
                 .resubmittedAt(savedNewReport.getSubmittedAt())
+                .template(templateMap)
+                .formData(formDataMap)
+                .templateId(savedNewReport.getReportTemplateId())
                 .build();
     }
+
 
 
     @Transactional

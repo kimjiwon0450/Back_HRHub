@@ -1,5 +1,6 @@
 package com.playdata.approvalservice.approval.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.playdata.approvalservice.approval.dto.request.*;
 import com.playdata.approvalservice.approval.dto.request.template.ReportFromTemplateReqDto;
 import com.playdata.approvalservice.approval.dto.response.*;
@@ -45,6 +46,7 @@ public class ApprovalController {
 
     /**
      * employeeId 넣어주는 메서드
+     *
      * @param userInfo
      * @return
      */
@@ -96,7 +98,7 @@ public class ApprovalController {
             @RequestPart @Valid ReportCreateReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo// 필터에서 주입된 사용자 ID
-    ){
+    ) throws JsonProcessingException {
         Long writerId = getCurrentUserId(userInfo);
         ReportCreateResDto res = approvalService.progressReport(req, writerId, files);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -105,6 +107,7 @@ public class ApprovalController {
 
     /**
      * 보고서 수정
+     *
      * @param reportId
      * @param req
      * @param newFiles
@@ -131,8 +134,9 @@ public class ApprovalController {
 
     /**
      * 보고서 생성 (SCHEDULED - 예약 상신)
-     * @param req 예약 시간(scheduledAt)이 포함된 요청 DTO
-     * @param files 첨부 파일
+     *
+     * @param req      예약 시간(scheduledAt)이 포함된 요청 DTO
+     * @param files    첨부 파일
      * @param userInfo 현재 사용자 정보
      * @return 생성된 보고서 정보
      */
@@ -230,6 +234,7 @@ public class ApprovalController {
 
     /**
      * 보고서의 전체 결재 이력 조회
+     *
      * @param reportId
      * @param userInfo
      * @return
@@ -238,7 +243,7 @@ public class ApprovalController {
     public ResponseEntity<CommonResDto> processApprovalHistory(
             @PathVariable Long reportId,
             @AuthenticationPrincipal TokenUserInfo userInfo
-    ){
+    ) {
         Long writerId = getCurrentUserId(userInfo);
 
         List<ApprovalHistoryResDto> res = approvalService.getApprovalHistory(reportId, writerId);
@@ -267,12 +272,14 @@ public class ApprovalController {
     public ResponseEntity<CommonResDto> resubmitReport(
             @PathVariable Long reportId,
             @RequestBody(required = false) ResubmitReqDto req,
+            @RequestParam(name="submit", defaultValue="false") boolean submit,
             @AuthenticationPrincipal TokenUserInfo userInfo
-    ) {
+    ) throws JsonProcessingException {
+        log.info("[RESUBMIT] reportId={}, submit={}", reportId, submit);
 
         Long writerId = getCurrentUserId(userInfo);
 
-        ResubmitResDto res = approvalService.resubmit(reportId, writerId, req);
+        ResubmitResDto res = approvalService.resubmit(reportId, writerId, req, submit);
         return ResponseEntity.ok(new CommonResDto(HttpStatus.OK, "보고서 재상신 완료", res));
     }
 
@@ -293,8 +300,10 @@ public class ApprovalController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, "참조자 추가 완료", res));
     }
+
     /**
      * 카테고리 추가
+     *
      * @param req
      * @param files
      * @param userInfo
@@ -305,7 +314,7 @@ public class ApprovalController {
             @RequestPart("req") @Valid ReportFromTemplateReqDto req,
             @RequestPart(value = "files", required = false) List<MultipartFile> files,
             @AuthenticationPrincipal TokenUserInfo userInfo
-            ){
+    ) throws JsonProcessingException {
         ReportCreateResDto resDto = approvalService.reportFromTemplate(req, userInfo.getEmail(), files);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new CommonResDto(HttpStatus.CREATED, null, resDto));
@@ -315,14 +324,15 @@ public class ApprovalController {
 
     /**
      * 결재 문서 작성/수정 화면을 위한 데이터 조회 API
-     * @param reportId (Optional) 임시저장/수정할 문서 ID
+     *
+     * @param reportId   (Optional) 임시저장/수정할 문서 ID
      * @param templateId (Optional) 새로 작성할 양식 ID
      * @return 양식의 구조(template)와 입력된 데이터(formData)
      */
     @GetMapping("/form")
     public ResponseEntity<CommonResDto> getReportForm(
             @RequestParam(required = false) Long reportId,
-            @RequestParam(required =false) Long templateId,
+            @RequestParam(required = false) Long templateId,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) {
 
