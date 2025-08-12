@@ -12,6 +12,7 @@ import java.util.Map;
 
 @FeignClient(name = "hr")
 public interface EmployeeFeignClient {
+
     /**
      * 직원 단건 조회
      * @param employeeId 조회할 직원의 ID

@@ -272,7 +272,7 @@ public class ApprovalController {
     public ResponseEntity<CommonResDto> resubmitReport(
             @PathVariable Long reportId,
             @RequestBody(required = false) ResubmitReqDto req,
-            @RequestParam(name="submit", defaultValue="false") boolean submit,
+            @RequestParam(name = "submit", defaultValue = "false") boolean submit,
             @AuthenticationPrincipal TokenUserInfo userInfo
     ) throws JsonProcessingException {
         log.info("[RESUBMIT] reportId={}, submit={}", reportId, submit);

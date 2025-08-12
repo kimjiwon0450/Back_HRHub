@@ -382,7 +382,6 @@ public class Reports extends BaseTimeEntity {
 
     // 기존 보고서의 상태를 변경하는 메소드
     public void markAsResubmitted() {
-        this.reportStatus = ReportStatus.RECALLED; // 또는 'RESUBMITTED' 같은 새로운 상태
         this.returnAt = LocalDateTime.now();
         this.currentApproverId = null;
     }

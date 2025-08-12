@@ -1256,12 +1256,15 @@ public class ApprovalService {
 
         // Specification을 사용하여 각 조건에 맞는 문서 개수를 정확하게 카운트합니다.
 
+        Specification<Reports> inProgressSpec =
+                ReportSpecifications.withDynamicQuery("writer,approver", ReportStatus.IN_PROGRESS, null, userId);
+
         // 1. 내가 결재할 문서 (결재 대기)
         // role='approver'는 현재 결재자(currentApproverId)를 기준으로 하므로, 별도 count 메소드가 더 정확하고 빠릅니다.
         long pendingCount = reportsRepository.countByCurrentApproverIdAndReportStatus(userId, ReportStatus.IN_PROGRESS);
 
         // 2. 내가 올린 문서 (상태별)
-        long inProgressCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.IN_PROGRESS);
+        long inProgressCount = reportsRepository.count(inProgressSpec);
         long rejectedCount = reportsRepository.countByWriterIdAndReportStatus(userId, ReportStatus.REJECTED);
         long draftsCount = reportsRepository.countByWriterIdAndReportStatusIn(
                 userId,
@@ -1287,7 +1290,7 @@ public class ApprovalService {
                 draftsCount,
                 scheduledCount,
                 referenceCount,
-                completedCount // ReportCountResDto에 completed 필드 추가 필요
+                completedCount
         );
     }
 }
