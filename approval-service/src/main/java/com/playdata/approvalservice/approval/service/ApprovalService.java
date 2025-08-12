@@ -1240,8 +1240,6 @@ public class ApprovalService {
         return false;
     }
 
-    // ApprovalService.java
-
     /**
      * 문서 카운트 서비스 (실제 목록 조회 로직과 100% 일치하도록 수정)
      *
@@ -1257,7 +1255,7 @@ public class ApprovalService {
         // Specification을 사용하여 각 조건에 맞는 문서 개수를 정확하게 카운트합니다.
 
         Specification<Reports> inProgressSpec =
-                ReportSpecifications.withDynamicQuery("writer,approver", ReportStatus.IN_PROGRESS, null, userId);
+                ReportSpecifications.withDynamicQuery("writer,approver,involved", ReportStatus.IN_PROGRESS, null, userId);
 
         // 1. 내가 결재할 문서 (결재 대기)
         // role='approver'는 현재 결재자(currentApproverId)를 기준으로 하므로, 별도 count 메소드가 더 정확하고 빠릅니다.
