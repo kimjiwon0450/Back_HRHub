@@ -38,6 +38,11 @@ public class SecurityConfig {
                             "/hr/employees/*",
                             "/hr/employees/names",
                             "/hr/employees/login",
+<<<<<<< Updated upstream
+=======
+                            "/hr/refresh",
+                            "/hr/employees/email/verification/*",
+>>>>>>> Stashed changes
                             "/hr/employees/password",
                             "/hr/departments", "/hr/departments/*",
                             "/hr/verify",
