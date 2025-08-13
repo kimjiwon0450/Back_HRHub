@@ -45,7 +45,8 @@ public class AuthorizationHeaderFilter extends AbstractGatewayFilterFactory {
 //            "/notice/noticeboard", "/notice/noticeboard/*",
 //            "/notice/noticeboard/write", "/notice/noticeboard/department/**",
             "/notice/reviews/user/*", "/hr/user/*",
-            "/actuator/**"
+            "/actuator/**",
+            "/hr/refresh"
     );
 
     @Override
